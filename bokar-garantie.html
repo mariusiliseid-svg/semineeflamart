@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOKAR — Garanție 5 ani</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f4f1; --ink:#232324; --stone:#68686a;
+    --red:#c0392b; --red-dim:#8f2a20; --line:rgba(35,35,36,0.14); --radius:6px;
+    --green:#1e6b39; --green-bg:#e9f7ee;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0;}
+
+  .toolbar{background:var(--ink);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .toolbar h1{font-size:17px;font-weight:800;}
+  .toolbar .sub{font-size:11.5px;color:#bbb;font-weight:500;margin-top:2px;}
+  .toolbar a{color:#999;font-size:12px;text-decoration:none;cursor:pointer;}
+  .toolbar a:hover{color:#fff;}
+
+  .tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 20px;overflow-x:auto;}
+  .tab-btn{background:none;border:none;padding:14px 16px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--stone);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  .tab-btn.active{color:var(--red);border-bottom-color:var(--red);}
+
+  .page{max-width:720px;margin:0 auto;padding:24px 20px 60px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px;}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:6px;}
+  .card .hint{font-size:12.5px;color:var(--stone);margin-bottom:16px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--stone);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .field input, .field select, .field textarea{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:var(--radius);color:var(--ink);background:#fff;
+  }
+  .field.invalid input, .field.invalid select{border-color:var(--red);background:#fdf1f0;}
+  .field-error{display:none;color:var(--red);font-size:11.5px;font-weight:600;margin-top:4px;}
+  .field.invalid .field-error{display:block;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+
+  .btn{font-family:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:var(--radius);border:none;cursor:pointer;}
+  .btn-primary{background:var(--red);color:#fff;}
+  .btn-primary:hover{background:var(--red-dim);}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink);}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:4px;}
+
+  .success-banner{background:var(--green-bg);border:1px solid #a9dcb8;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:none;font-size:13.5px;font-weight:700;color:var(--green);}
+  .success-banner.show{display:block;}
+  .error-banner{background:#fdf1f0;border:1px solid #f0b3ac;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:none;font-size:13.5px;font-weight:700;color:var(--red);}
+  .error-banner.show{display:block;}
+
+  .result-card{border-radius:10px;padding:24px;text-align:center;margin-top:8px;}
+  .result-card.active{background:var(--green-bg);border:1px solid #a9dcb8;}
+  .result-card.expired{background:#fdf1f0;border:1px solid #f0b3ac;}
+  .result-card .status-big{font-size:22px;font-weight:800;margin-bottom:6px;}
+  .result-card.active .status-big{color:var(--green);}
+  .result-card.expired .status-big{color:var(--red);}
+  .result-card .rows{text-align:left;max-width:340px;margin:16px auto 0;font-size:13.5px;}
+  .result-card .rows div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.06);}
+  .result-card .rows span:first-child{color:var(--stone);font-weight:600;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;color:var(--stone);padding:8px 8px;border-bottom:2px solid var(--line);}
+  tbody td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  .status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;}
+  .status-activa{background:var(--green-bg);color:var(--green);}
+  .status-expirata{background:#fbeaea;color:#a13636;}
+  .empty{text-align:center;color:var(--stone);font-size:13px;padding:30px 0;}
+
+  #adminGate{position:fixed;inset:0;z-index:9999;background:rgba(35,35,36,0.85);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #adminGate form{background:#fff;border-radius:8px;padding:28px;width:100%;max-width:300px;text-align:center;}
+  #adminGate input{width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;text-align:center;}
+  #adminGate button{width:100%;background:var(--red);color:#fff;border:none;border-radius:var(--radius);font-weight:700;padding:9px;cursor:pointer;font-family:inherit;}
+
+  @media (max-width:600px){ .field-row{flex-direction:column;gap:0;} .page{padding:16px 12px 50px;} }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div>
+    <h1>BOKAR — Garanție 5 ani</h1>
+    <div class="sub">Înregistrare și verificare, pe serie de șasiu</div>
+  </div>
+  <a id="adminLink">Acces admin</a>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="inregistrare">Înregistrează garanția</button>
+  <button class="tab-btn" data-tab="verificare">Verifică garanția</button>
+  <button class="tab-btn" data-tab="admin" id="adminTabBtn" style="display:none;">Admin</button>
+</div>
+
+<div class="page">
+
+  <div id="tab-inregistrare" class="tab-content">
+    <div class="card">
+      <h2>Înregistrează garanția</h2>
+      <div class="hint">Se completează de către montator sau client, la finalul montajului. Garanția intră în vigoare de la data montajului și ține 5 ani.</div>
+      <div id="regSuccess" class="success-banner">Garanție înregistrată cu succes. Notează seria de șasiu — o vei folosi ca să verifici starea garanției oricând.</div>
+      <div id="regError" class="error-banner">Această serie de șasiu este deja înregistrată. Verifică-o în tab-ul „Verifică garanția".</div>
+      <form id="regForm">
+        <div class="field" id="r-serie-wrap">
+          <label>Serie de șasiu</label>
+          <input type="text" id="r-serie" placeholder="ex: BOKAR-2026-0405-7550L-01610">
+          <div class="field-error">Completează seria de șasiu</div>
+        </div>
+        <div class="field-row">
+          <div class="field" id="r-model-wrap">
+            <label>Model focar</label>
+            <select id="r-model"></select>
+          </div>
+          <div class="field">
+            <label>Variantă</label>
+            <select id="r-varianta">
+              <option value="White">White</option>
+              <option value="Black">Black</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" id="r-client-wrap">
+          <label>Nume client final</label>
+          <input type="text" id="r-client" placeholder="Nume și prenume">
+          <div class="field-error">Completează numele clientului</div>
+        </div>
+        <div class="field-row">
+          <div class="field" id="r-judet-wrap">
+            <label>Județ</label>
+            <select id="r-judet"></select>
+          </div>
+          <div class="field" id="r-adresa-wrap">
+            <label>Adresă montaj</label>
+            <input type="text" id="r-adresa" placeholder="Stradă, număr, localitate">
+            <div class="field-error">Completează adresa</div>
+          </div>
+        </div>
+        <div class="field" id="r-factura-wrap">
+          <label>Număr factură</label>
+          <input type="text" id="r-factura" placeholder="ex: FL-2026-0123">
+          <div class="field-error">Completează numărul facturii</div>
+        </div>
+        <div class="field-row">
+          <div class="field" id="r-montator-wrap">
+            <label>Montator</label>
+            <input type="text" id="r-montator" placeholder="Nume montator/firmă">
+            <div class="field-error">Completează numele montatorului</div>
+          </div>
+          <div class="field" id="r-data-wrap">
+            <label>Data montajului</label>
+            <input type="date" id="r-data">
+            <div class="field-error" id="r-data-error">Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Înregistrat de (opțional)</label>
+          <input type="text" id="r-inregistratDe" placeholder="ex: partener, dacă completezi pentru client">
+        </div>
+        <button type="submit" class="btn btn-primary">Înregistrează garanția</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="tab-verificare" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Verifică o garanție</h2>
+      <div class="hint">Introdu seria de șasiu de pe focar ca să vezi dacă garanția e activă.</div>
+      <div class="field">
+        <label>Serie de șasiu</label>
+        <input type="text" id="v-serie" placeholder="ex: BOKAR-2026-0405-7550L-01610">
+      </div>
+      <button id="verificaBtn" class="btn btn-primary">Verifică</button>
+      <div id="verificaResult"></div>
+    </div>
+  </div>
+
+  <div id="tab-admin" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Toate garanțiile înregistrate</h2>
+      <div id="adminTableWrap"></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="adminGate" style="display:none;">
+  <form id="adminForm">
+    <h2 style="font-size:16px;margin-bottom:6px;">Acces admin</h2>
+    <p style="font-size:12.5px;color:var(--stone);margin:0 0 14px;">Cod admin necesar.</p>
+    <input type="password" id="adminPass" placeholder="Cod admin" autocomplete="off">
+    <button type="submit">Intră</button>
+  </form>
+</div>
+
+<script>
+const JUDETE = ["Alba","Arad","Argeș","Bacău","Bihor","Bistrița-Năsăud","Botoșani","Brăila","Brașov","București","Buzău","Caraș-Severin","Călărași","Cluj","Constanța","Covasna","Dâmbovița","Dolj","Galați","Giurgiu","Gorj","Harghita","Hunedoara","Ialomița","Iași","Ilfov","Maramureș","Mehedinți","Mureș","Neamț","Olt","Prahova","Satu Mare","Sălaj","Sibiu","Suceava","Teleorman","Timiș","Tulcea","Vaslui","Vâlcea","Vrancea"];
+const FOCAR_MODELE = [
+  "6050","7050","8050","9050",
+  "655047 L/R","755047 L/R","855047 L/R",
+  "6050G","9050G","12050G","755047 L/R G","855047 L/R G","PSG 60","9050 P",
+  "4380 (Sobă)","Forum (Sobă sticlă colț)"
+];
+const ADMIN_PASSWORD = "BokarAdmin2026";
+const WARRANTY_YEARS = 5;
+const MAX_ZILE_INREGISTRARE = 60; // câte zile în urmă poate fi data montajului la înregistrare
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4",
+  authDomain: "bokar-crm.firebaseapp.com",
+  projectId: "bokar-crm",
+  storageBucket: "bokar-crm.firebasestorage.app",
+  messagingSenderId: "45902513565",
+  appId: "1:45902513565:web:1d2c55629af5d23e0d9b74"
+};
+let db = null;
+let firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){
+  console.error('Firebase nu s-a putut încărca', e);
+}
+const garantiiColl = firebaseReady ? db.collection('garantii') : null;
+
+let allGarantii = [];
+let isAdmin = false;
+
+function populateSelects(){
+  document.getElementById('r-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('r-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('r-data').value = new Date().toISOString().slice(0,10);
+}
+
+function markFieldValid(wrapId, isValid){
+  document.getElementById(wrapId).classList.toggle('invalid', !isValid);
+}
+
+function addYears(dateStr, years){
+  const d = new Date(dateStr);
+  d.setFullYear(d.getFullYear() + years);
+  return d.toISOString().slice(0,10);
+}
+
+function fmtDate(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+function warrantyStatus(dataExpirare){
+  const today = new Date().toISOString().slice(0,10);
+  return today <= dataExpirare ? 'activa' : 'expirata';
+}
+
+function daysLeft(dataExpirare){
+  const diff = new Date(dataExpirare) - new Date();
+  return Math.max(0, Math.ceil(diff / (1000*60*60*24)));
+}
+
+// Seria are formatul BOKAR-AAAA-LLZZ-MODEL-SECVENȚĂ (ex: BOKAR-2026-0405-7550L-01610),
+// unde AAAA-LLZZ e chiar data fabricației — o folosim ca să blocăm o dată de montaj
+// imposibilă (înainte ca unitatea să fi fost fabricată).
+function parseSerie(serie){
+  const m = serie.trim().toUpperCase().match(/^BOKAR-(\d{4})-(\d{2})(\d{2})-([A-Z0-9]+)-(\d+)$/);
+  if(!m) return null;
+  const [, an, luna, zi, modelCod, secventa] = m;
+  const lunaNum = Number(luna), ziNum = Number(zi);
+  if(lunaNum < 1 || lunaNum > 12 || ziNum < 1 || ziNum > 31) return null;
+  return { an, luna, zi, modelCod, secventa, dataFabricatie: `${an}-${luna}-${zi}` };
+}
+
+if(firebaseReady){
+  garantiiColl.onSnapshot(snapshot => {
+    allGarantii = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    if(isAdmin) renderAdmin();
+  });
+}
+
+document.getElementById('regForm').onsubmit = async function(e){
+  e.preventDefault();
+  document.getElementById('regSuccess').classList.remove('show');
+  document.getElementById('regError').classList.remove('show');
+
+  const serie = document.getElementById('r-serie').value.trim();
+  const model = document.getElementById('r-model').value;
+  const varianta = document.getElementById('r-varianta').value;
+  const clientNume = document.getElementById('r-client').value.trim();
+  const judet = document.getElementById('r-judet').value;
+  const adresa = document.getElementById('r-adresa').value.trim();
+  const factura = document.getElementById('r-factura').value.trim();
+  const montator = document.getElementById('r-montator').value.trim();
+  const dataMontaj = document.getElementById('r-data').value;
+  const inregistratDe = document.getElementById('r-inregistratDe').value.trim();
+
+  let valid = true;
+  markFieldValid('r-serie-wrap', !!serie); if(!serie) valid = false;
+  markFieldValid('r-client-wrap', !!clientNume); if(!clientNume) valid = false;
+  markFieldValid('r-adresa-wrap', !!adresa); if(!adresa) valid = false;
+  markFieldValid('r-factura-wrap', !!factura); if(!factura) valid = false;
+  markFieldValid('r-montator-wrap', !!montator); if(!montator) valid = false;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() - MAX_ZILE_INREGISTRARE);
+  const dataMontajDate = dataMontaj ? new Date(dataMontaj) : null;
+  let dataValida = !!dataMontaj && dataMontajDate <= today && dataMontajDate >= minDate;
+  let dataErrorMsg = 'Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor';
+
+  const parsedSerie = serie ? parseSerie(serie) : null;
+  if(dataValida && parsedSerie){
+    const dataFabricatieDate = new Date(parsedSerie.dataFabricatie);
+    if(dataMontajDate < dataFabricatieDate){
+      dataValida = false;
+      dataErrorMsg = `Data montajului nu poate fi înainte de data fabricației codificate în serie (${fmtDate(parsedSerie.dataFabricatie)})`;
+    }
+  }
+  document.getElementById('r-data-error').textContent = dataErrorMsg;
+  markFieldValid('r-data-wrap', dataValida); if(!dataValida) valid = false;
+
+  if(!valid) return;
+
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    const existing = await garantiiColl.where('serie', '==', serie).get();
+    if(!existing.empty){
+      document.getElementById('regError').classList.add('show');
+      return;
+    }
+    const dataExpirare = addYears(dataMontaj, WARRANTY_YEARS);
+    await garantiiColl.add({
+      serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataExpirare, inregistratDe
+    });
+    document.getElementById('regSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea și încearcă din nou.');
+  }
+};
+
+document.getElementById('verificaBtn').onclick = async function(){
+  const serie = document.getElementById('v-serie').value.trim();
+  const resultEl = document.getElementById('verificaResult');
+  if(!serie){ resultEl.innerHTML = ''; return; }
+  if(!firebaseReady){ resultEl.innerHTML = '<div class="empty">Nu s-a putut conecta la baza de date.</div>'; return; }
+
+  resultEl.innerHTML = '<div class="empty">Se caută…</div>';
+  try{
+    const snap = await garantiiColl.where('serie', '==', serie).get();
+    if(snap.empty){
+      resultEl.innerHTML = '<div class="empty">Nu am găsit nicio garanție înregistrată pentru această serie.</div>';
+      return;
+    }
+    const g = snap.docs[0].data();
+    const status = warrantyStatus(g.dataExpirare);
+    const zileRamase = daysLeft(g.dataExpirare);
+    resultEl.innerHTML = `
+      <div class="result-card ${status === 'activa' ? 'active' : 'expired'}">
+        <div class="status-big">${status === 'activa' ? '✓ Garanție activă' : '✕ Garanție expirată'}</div>
+        <div class="rows">
+          <div><span>Model</span><span>${g.model}${g.varianta ? ' '+g.varianta : ''}</span></div>
+          <div><span>Data montajului</span><span>${fmtDate(g.dataMontaj)}</span></div>
+          <div><span>Expiră la</span><span>${fmtDate(g.dataExpirare)}</span></div>
+          ${status === 'activa' ? `<div><span>Zile rămase</span><span>${zileRamase}</span></div>` : ''}
+          <div><span>Montator</span><span>${g.montator}</span></div>
+          <div><span>Județ</span><span>${g.judet}</span></div>
+        </div>
+      </div>
+    `;
+  }catch(err){
+    console.error(err);
+    resultEl.innerHTML = '<div class="empty">A apărut o eroare la căutare.</div>';
+  }
+};
+
+function renderAdmin(){
+  const wrap = document.getElementById('adminTableWrap');
+  if(allGarantii.length === 0){
+    wrap.innerHTML = '<div class="empty">Nicio garanție înregistrată încă.</div>';
+    return;
+  }
+  const sorted = [...allGarantii].sort((a,b)=> b.dataMontaj.localeCompare(a.dataMontaj));
+  wrap.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Serie</th><th>Model</th><th>Client</th><th>Adresă</th><th>Factură</th><th>Montator</th><th>Montaj</th><th>Expiră</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${sorted.map(g => {
+          const status = warrantyStatus(g.dataExpirare);
+          return `
+          <tr>
+            <td>${g.serie}</td>
+            <td>${g.model}${g.varianta?' '+g.varianta:''}</td>
+            <td>${g.clientNume}</td>
+            <td>${g.adresa}, ${g.judet}</td>
+            <td>${g.factura||''}</td>
+            <td>${g.montator}</td>
+            <td>${fmtDate(g.dataMontaj)}</td>
+            <td>${fmtDate(g.dataExpirare)}</td>
+            <td><span class="status-pill status-${status==='activa'?'activa':'expirata'}">${status==='activa'?'Activă':'Expirată'}</span></td>
+            <td><button class="btn btn-ghost btn-sm" data-del="${g.id}">Șterge</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+  wrap.querySelectorAll('[data-del]').forEach(btn => {
+    btn.onclick = async (e) => {
+      if(!confirm('Ștergi această înregistrare de garanție?')) return;
+      await garantiiColl.doc(e.target.dataset.del).delete();
+    };
+  });
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+    if(btn.dataset.tab === 'admin') renderAdmin();
+  };
+});
+
+document.getElementById('adminLink').onclick = () => {
+  if(isAdmin){
+    document.getElementById('adminTabBtn').click();
+    return;
+  }
+  document.getElementById('adminGate').style.display = 'flex';
+  document.getElementById('adminPass').focus();
+};
+
+document.getElementById('adminForm').onsubmit = (e) => {
+  e.preventDefault();
+  if(document.getElementById('adminPass').value === ADMIN_PASSWORD){
+    isAdmin = true;
+    document.getElementById('adminGate').style.display = 'none';
+    document.getElementById('adminTabBtn').style.display = 'inline-block';
+    document.getElementById('adminLink').textContent = 'Panou admin';
+    document.getElementById('adminTabBtn').click();
+  } else {
+    alert('Cod incorect.');
+    document.getElementById('adminPass').value = '';
+  }
+};
+
+populateSelects();
+</script>
+</body>
+</html>
