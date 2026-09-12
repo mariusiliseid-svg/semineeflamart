@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOKAR — Dashboard Central</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f4f1; --ink:#232324; --stone:#68686a;
+    --red:#c0392b; --red-dim:#8f2a20; --line:rgba(35,35,36,0.14); --radius:6px;
+    --green:#1e6b39; --green-bg:#e9f7ee; --amber:#8a5a00; --amber-bg:#fff7e6;
+    --blue:#1a5490; --blue-bg:#e6f0fb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0;}
+
+  #authGate{position:fixed;inset:0;z-index:9999;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #authGate form{background:#fff;border-radius:8px;padding:32px 28px;width:100%;max-width:300px;text-align:center;}
+  #authGate p{font-size:13px;color:var(--stone);margin:0 0 16px;}
+  #authGate input{width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;text-align:center;}
+  #authGate button{width:100%;background:var(--red);color:#fff;border:none;border-radius:var(--radius);font-weight:700;padding:10px;cursor:pointer;font-family:inherit;}
+  body.locked{overflow:hidden;}
+
+  .toolbar{background:var(--ink);color:#fff;padding:14px 20px;}
+  .toolbar h1{font-size:17px;font-weight:800;}
+  .toolbar .sub{font-size:11.5px;color:#bbb;font-weight:500;margin-top:2px;}
+
+  .tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 20px;overflow-x:auto;}
+  .tab-btn{background:none;border:none;padding:14px 16px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--stone);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  .tab-btn.active{color:var(--red);border-bottom-color:var(--red);}
+
+  .page{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px;}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:14px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--stone);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .field input, .field select, .field textarea{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:var(--radius);color:var(--ink);background:#fff;
+  }
+  .field.invalid input, .field.invalid select{border-color:var(--red);background:#fdf1f0;}
+  .field-error{display:none;color:var(--red);font-size:11.5px;font-weight:600;margin-top:4px;}
+  .field.invalid .field-error{display:block;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+
+  .btn{font-family:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:var(--radius);border:none;cursor:pointer;}
+  .btn-primary{background:var(--red);color:#fff;}
+  .btn-primary:hover{background:var(--red-dim);}
+
+  .success-banner{background:var(--green-bg);border:1px solid #a9dcb8;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:none;font-size:13px;font-weight:700;color:var(--green);}
+  .success-banner.show{display:block;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+  .stat-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;}
+  .stat-card .n{font-size:24px;font-weight:800;color:var(--red);}
+  .stat-card .l{font-size:12px;color:var(--stone);font-weight:600;margin-top:2px;}
+
+  .channel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
+  .channel-card{border-radius:10px;padding:16px;}
+  .channel-card.dealer{background:var(--blue-bg);}
+  .channel-card.direct{background:var(--green-bg);}
+  .channel-card.coleg{background:var(--amber-bg);}
+  .channel-card .n{font-size:20px;font-weight:800;}
+  .channel-card .l{font-size:11.5px;font-weight:700;margin-top:2px;}
+  .channel-card .v{font-size:12px;margin-top:6px;opacity:0.85;}
+
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;}
+  .bar-row .label{width:170px;flex-shrink:0;font-weight:600;}
+  .bar-row .track{flex:1;background:var(--bg-soft);border-radius:4px;height:16px;position:relative;overflow:hidden;}
+  .bar-row .fill{background:var(--red);height:100%;border-radius:4px;}
+  .bar-row .val{width:36px;text-align:right;font-weight:700;flex-shrink:0;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.2px;color:var(--stone);padding:7px 6px;border-bottom:2px solid var(--line);}
+  tbody td{padding:7px 6px;border-bottom:1px solid var(--line);}
+  .empty{text-align:center;color:var(--stone);font-size:13px;padding:30px 0;}
+  .source-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;}
+  .source-dealer{background:var(--blue-bg);color:var(--blue);}
+  .source-direct{background:var(--green-bg);color:var(--green);}
+  .source-coleg{background:var(--amber-bg);color:var(--amber);}
+
+  @media (max-width:650px){ .field-row{flex-direction:column;gap:0;} .page{padding:16px 12px 50px;} }
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <form id="authForm">
+    <h2 style="font-size:18px;margin-bottom:6px;">BOKAR — Dashboard</h2>
+    <p>Acces admin.</p>
+    <input type="password" id="authPass" placeholder="Cod admin" autocomplete="off" autofocus>
+    <button type="submit">Intră</button>
+  </form>
+</div>
+
+<div class="toolbar">
+  <h1>BOKAR — Dashboard Central</h1>
+  <div class="sub">Tot ce mișcă în business, dintr-un singur loc</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="overview">Prezentare generală</button>
+  <button class="tab-btn" data-tab="profituri">Profituri</button>
+  <button class="tab-btn" data-tab="dealeri">Dealeri</button>
+  <button class="tab-btn" data-tab="oferte">Oferte &amp; contraoferte</button>
+  <button class="tab-btn" data-tab="leaduri">Lead-uri</button>
+  <button class="tab-btn" data-tab="vanzare">Adaugă vânzare directă</button>
+</div>
+
+<div class="page">
+
+  <div id="tab-overview" class="tab-content">
+    <div id="overviewContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-profituri" class="tab-content" style="display:none;">
+    <div id="profituriContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-dealeri" class="tab-content" style="display:none;">
+    <div id="dealeriContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-oferte" class="tab-content" style="display:none;">
+    <div id="oferteContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-leaduri" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Alocare lead-uri</h2>
+      <div class="empty">În curând — colaboratorii vor putea prelua sau li se vor aloca lead-uri generate de Flamart/bokar.ro, cu scor KPI (viteză de reacție, rată de conversie), similar aplicațiilor de livrări.</div>
+    </div>
+  </div>
+
+  <div id="tab-vanzare" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Vânzare directă Flamart</h2>
+      <div class="hint" style="font-size:12px;color:var(--stone);margin-bottom:16px;">Pentru focarele vândute direct de tine către clienți finali — separat de comenzile prin dealeri.</div>
+      <div id="vanzareSuccess" class="success-banner">Vânzare înregistrată cu succes.</div>
+      <form id="vanzareForm">
+        <div class="field-row">
+          <div class="field" id="v-client-wrap">
+            <label>Client</label>
+            <input type="text" id="v-client" placeholder="Nume client">
+            <div class="field-error">Completează numele clientului</div>
+          </div>
+          <div class="field">
+            <label>Județ</label>
+            <select id="v-judet"></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Model</label>
+            <select id="v-model"></select>
+          </div>
+          <div class="field">
+            <label>Variantă</label>
+            <select id="v-varianta">
+              <option value="White">White</option>
+              <option value="Black">Black</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Cantitate</label>
+            <input type="number" id="v-cantitate" value="1" min="1" step="1">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Valoare vânzare (EUR)</label>
+            <input type="number" id="v-valoare" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label>Data vânzării</label>
+            <input type="date" id="v-data">
+          </div>
+        </div>
+        <div class="field">
+          <label>Notă opțională</label>
+          <textarea id="v-nota" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Salvează vânzarea</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const JUDETE = ["Alba","Arad","Argeș","Bacău","Bihor","Bistrița-Năsăud","Botoșani","Brăila","Brașov","București","Buzău","Caraș-Severin","Călărași","Cluj","Constanța","Covasna","Dâmbovița","Dolj","Galați","Giurgiu","Gorj","Harghita","Hunedoara","Ialomița","Iași","Ilfov","Maramureș","Mehedinți","Mureș","Neamț","Olt","Prahova","Satu Mare","Sălaj","Sibiu","Suceava","Teleorman","Timiș","Tulcea","Vaslui","Vâlcea","Vrancea"];
+const FOCAR_MODELE = [
+  "6050","7050","8050","9050",
+  "655047 L/R","755047 L/R","855047 L/R",
+  "6050G","9050G","12050G","755047 L/R G","855047 L/R G","PSG 60","9050 P",
+  "4380 (Sobă)","Forum (Sobă sticlă colț)"
+];
+const RRP_FOCAR = {
+  "6050": { White: 1815, Black: 2032.8 }, "7050": { White: 2032.8, Black: 2250.6 },
+  "8050": { White: 2049.74, Black: 2407.9 }, "9050": { White: 2369.18, Black: 2770.9 },
+  "655047 L/R": { White: 2420, Black: 2582.14 }, "755047 L/R": { White: 2528.9, Black: 2807.2 },
+  "855047 L/R": { White: 2879.8, Black: 3206.5 }, "6050G": { White: 3025, Black: 3375.9 },
+  "9050G": { White: 3412.2, Black: 3799.4 }, "12050G": { White: 4392.3, Black: 4803.7 },
+  "755047 L/R G": { White: 4271.3, Black: 4743.2 }, "855047 L/R G": { White: 4755.3, Black: 5118.3 },
+  "PSG 60": { White: 4973.1, Black: 5239.3 }, "9050 P": { White: 3496.9, Black: 3823.6 },
+  "4380 (Sobă)": { White: 1899.7, Black: 2105.4 }, "Forum (Sobă sticlă colț)": { White: 2601.5, Black: 2891.9 }
+};
+const ADMIN_PASSWORD = "BokarAdmin2026";
+const WARRANTY_YEARS = 5;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4",
+  authDomain: "bokar-crm.firebaseapp.com",
+  projectId: "bokar-crm",
+  storageBucket: "bokar-crm.firebasestorage.app",
+  messagingSenderId: "45902513565",
+  appId: "1:45902513565:web:1d2c55629af5d23e0d9b74"
+};
+let db = null, firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){ console.error('Firebase nu s-a putut încărca', e); }
+
+function populateSelects(){
+  document.getElementById('v-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('v-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('v-data').value = new Date().toISOString().slice(0,10);
+  updateValoareAuto();
+}
+function updateValoareAuto(){
+  const model = document.getElementById('v-model').value;
+  const varianta = document.getElementById('v-varianta').value;
+  const cant = Number(document.getElementById('v-cantitate').value) || 1;
+  const rrp = RRP_FOCAR[model]?.[varianta];
+  if(rrp !== undefined) document.getElementById('v-valoare').value = (rrp*cant).toFixed(2);
+}
+document.getElementById('v-model').onchange = updateValoareAuto;
+document.getElementById('v-varianta').onchange = updateValoareAuto;
+document.getElementById('v-cantitate').oninput = updateValoareAuto;
+
+function markFieldValid(wrapId, isValid){
+  document.getElementById(wrapId).classList.toggle('invalid', !isValid);
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+function daysSince(iso){ return Math.floor((new Date() - new Date(iso)) / (1000*60*60*24)); }
+
+document.getElementById('vanzareForm').onsubmit = async function(e){
+  e.preventDefault();
+  const client = document.getElementById('v-client').value.trim();
+  const judet = document.getElementById('v-judet').value;
+  const model = document.getElementById('v-model').value;
+  const varianta = document.getElementById('v-varianta').value;
+  const cantitate = Number(document.getElementById('v-cantitate').value) || 1;
+  const valoare = Number(document.getElementById('v-valoare').value) || 0;
+  const data = document.getElementById('v-data').value;
+  const nota = document.getElementById('v-nota').value.trim();
+
+  let valid = true;
+  markFieldValid('v-client-wrap', !!client); if(!client) valid = false;
+  if(!valid) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    await db.collection('vanzariDirecte').add({ client, judet, model, varianta, cantitate, valoare, data, nota });
+    document.getElementById('vanzareSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+    loadOverview();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+  };
+});
+
+async function safeGetAll(collName){
+  if(!firebaseReady) return [];
+  try{
+    const snap = await db.collection(collName).get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }catch(e){
+    console.error('Eroare citire '+collName, e);
+    return [];
+  }
+}
+
+async function safeGet(collName, docId){
+  if(!firebaseReady) return null;
+  try{
+    const snap = await db.collection(collName).doc(docId).get();
+    return snap.exists ? snap.data() : null;
+  }catch(e){
+    console.error('Eroare citire '+collName+'/'+docId, e);
+    return null;
+  }
+}
+
+function nivelDealer(unitati){
+  if(unitati >= 10) return 'STUDIO';
+  if(unitati >= 6) return 'PRO';
+  if(unitati >= 3) return 'PARTNER';
+  return 'START';
+}
+const PRAG_URMATOR = { START: 3, PARTNER: 6, PRO: 10, STUDIO: null };
+function daysSinceStr(iso){ return Math.floor((new Date() - new Date(iso)) / (1000*60*60*24)); }
+const INACTIV_ZILE = 90;
+
+// Calculează costul unitar "aterizat" (landed) pentru un model, folosind exact formulele din
+// bokar-marje.html — necesar ca să estimăm profitul, nu doar cifra de afaceri.
+function landedCostFor(model, varianta, marjeData){
+  if(!marjeData) return null;
+  const p = (marjeData.produse||[]).find(x => x.model===model && x.varianta===varianta);
+  if(!p) return null;
+  const inp = marjeData.inputs || {};
+  const costLogisticTotal = (inp.transport||0) + (inp.comisionar||0) + (inp.vama||0);
+  const coefLogistic = inp.curs && inp.valEconomica ? (costLogisticTotal / inp.curs) / inp.valEconomica : 0;
+  const logisticaImport = p.costAchizitie * coefLogistic;
+  return { landedCost: p.costAchizitie + logisticaImport, transportDealer: inp.transportDealer || 0 };
+}
+
+let CACHE = {};
+
+async function loadAll(){
+  const [oferte, dealeriComenzi, vanzariDirecte, garantii, importuri, marjeData] = await Promise.all([
+    safeGetAll('oferte'), safeGetAll('dealeriComenzi'), safeGetAll('vanzariDirecte'),
+    safeGetAll('garantii'), safeGetAll('importuri'), safeGet('config','marje')
+  ]);
+  CACHE = { oferte, dealeriComenzi, vanzariDirecte, garantii, importuri, marjeData };
+  renderOverview();
+  renderProfituri();
+  renderDealeriTab();
+  renderOferteTab();
+}
+// alias păstrat pentru compatibilitate cu apelurile existente
+async function loadOverview(){ await loadAll(); }
+
+function renderOverview(){
+  const { oferte, dealeriComenzi, vanzariDirecte, garantii, importuri } = CACHE;
+  const el = document.getElementById('overviewContent');
+  const ofertateCastigate = oferte.filter(o => o.status === 'castigat');
+
+  const unitatiDealer = dealeriComenzi.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+  const valoareDealer = dealeriComenzi.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+  const unitatiDirect = vanzariDirecte.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+  const valoareDirect = vanzariDirecte.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+  const unitatiColeg = ofertateCastigate.length;
+  const valoareColeg = ofertateCastigate.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+  const totalUnitati = unitatiDealer + unitatiDirect + unitatiColeg;
+  const totalValoare = valoareDealer + valoareDirect + valoareColeg;
+
+  const perModel = {};
+  function addModel(model, varianta, cant){
+    if(!model) return;
+    const k = `${model}${varianta?' '+varianta:''}`;
+    perModel[k] = (perModel[k]||0) + cant;
+  }
+  dealeriComenzi.forEach(o => addModel(o.model, o.varianta, Number(o.cantitate)||0));
+  vanzariDirecte.forEach(o => addModel(o.model, o.varianta, Number(o.cantitate)||0));
+  ofertateCastigate.forEach(o => addModel(o.model, o.varianta, 1));
+  const modelSorted = Object.entries(perModel).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxModel = modelSorted.length ? modelSorted[0][1] : 1;
+
+  const garantiiActive = garantii.filter(g => new Date().toISOString().slice(0,10) <= g.dataExpirare).length;
+  const garantiiExpirate = garantii.length - garantiiActive;
+  const ultimulImport = [...importuri].sort((a,b)=>b.data.localeCompare(a.data))[0];
+
+  const activitate = [
+    ...dealeriComenzi.map(o=>({sursa:'dealer', label:`${o.dealer} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
+    ...vanzariDirecte.map(o=>({sursa:'direct', label:`${o.client} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
+    ...ofertateCastigate.map(o=>({sursa:'coleg', label:`${o.coleg} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
+  ].sort((a,b)=>b.data.localeCompare(a.data)).slice(0,10);
+
+  if(totalUnitati === 0 && garantii.length === 0 && importuri.length === 0){
+    el.innerHTML = '<div class="card"><div class="empty">Niciun date încă în niciunul dintre instrumente.</div></div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${totalUnitati}</div><div class="l">Unități vândute total</div></div>
+      <div class="stat-card"><div class="n">${totalValoare.toLocaleString('ro-RO')} €</div><div class="l">Valoare totală business</div></div>
+      <div class="stat-card"><div class="n">${garantiiActive}</div><div class="l">Garanții active</div></div>
+      <div class="stat-card"><div class="n">${importuri.length}</div><div class="l">Importuri înregistrate</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Pe canal de vânzare</h2>
+      <div class="channel-grid">
+        <div class="channel-card dealer">
+          <div class="n">${unitatiDealer} unități</div>
+          <div class="l">Prin dealeri</div>
+          <div class="v">${valoareDealer.toLocaleString('ro-RO')} €</div>
+        </div>
+        <div class="channel-card direct">
+          <div class="n">${unitatiDirect} unități</div>
+          <div class="l">Vânzări directe Flamart</div>
+          <div class="v">${valoareDirect.toLocaleString('ro-RO')} €</div>
+        </div>
+        <div class="channel-card coleg">
+          <div class="n">${unitatiColeg} unități</div>
+          <div class="l">Oferte câștigate (colegi)</div>
+          <div class="v">${valoareColeg.toLocaleString('ro-RO')} €</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Cele mai vândute modele (tot BOKAR)</h2>
+      ${modelSorted.length ? modelSorted.map(([m,n]) => `
+        <div class="bar-row">
+          <div class="label">${m}</div>
+          <div class="track"><div class="fill" style="width:${(n/maxModel)*100}%"></div></div>
+          <div class="val">${n}</div>
+        </div>
+      `).join('') : '<div class="empty">Fără date încă.</div>'}
+    </div>
+
+    <div class="card">
+      <h2>Activitate recentă</h2>
+      ${activitate.length ? `
+        <table>
+          <thead><tr><th>Sursă</th><th>Detalii</th><th>Dată</th><th>Valoare</th></tr></thead>
+          <tbody>
+            ${activitate.map(a => `
+              <tr>
+                <td><span class="source-tag source-${a.sursa}">${a.sursa==='dealer'?'Dealer':a.sursa==='direct'?'Direct':'Coleg'}</span></td>
+                <td>${a.label}</td>
+                <td>${fmtDate(a.data)}</td>
+                <td>${Number(a.valoare||0).toLocaleString('ro-RO')} €</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="empty">Fără activitate încă.</div>'}
+    </div>
+
+    ${ultimulImport ? `
+    <div class="card">
+      <h2>Ultimul import</h2>
+      <div style="font-size:13px;">${ultimulImport.factura} — ${fmtDate(ultimulImport.data)} — ${Number(ultimulImport.valoareTotalaMarfa).toLocaleString('ro-RO')} € valoare marfă</div>
+    </div>
+    ` : ''}
+
+    ${garantiiExpirate > 0 ? `
+    <div class="card">
+      <h2>Garanții</h2>
+      <div style="font-size:13px;">${garantiiActive} active · ${garantiiExpirate} expirate, din ${garantii.length} total</div>
+    </div>
+    ` : ''}
+  `;
+}
+
+function renderProfituri(){
+  const { oferte, dealeriComenzi, vanzariDirecte, marjeData } = CACHE;
+  const el = document.getElementById('profituriContent');
+
+  if(!marjeData){
+    el.innerHTML = '<div class="card"><div class="empty">Panoul „Prețuri &amp; Marje" nu are încă date salvate — deschide-l o dată ca să se inițializeze, apoi revino aici.</div></div>';
+    return;
+  }
+
+  const ofertateCastigate = oferte.filter(o => o.status === 'castigat');
+  function profitFor(model, varianta, valoare, cantitate){
+    const lc = landedCostFor(model, varianta, marjeData);
+    if(!lc || !valoare) return null;
+    const cant = cantitate || 1;
+    return valoare - cant * (lc.landedCost + lc.transportDealer);
+  }
+
+  const toate = [
+    ...dealeriComenzi.map(o=>({sursa:'Dealer', label:`${o.dealer} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,Number(o.cantitate)||1)})),
+    ...vanzariDirecte.map(o=>({sursa:'Direct', label:`${o.client} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,Number(o.cantitate)||1)})),
+    ...ofertateCastigate.map(o=>({sursa:'Coleg', label:`${o.coleg} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,1)})),
+  ];
+
+  const cunoscute = toate.filter(t => t.profit !== null);
+  const totalProfit = cunoscute.reduce((s,t)=>s+t.profit,0);
+  const totalValoare = cunoscute.reduce((s,t)=>s+t.valoare,0);
+  const marjaMedie = totalValoare ? (totalProfit/totalValoare)*100 : 0;
+  const necunoscute = toate.length - cunoscute.length;
+
+  const perSursa = {};
+  cunoscute.forEach(t => { perSursa[t.sursa] = (perSursa[t.sursa]||0) + t.profit; });
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${totalProfit.toLocaleString('ro-RO',{maximumFractionDigits:0})} €</div><div class="l">Profit estimat total</div></div>
+      <div class="stat-card"><div class="n">${marjaMedie.toFixed(1)}%</div><div class="l">Marjă medie efectivă</div></div>
+      <div class="stat-card"><div class="n">${cunoscute.length}</div><div class="l">Vânzări cu profit calculat</div></div>
+    </div>
+    ${necunoscute>0 ? `<div class="card"><div class="empty">${necunoscute} vânzări nu au un model recunoscut în panoul de marje — profitul lor nu e inclus mai sus.</div></div>` : ''}
+    <div class="card">
+      <h2>Profit pe canal</h2>
+      ${Object.entries(perSursa).map(([s,p]) => `
+        <div class="bar-row">
+          <div class="label">${s}</div>
+          <div class="track"><div class="fill" style="width:${totalProfit ? (p/totalProfit)*100 : 0}%"></div></div>
+          <div class="val">${p.toLocaleString('ro-RO',{maximumFractionDigits:0})}€</div>
+        </div>
+      `).join('') || '<div class="empty">Fără date încă.</div>'}
+    </div>
+    <div class="card">
+      <h2>Detaliu, per vânzare</h2>
+      <table>
+        <thead><tr><th>Sursă</th><th>Detalii</th><th>Valoare</th><th>Profit estimat</th></tr></thead>
+        <tbody>
+          ${toate.map(t => `
+            <tr>
+              <td>${t.sursa}</td><td>${t.label}</td>
+              <td>${t.valoare.toLocaleString('ro-RO')} €</td>
+              <td>${t.profit!==null ? t.profit.toLocaleString('ro-RO',{maximumFractionDigits:0})+' €' : '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderDealeriTab(){
+  const { dealeriComenzi } = CACHE;
+  const el = document.getElementById('dealeriContent');
+  if(dealeriComenzi.length === 0){
+    el.innerHTML = '<div class="card"><div class="empty">Niciun dealer înregistrat încă.</div></div>';
+    return;
+  }
+  const groups = {};
+  dealeriComenzi.forEach(c => { (groups[c.dealer] = groups[c.dealer]||[]).push(c); });
+  const summaries = Object.entries(groups).map(([nume, orders]) => {
+    const unitati = orders.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+    const valoare = orders.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+    const ultimaComanda = orders.reduce((max,o)=> o.data > max ? o.data : max, orders[0].data);
+    const nivel = nivelDealer(unitati);
+    const zileInactiv = daysSinceStr(ultimaComanda);
+    const prag = PRAG_URMATOR[nivel];
+    return { nume, unitati, valoare, ultimaComanda, nivel, zileInactiv, aproapeDeUpgrade: prag!==null && (prag-unitati)<=1 };
+  }).sort((a,b)=>b.unitati-a.unitati);
+
+  const actiuni = [];
+  summaries.forEach(d => {
+    if(d.aproapeDeUpgrade) actiuni.push(`${d.nume} e la 1 unitate distanță de nivelul următor — merită o atenție comercială.`);
+    if(d.zileInactiv > INACTIV_ZILE) actiuni.push(`${d.nume} nu a mai comandat de ${d.zileInactiv} zile — verifică ce se întâmplă.`);
+  });
+
+  el.innerHTML = `
+    ${actiuni.length ? `
+    <div class="card">
+      <h2>Căi de acțiune</h2>
+      ${actiuni.map(a => `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--line);">⚑ ${a}</div>`).join('')}
+    </div>` : ''}
+    <div class="card">
+      <h2>Nivelurile dealerilor (${summaries.length})</h2>
+      <table>
+        <thead><tr><th>Dealer</th><th>Nivel</th><th>Unități</th><th>Valoare</th><th>Ultima comandă</th></tr></thead>
+        <tbody>
+          ${summaries.map(d => `
+            <tr>
+              <td>${d.nume}</td>
+              <td><span class="source-tag source-dealer">${d.nivel}</span></td>
+              <td>${d.unitati}</td>
+              <td>${d.valoare.toLocaleString('ro-RO')} €</td>
+              <td>${fmtDate(d.ultimaComanda)} (${d.zileInactiv}z)</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderOferteTab(){
+  const { oferte } = CACHE;
+  const el = document.getElementById('oferteContent');
+  if(oferte.length === 0){
+    el.innerHTML = '<div class="card"><div class="empty">Nicio ofertă introdusă încă.</div></div>';
+    return;
+  }
+  function daysBetweenStr(d1,d2){ return Math.abs((new Date(d1)-new Date(d2))/(1000*60*60*24)); }
+  const contraofertate = oferte.map(o => {
+    const match = oferte.find(other =>
+      other.id !== o.id && other.coleg !== o.coleg &&
+      other.judet === o.judet && other.tel5 === o.tel5 &&
+      daysBetweenStr(other.data, o.data) <= 30
+    );
+    return { ...o, contraofertatDe: match ? match.coleg : null };
+  }).sort((a,b)=> b.data.localeCompare(a.data));
+
+  const totalContra = contraofertate.filter(o=>o.contraofertatDe).length;
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${oferte.length}</div><div class="l">Oferte total</div></div>
+      <div class="stat-card"><div class="n">${totalContra}</div><div class="l">Cu contraofertare detectată</div></div>
+    </div>
+    <div class="card">
+      <h2>Toate ofertele (acces complet, admin)</h2>
+      <table>
+        <thead><tr><th>Dată</th><th>Coleg</th><th>Județ</th><th>Model</th><th>Status</th><th>Contraofertat de</th></tr></thead>
+        <tbody>
+          ${contraofertate.map(o => `
+            <tr>
+              <td>${fmtDate(o.data)}</td>
+              <td>${o.coleg}</td>
+              <td>${o.judet}</td>
+              <td>${o.model}${o.varianta?' '+o.varianta:''}</td>
+              <td><span class="source-tag source-${o.status==='castigat'?'direct':o.status==='pierdut'?'dealer':'coleg'}">${o.status}</span></td>
+              <td>${o.contraofertatDe || '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* ---------------- ACCESS GATE ---------------- */
+(function(){
+  const STORAGE_KEY = "bokarDashboardAuthOk";
+  const gate = document.getElementById('authGate');
+  if(localStorage.getItem(STORAGE_KEY) === '1'){
+    gate.style.display = 'none';
+  } else {
+    document.body.classList.add('locked');
+  }
+  document.getElementById('authForm').onsubmit = function(e){
+    e.preventDefault();
+    if(document.getElementById('authPass').value === ADMIN_PASSWORD){
+      localStorage.setItem(STORAGE_KEY, '1');
+      gate.style.display = 'none';
+      document.body.classList.remove('locked');
+      loadOverview();
+    } else {
+      alert('Cod incorect.');
+      document.getElementById('authPass').value = '';
+    }
+  };
+  if(localStorage.getItem(STORAGE_KEY) === '1') loadOverview();
+})();
+
+populateSelects();
+</script>
+</body>
+</html>

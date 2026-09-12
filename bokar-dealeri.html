@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOKAR — Centralizare Dealeri</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f4f1; --ink:#232324; --stone:#68686a;
+    --red:#c0392b; --red-dim:#8f2a20; --line:rgba(35,35,36,0.14); --radius:6px;
+    --green:#1e6b39; --green-bg:#e9f7ee; --amber:#8a5a00; --amber-bg:#fff7e6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0;}
+
+  #authGate{position:fixed;inset:0;z-index:9999;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #authGate form{background:#fff;border-radius:8px;padding:32px 28px;width:100%;max-width:300px;text-align:center;}
+  #authGate p{font-size:13px;color:var(--stone);margin:0 0 16px;}
+  #authGate input{width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;text-align:center;}
+  #authGate button{width:100%;background:var(--red);color:#fff;border:none;border-radius:var(--radius);font-weight:700;padding:10px;cursor:pointer;font-family:inherit;}
+  body.locked{overflow:hidden;}
+
+  .toolbar{background:var(--ink);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .toolbar h1{font-size:17px;font-weight:800;}
+  .toolbar .sub{font-size:11.5px;color:#bbb;font-weight:500;margin-top:2px;}
+
+  .tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 20px;overflow-x:auto;}
+  .tab-btn{background:none;border:none;padding:14px 16px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--stone);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  .tab-btn.active{color:var(--red);border-bottom-color:var(--red);}
+
+  .page{max-width:1050px;margin:0 auto;padding:24px 20px 60px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px;}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:14px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--stone);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .field input, .field select, .field textarea{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:var(--radius);color:var(--ink);background:#fff;
+  }
+  .field.invalid input, .field.invalid select{border-color:var(--red);background:#fdf1f0;}
+  .field-error{display:none;color:var(--red);font-size:11.5px;font-weight:600;margin-top:4px;}
+  .field.invalid .field-error{display:block;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+
+  .btn{font-family:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:var(--radius);border:none;cursor:pointer;}
+  .btn-primary{background:var(--red);color:#fff;}
+  .btn-primary:hover{background:var(--red-dim);}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink);}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:4px;}
+
+  .success-banner{background:var(--green-bg);border:1px solid #a9dcb8;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:none;font-size:13.5px;font-weight:700;color:var(--green);}
+  .success-banner.show{display:block;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+  .stat-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;}
+  .stat-card .n{font-size:24px;font-weight:800;color:var(--red);}
+  .stat-card .l{font-size:12px;color:var(--stone);font-weight:600;margin-top:2px;}
+
+  .dealer-card{border:1px solid var(--line);border-radius:10px;margin-bottom:14px;overflow:hidden;}
+  .dealer-head{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#fff;}
+  .dealer-head:hover{background:var(--bg-soft);}
+  .dealer-name{font-weight:800;font-size:14.5px;}
+  .dealer-sub{font-size:12px;color:var(--stone);margin-top:2px;}
+  .dealer-badges{display:flex;gap:8px;align-items:center;}
+  .tier-pill{padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:800;}
+  .tier-START{background:#eef1f5;color:#3a4a5c;}
+  .tier-PARTNER{background:#e6f0fb;color:#1a5490;}
+  .tier-PRO{background:#fdeedd;color:#a15a00;}
+  .tier-STUDIO{background:#f3e6fb;color:#6a1a90;}
+  .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;}
+  .status-dot.activ{background:var(--green);}
+  .status-dot.inactiv{background:var(--red);}
+  .dealer-body{display:none;padding:0 16px 16px;border-top:1px solid var(--line);}
+  .dealer-body.open{display:block;}
+  .dealer-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:14px 0;}
+  .dealer-stats div{background:var(--bg-soft);border-radius:6px;padding:10px;text-align:center;}
+  .dealer-stats .n{font-weight:800;font-size:16px;}
+  .dealer-stats .l{font-size:10.5px;color:var(--stone);margin-top:2px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.3px;color:var(--stone);padding:7px 6px;border-bottom:2px solid var(--line);}
+  tbody td{padding:7px 6px;border-bottom:1px solid var(--line);}
+  .empty{text-align:center;color:var(--stone);font-size:13px;padding:30px 0;}
+  .upgrade-flag{color:var(--amber);font-weight:700;font-size:11px;}
+
+  @media (max-width:700px){ .field-row{flex-direction:column;gap:0;} .page{padding:16px 12px 50px;} }
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <form id="authForm">
+    <h2 style="font-size:18px;margin-bottom:6px;">BOKAR — Centralizare Dealeri</h2>
+    <p>Acces admin.</p>
+    <input type="password" id="authPass" placeholder="Cod admin" autocomplete="off" autofocus>
+    <button type="submit">Intră</button>
+  </form>
+</div>
+
+<div class="toolbar">
+  <div>
+    <h1>BOKAR — Centralizare Dealeri</h1>
+    <div class="sub">Nivel, volum și activitate, în timp real</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="dealeri">Dealeri</button>
+  <button class="tab-btn" data-tab="adauga">Adaugă comandă</button>
+</div>
+
+<div class="page">
+
+  <div id="tab-dealeri" class="tab-content">
+    <div id="overviewStats"></div>
+    <div id="dealersWrap"></div>
+  </div>
+
+  <div id="tab-adauga" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Comandă nouă dealer</h2>
+      <div id="addSuccess" class="success-banner">Comandă înregistrată cu succes.</div>
+      <form id="comandaForm">
+        <div class="field-row">
+          <div class="field" id="c-dealer-wrap">
+            <label>Dealer</label>
+            <input type="text" id="c-dealer" placeholder="Nume dealer" list="dealeriList">
+            <datalist id="dealeriList"></datalist>
+            <div class="field-error">Completează numele dealerului</div>
+          </div>
+          <div class="field" id="c-judet-wrap">
+            <label>Județ / zonă</label>
+            <select id="c-judet"></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Model</label>
+            <select id="c-model"></select>
+          </div>
+          <div class="field">
+            <label>Variantă</label>
+            <select id="c-varianta">
+              <option value="White">White</option>
+              <option value="Black">Black</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Cantitate</label>
+            <input type="number" id="c-cantitate" value="1" min="1" step="1">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Valoare comandă (EUR)</label>
+            <input type="number" id="c-valoare" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label>Data comenzii</label>
+            <input type="date" id="c-data">
+          </div>
+        </div>
+        <div class="field">
+          <label>Notă opțională</label>
+          <textarea id="c-nota" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Salvează comanda</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const JUDETE = ["Alba","Arad","Argeș","Bacău","Bihor","Bistrița-Năsăud","Botoșani","Brăila","Brașov","București","Buzău","Caraș-Severin","Călărași","Cluj","Constanța","Covasna","Dâmbovița","Dolj","Galați","Giurgiu","Gorj","Harghita","Hunedoara","Ialomița","Iași","Ilfov","Maramureș","Mehedinți","Mureș","Neamț","Olt","Prahova","Satu Mare","Sălaj","Sibiu","Suceava","Teleorman","Timiș","Tulcea","Vaslui","Vâlcea","Vrancea"];
+const FOCAR_MODELE = [
+  "6050","7050","8050","9050",
+  "655047 L/R","755047 L/R","855047 L/R",
+  "6050G","9050G","12050G","755047 L/R G","855047 L/R G","PSG 60","9050 P",
+  "4380 (Sobă)","Forum (Sobă sticlă colț)"
+];
+const RRP_FOCAR = {
+  "6050": { White: 1815, Black: 2032.8 }, "7050": { White: 2032.8, Black: 2250.6 },
+  "8050": { White: 2049.74, Black: 2407.9 }, "9050": { White: 2369.18, Black: 2770.9 },
+  "655047 L/R": { White: 2420, Black: 2582.14 }, "755047 L/R": { White: 2528.9, Black: 2807.2 },
+  "855047 L/R": { White: 2879.8, Black: 3206.5 }, "6050G": { White: 3025, Black: 3375.9 },
+  "9050G": { White: 3412.2, Black: 3799.4 }, "12050G": { White: 4392.3, Black: 4803.7 },
+  "755047 L/R G": { White: 4271.3, Black: 4743.2 }, "855047 L/R G": { White: 4755.3, Black: 5118.3 },
+  "PSG 60": { White: 4973.1, Black: 5239.3 }, "9050 P": { White: 3496.9, Black: 3823.6 },
+  "4380 (Sobă)": { White: 1899.7, Black: 2105.4 }, "Forum (Sobă sticlă colț)": { White: 2601.5, Black: 2891.9 }
+};
+const ADMIN_PASSWORD = "BokarAdmin2026";
+const INACTIV_ZILE = 90;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4",
+  authDomain: "bokar-crm.firebaseapp.com",
+  projectId: "bokar-crm",
+  storageBucket: "bokar-crm.firebasestorage.app",
+  messagingSenderId: "45902513565",
+  appId: "1:45902513565:web:1d2c55629af5d23e0d9b74"
+};
+let db = null, firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){ console.error('Firebase nu s-a putut încărca', e); }
+const comenziColl = firebaseReady ? db.collection('dealeriComenzi') : null;
+
+let comenzi = [];
+let openDealer = null;
+
+function populateSelects(){
+  document.getElementById('c-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('c-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('c-data').value = new Date().toISOString().slice(0,10);
+  updateValoareAuto();
+}
+
+const DISCOUNT_DEALER = 0.35; // trebuie să rămână sincronizat cu inputul din bokar-marje.html
+
+function updateValoareAuto(){
+  const model = document.getElementById('c-model').value;
+  const varianta = document.getElementById('c-varianta').value;
+  const cant = Number(document.getElementById('c-cantitate').value) || 1;
+  const rrp = RRP_FOCAR[model]?.[varianta];
+  if(rrp !== undefined){
+    // Valoarea reală a comenzii e prețul de dealer (RRP cu discount aplicat), nu RRP-ul întreg.
+    document.getElementById('c-valoare').value = (rrp * (1 - DISCOUNT_DEALER) * cant).toFixed(2);
+  }
+}
+document.getElementById('c-model').onchange = updateValoareAuto;
+document.getElementById('c-varianta').onchange = updateValoareAuto;
+document.getElementById('c-cantitate').oninput = updateValoareAuto;
+
+function markFieldValid(wrapId, isValid){
+  document.getElementById(wrapId).classList.toggle('invalid', !isValid);
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+function daysSince(iso){
+  return Math.floor((new Date() - new Date(iso)) / (1000*60*60*24));
+}
+
+function nivelDealer(unitati){
+  if(unitati >= 10) return 'STUDIO';
+  if(unitati >= 6) return 'PRO';
+  if(unitati >= 3) return 'PARTNER';
+  return 'START';
+}
+const PRAG_URMATOR = { START: 3, PARTNER: 6, PRO: 10, STUDIO: null };
+
+if(firebaseReady){
+  comenziColl.onSnapshot(snapshot => {
+    comenzi = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    updateDealeriList();
+    renderDealeri();
+  });
+}
+
+function updateDealeriList(){
+  const dealeri = [...new Set(comenzi.map(c=>c.dealer))].sort();
+  document.getElementById('dealeriList').innerHTML = dealeri.map(d=>`<option value="${d}">`).join('');
+}
+
+function groupByDealer(){
+  const groups = {};
+  comenzi.forEach(c => {
+    if(!groups[c.dealer]) groups[c.dealer] = [];
+    groups[c.dealer].push(c);
+  });
+  return groups;
+}
+
+function renderDealeri(){
+  const wrap = document.getElementById('dealersWrap');
+  const overview = document.getElementById('overviewStats');
+  const groups = groupByDealer();
+  const dealerNames = Object.keys(groups);
+
+  if(dealerNames.length === 0){
+    overview.innerHTML = '';
+    wrap.innerHTML = '<div class="card"><div class="empty">Niciun dealer înregistrat încă.</div></div>';
+    return;
+  }
+
+  const summaries = dealerNames.map(nume => {
+    const orders = groups[nume];
+    const unitati = orders.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+    const valoare = orders.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+    const ultimaComanda = orders.reduce((max,o)=> o.data > max ? o.data : max, orders[0].data);
+    const zileInactiv = daysSince(ultimaComanda);
+    const nivel = nivelDealer(unitati);
+    const zoneCount = {};
+    orders.forEach(o => { zoneCount[o.judet] = (zoneCount[o.judet]||0)+1; });
+    const zona = Object.entries(zoneCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+    const prag = PRAG_URMATOR[nivel];
+    const aproapeDeUpgrade = prag !== null && (prag - unitati) <= 1;
+    return { nume, orders, unitati, valoare, ultimaComanda, zileInactiv, nivel, zona, aproapeDeUpgrade };
+  }).sort((a,b) => b.unitati - a.unitati);
+
+  const totalUnitati = summaries.reduce((s,d)=>s+d.unitati,0);
+  const totalValoare = summaries.reduce((s,d)=>s+d.valoare,0);
+  const activi = summaries.filter(d=>d.zileInactiv <= INACTIV_ZILE).length;
+
+  overview.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${dealerNames.length}</div><div class="l">Dealeri total</div></div>
+      <div class="stat-card"><div class="n">${activi}</div><div class="l">Activi (comandă &lt;${INACTIV_ZILE}z)</div></div>
+      <div class="stat-card"><div class="n">${totalUnitati}</div><div class="l">Unități totale</div></div>
+      <div class="stat-card"><div class="n">${totalValoare.toLocaleString('ro-RO')} €</div><div class="l">Valoare totală</div></div>
+    </div>
+  `;
+
+  wrap.innerHTML = summaries.map(d => `
+    <div class="dealer-card">
+      <div class="dealer-head" data-toggle="${d.nume}">
+        <div>
+          <div class="dealer-name"><span class="status-dot ${d.zileInactiv<=INACTIV_ZILE?'activ':'inactiv'}"></span>${d.nume}</div>
+          <div class="dealer-sub">${d.zona} · ultima comandă ${fmtDate(d.ultimaComanda)} (acum ${d.zileInactiv} zile)</div>
+        </div>
+        <div class="dealer-badges">
+          ${d.aproapeDeUpgrade ? `<span class="upgrade-flag">Aproape de upgrade</span>` : ''}
+          <span class="tier-pill tier-${d.nivel}">${d.nivel}</span>
+        </div>
+      </div>
+      <div class="dealer-body" id="body-${cssId(d.nume)}">
+        <div class="dealer-stats">
+          <div><div class="n">${d.unitati}</div><div class="l">Unități</div></div>
+          <div><div class="n">${d.valoare.toLocaleString('ro-RO')} €</div><div class="l">Valoare</div></div>
+          <div><div class="n">${d.orders.length}</div><div class="l">Comenzi</div></div>
+          <div><div class="n">${d.nivel === 'STUDIO' ? 'Max' : (PRAG_URMATOR[d.nivel]-d.unitati)}</div><div class="l">${d.nivel==='STUDIO'?'nivel maxim':'unități până la upgrade'}</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Dată</th><th>Model</th><th>Cant.</th><th>Valoare</th><th>Notă</th></tr></thead>
+          <tbody>
+            ${[...d.orders].sort((a,b)=>b.data.localeCompare(a.data)).map(o => `
+              <tr>
+                <td>${fmtDate(o.data)}</td>
+                <td>${o.model}${o.varianta?' '+o.varianta:''}</td>
+                <td>${o.cantitate}</td>
+                <td>${Number(o.valoare||0).toLocaleString('ro-RO')} €</td>
+                <td>${o.nota||''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('[data-toggle]').forEach(head => {
+    head.onclick = () => {
+      const id = 'body-'+cssId(head.dataset.toggle);
+      const isOpen = document.getElementById(id).classList.contains('open');
+      wrap.querySelectorAll('.dealer-body').forEach(b=>b.classList.remove('open'));
+      if(!isOpen) document.getElementById(id).classList.add('open');
+    };
+  });
+}
+
+function cssId(s){ return s.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+document.getElementById('comandaForm').onsubmit = async function(e){
+  e.preventDefault();
+  const dealer = document.getElementById('c-dealer').value.trim();
+  const judet = document.getElementById('c-judet').value;
+  const model = document.getElementById('c-model').value;
+  const varianta = document.getElementById('c-varianta').value;
+  const cantitate = Number(document.getElementById('c-cantitate').value) || 1;
+  const valoare = Number(document.getElementById('c-valoare').value) || 0;
+  const data = document.getElementById('c-data').value;
+  const nota = document.getElementById('c-nota').value.trim();
+
+  let valid = true;
+  markFieldValid('c-dealer-wrap', !!dealer); if(!dealer) valid = false;
+  if(!valid) return;
+
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+  try{
+    await comenziColl.add({ dealer, judet, model, varianta, cantitate, valoare, data, nota });
+    document.getElementById('addSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+  };
+});
+
+/* ---------------- ACCESS GATE ---------------- */
+(function(){
+  const STORAGE_KEY = "bokarDealeriAuthOk";
+  const gate = document.getElementById('authGate');
+  if(localStorage.getItem(STORAGE_KEY) === '1'){
+    gate.style.display = 'none';
+  } else {
+    document.body.classList.add('locked');
+  }
+  document.getElementById('authForm').onsubmit = function(e){
+    e.preventDefault();
+    if(document.getElementById('authPass').value === ADMIN_PASSWORD){
+      localStorage.setItem(STORAGE_KEY, '1');
+      gate.style.display = 'none';
+      document.body.classList.remove('locked');
+    } else {
+      alert('Cod incorect.');
+      document.getElementById('authPass').value = '';
+    }
+  };
+})();
+
+populateSelects();
+</script>
+</body>
+</html>
