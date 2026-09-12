@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOKAR — Importuri</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f4f1; --ink:#232324; --stone:#68686a;
+    --red:#c0392b; --red-dim:#8f2a20; --line:rgba(35,35,36,0.14); --radius:6px;
+    --green:#1e6b39; --green-bg:#e9f7ee;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0;}
+
+  #authGate{position:fixed;inset:0;z-index:9999;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #authGate form{background:#fff;border-radius:8px;padding:32px 28px;width:100%;max-width:300px;text-align:center;}
+  #authGate p{font-size:13px;color:var(--stone);margin:0 0 16px;}
+  #authGate input{width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;text-align:center;}
+  #authGate button{width:100%;background:var(--red);color:#fff;border:none;border-radius:var(--radius);font-weight:700;padding:10px;cursor:pointer;font-family:inherit;}
+  body.locked{overflow:hidden;}
+
+  .toolbar{background:var(--ink);color:#fff;padding:14px 20px;}
+  .toolbar h1{font-size:17px;font-weight:800;}
+  .toolbar .sub{font-size:11.5px;color:#bbb;font-weight:500;margin-top:2px;}
+
+  .tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 20px;overflow-x:auto;}
+  .tab-btn{background:none;border:none;padding:14px 16px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--stone);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  .tab-btn.active{color:var(--red);border-bottom-color:var(--red);}
+
+  .page{max-width:900px;margin:0 auto;padding:24px 20px 60px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px;}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:4px;}
+  .card .hint{font-size:12px;color:var(--stone);margin-bottom:16px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--stone);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .field input, .field select{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:var(--radius);color:var(--ink);background:#fff;
+  }
+  .field.invalid input{border-color:var(--red);background:#fdf1f0;}
+  .field-error{display:none;color:var(--red);font-size:11.5px;font-weight:600;margin-top:4px;}
+  .field.invalid .field-error{display:block;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+
+  .btn{font-family:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:var(--radius);border:none;cursor:pointer;}
+  .btn-primary{background:var(--red);color:#fff;}
+  .btn-primary:hover{background:var(--red-dim);}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink);}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:4px;}
+
+  .success-banner{background:var(--green-bg);border:1px solid #a9dcb8;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:none;font-size:13px;font-weight:700;color:var(--green);}
+  .success-banner.show{display:block;}
+
+  .produs-row{display:grid;grid-template-columns:1.3fr 0.9fr 0.7fr 0.9fr auto;gap:8px;align-items:end;margin-bottom:10px;}
+  .produs-row label{display:block;font-size:10.5px;color:var(--stone);margin-bottom:4px;font-weight:700;text-transform:uppercase;}
+  .produs-row input, .produs-row select{width:100%;font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--radius);}
+  .produs-row .rm-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;padding:6px;}
+
+  .import-card{border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px;}
+  .import-head{display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;}
+  .import-sub{font-size:12px;color:var(--stone);margin-top:2px;}
+  .import-produse{margin-top:10px;font-size:12.5px;}
+  .import-produse div{padding:3px 0;border-bottom:1px solid var(--line);}
+  .empty{text-align:center;color:var(--stone);font-size:13px;padding:30px 0;}
+
+  @media (max-width:650px){ .field-row{flex-direction:column;gap:0;} .produs-row{grid-template-columns:1fr 1fr;} .page{padding:16px 12px 50px;} }
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <form id="authForm">
+    <h2 style="font-size:18px;margin-bottom:6px;">BOKAR — Importuri</h2>
+    <p>Acces admin.</p>
+    <input type="password" id="authPass" placeholder="Cod admin" autocomplete="off" autofocus>
+    <button type="submit">Intră</button>
+  </form>
+</div>
+
+<div class="toolbar">
+  <h1>BOKAR — Importuri</h1>
+  <div class="sub">Fiecare import actualizează automat costurile reale din panoul de marje</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="nou">Import nou</button>
+  <button class="tab-btn" data-tab="istoric">Istoric importuri</button>
+</div>
+
+<div class="page">
+
+  <div id="tab-nou" class="tab-content">
+    <div class="card">
+      <h2>Înregistrează un import</h2>
+      <div class="hint">La salvare, costul real per unitate se actualizează automat în „Prețuri & Marje" pentru fiecare model inclus, iar cursul și costurile logistice devin noul standard pentru calculul viitor.</div>
+      <div id="importSuccess" class="success-banner"></div>
+      <form id="importForm">
+        <div class="field-row">
+          <div class="field" id="i-factura-wrap">
+            <label>Număr factură furnizor</label>
+            <input type="text" id="i-factura" placeholder="ex: Invoice 9">
+            <div class="field-error">Completează numărul facturii</div>
+          </div>
+          <div class="field">
+            <label>Data importului</label>
+            <input type="date" id="i-data">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Curs EUR/RON (BNR, la data facturii)</label>
+            <input type="number" id="i-curs" step="0.0001">
+          </div>
+          <div class="field">
+            <label>Transport import (lei)</label>
+            <input type="number" id="i-transport" step="1">
+          </div>
+          <div class="field">
+            <label>Comisionar vamal (lei)</label>
+            <input type="number" id="i-comisionar" step="1">
+          </div>
+          <div class="field">
+            <label>Taxă vamă (lei)</label>
+            <input type="number" id="i-vama" step="1">
+          </div>
+        </div>
+
+        <h2 style="margin-top:20px;">Produse din acest import</h2>
+        <div id="produseRows"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="addProdusBtn">+ Adaugă produs</button>
+
+        <div style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary">Salvează importul și actualizează costurile</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="tab-istoric" class="tab-content" style="display:none;">
+    <div id="istoricWrap"></div>
+  </div>
+
+</div>
+
+<script>
+const FOCAR_MODELE = [
+  "6050","7050","8050","9050",
+  "655047 L/R","755047 L/R","855047 L/R",
+  "6050G","9050G","12050G","755047 L/R G","855047 L/R G","PSG 60","9050 P",
+  "4380 (Sobă)","Forum (Sobă sticlă colț)"
+];
+const ADMIN_PASSWORD = "BokarAdmin2026";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4",
+  authDomain: "bokar-crm.firebaseapp.com",
+  projectId: "bokar-crm",
+  storageBucket: "bokar-crm.firebasestorage.app",
+  messagingSenderId: "45902513565",
+  appId: "1:45902513565:web:1d2c55629af5d23e0d9b74"
+};
+let db = null, firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){ console.error('Firebase nu s-a putut încărca', e); }
+const importuriColl = firebaseReady ? db.collection('importuri') : null;
+const marjeDoc = firebaseReady ? db.collection('config').doc('marje') : null;
+
+let produsRowCount = 0;
+
+function addProdusRow(){
+  const id = produsRowCount++;
+  const div = document.createElement('div');
+  div.className = 'produs-row';
+  div.dataset.rowId = id;
+  div.innerHTML = `
+    <div>
+      <label>Model</label>
+      <select class="p-model">${FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+    </div>
+    <div>
+      <label>Variantă</label>
+      <select class="p-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+    </div>
+    <div>
+      <label>Cantitate</label>
+      <input type="number" class="p-cantitate" value="1" min="1" step="1">
+    </div>
+    <div>
+      <label>Cost/unit (€)</label>
+      <input type="number" class="p-cost" step="0.01" placeholder="ex: 720">
+    </div>
+    <button type="button" class="rm-btn" title="Șterge rândul">✕</button>
+  `;
+  div.querySelector('.rm-btn').onclick = () => div.remove();
+  document.getElementById('produseRows').appendChild(div);
+}
+document.getElementById('addProdusBtn').onclick = addProdusRow;
+
+function markFieldValid(wrapId, isValid){
+  document.getElementById(wrapId).classList.toggle('invalid', !isValid);
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+document.getElementById('importForm').onsubmit = async function(e){
+  e.preventDefault();
+  document.getElementById('importSuccess').classList.remove('show');
+
+  const factura = document.getElementById('i-factura').value.trim();
+  const data = document.getElementById('i-data').value;
+  const curs = Number(document.getElementById('i-curs').value);
+  const transport = Number(document.getElementById('i-transport').value) || 0;
+  const comisionar = Number(document.getElementById('i-comisionar').value) || 0;
+  const vama = Number(document.getElementById('i-vama').value) || 0;
+
+  let valid = true;
+  markFieldValid('i-factura-wrap', !!factura); if(!factura) valid = false;
+  if(!valid) return;
+
+  const rows = Array.from(document.querySelectorAll('.produs-row')).map(row => ({
+    model: row.querySelector('.p-model').value,
+    varianta: row.querySelector('.p-varianta').value,
+    cantitate: Number(row.querySelector('.p-cantitate').value) || 0,
+    costAchizitie: Number(row.querySelector('.p-cost').value) || 0
+  })).filter(r => r.cantitate > 0 && r.costAchizitie > 0);
+
+  if(rows.length === 0){
+    alert('Adaugă cel puțin un produs cu cantitate și cost valide.');
+    return;
+  }
+
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    const valoareTotalaMarfa = rows.reduce((s,r) => s + r.cantitate * r.costAchizitie, 0);
+
+    await importuriColl.add({ factura, data, curs, transport, comisionar, vama, produse: rows, valoareTotalaMarfa });
+
+    // Actualizează panoul de Prețuri & Marje: costul real pentru fiecare model din acest import,
+    // plus inputurile globale (curs, transport, valoare economică) devin noul standard.
+    const snap = await marjeDoc.get();
+    if(snap.exists){
+      const marjeData = snap.data();
+      const produseMarje = marjeData.produse || [];
+      rows.forEach(r => {
+        const match = produseMarje.find(p => p.model === r.model && p.varianta === r.varianta);
+        if(match){
+          match.costAchizitie = r.costAchizitie;
+          match.tipCost = `REAL ${factura}`;
+        }
+      });
+      const newInputs = {
+        ...(marjeData.inputs || {}),
+        curs, transport, comisionar, vama,
+        valEconomica: valoareTotalaMarfa
+      };
+      await marjeDoc.set({ inputs: newInputs, produse: produseMarje });
+    }
+
+    document.getElementById('importSuccess').textContent =
+      `Import salvat. Cost actualizat pentru ${rows.length} model(e) în panoul de Prețuri & Marje.`;
+    document.getElementById('importSuccess').classList.add('show');
+    this.reset();
+    document.getElementById('produseRows').innerHTML = '';
+    addProdusRow();
+    document.getElementById('i-data').value = new Date().toISOString().slice(0,10);
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea și încearcă din nou.');
+  }
+};
+
+function renderIstoric(){
+  const wrap = document.getElementById('istoricWrap');
+  if(!firebaseReady){ wrap.innerHTML = '<div class="card"><div class="empty">Nu s-a putut conecta la baza de date.</div></div>'; return; }
+  importuriColl.orderBy('data', 'desc').get().then(snap => {
+    if(snap.empty){
+      wrap.innerHTML = '<div class="card"><div class="empty">Niciun import înregistrat încă.</div></div>';
+      return;
+    }
+    wrap.innerHTML = snap.docs.map(d => {
+      const imp = d.data();
+      return `
+        <div class="import-card">
+          <div class="import-head"><span>${imp.factura}</span><span>${fmtDate(imp.data)}</span></div>
+          <div class="import-sub">Curs ${imp.curs} · Transport ${imp.transport} lei · Comisionar ${imp.comisionar} lei · Vamă ${imp.vama} lei · Valoare marfă ${Number(imp.valoareTotalaMarfa).toLocaleString('ro-RO')} €</div>
+          <div class="import-produse">
+            ${imp.produse.map(p => `<div>${p.model} ${p.varianta} — ${p.cantitate} buc × ${p.costAchizitie} €</div>`).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  });
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+    if(btn.dataset.tab === 'istoric') renderIstoric();
+  };
+});
+
+/* ---------------- ACCESS GATE ---------------- */
+(function(){
+  const STORAGE_KEY = "bokarImporturiAuthOk";
+  const gate = document.getElementById('authGate');
+  if(localStorage.getItem(STORAGE_KEY) === '1'){
+    gate.style.display = 'none';
+  } else {
+    document.body.classList.add('locked');
+  }
+  document.getElementById('authForm').onsubmit = function(e){
+    e.preventDefault();
+    if(document.getElementById('authPass').value === ADMIN_PASSWORD){
+      localStorage.setItem(STORAGE_KEY, '1');
+      gate.style.display = 'none';
+      document.body.classList.remove('locked');
+    } else {
+      alert('Cod incorect.');
+      document.getElementById('authPass').value = '';
+    }
+  };
+})();
+
+document.getElementById('i-data').value = new Date().toISOString().slice(0,10);
+addProdusRow();
+</script>
+</body>
+</html>
