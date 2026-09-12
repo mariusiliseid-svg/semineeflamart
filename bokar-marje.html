@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOKAR — Prețuri & Marje</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f4f1; --ink:#232324; --stone:#68686a;
+    --red:#c0392b; --red-dim:#8f2a20; --line:rgba(35,35,36,0.14); --radius:6px;
+    --green:#1e6b39; --green-bg:#e9f7ee; --amber:#8a5a00; --amber-bg:#fff7e6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0;}
+
+  #authGate{position:fixed;inset:0;z-index:9999;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #authGate form{background:#fff;border-radius:8px;padding:32px 28px;width:100%;max-width:300px;text-align:center;}
+  #authGate p{font-size:13px;color:var(--stone);margin:0 0 16px;}
+  #authGate input{width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;text-align:center;}
+  #authGate button{width:100%;background:var(--red);color:#fff;border:none;border-radius:var(--radius);font-weight:700;padding:10px;cursor:pointer;font-family:inherit;}
+  body.locked{overflow:hidden;}
+
+  .toolbar{background:var(--ink);color:#fff;padding:14px 20px;}
+  .toolbar h1{font-size:17px;font-weight:800;}
+  .toolbar .sub{font-size:11.5px;color:#bbb;font-weight:500;margin-top:2px;}
+
+  .page{max-width:1200px;margin:0 auto;padding:24px 20px 60px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px;}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:4px;}
+  .card .hint{font-size:12px;color:var(--stone);margin-bottom:14px;}
+
+  .inputs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;}
+  .inputs-grid .field label{display:block;font-size:11px;color:var(--stone);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .inputs-grid .field input{width:100%;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px;}
+  .stat-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;}
+  .stat-card .n{font-size:22px;font-weight:800;}
+  .stat-card .l{font-size:11px;color:var(--stone);font-weight:600;margin-top:2px;}
+  .stat-red .n{color:var(--red);} .stat-amber .n{color:var(--amber);} .stat-green .n{color:var(--green);}
+
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;}
+  thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.2px;color:var(--stone);padding:6px 6px;border-bottom:2px solid var(--line);position:sticky;top:0;background:#fff;}
+  tbody td{padding:5px 6px;border-bottom:1px solid var(--line);}
+  tbody tr:hover{background:var(--bg-soft);}
+  table input{width:75px;font-family:inherit;font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;}
+  .cat-row td{background:var(--ink);color:#fff;font-weight:700;font-size:11px;padding:6px;}
+  .marja-pill{padding:2px 8px;border-radius:12px;font-weight:800;font-size:11px;display:inline-block;}
+  .marja-rosu{background:#fbeaea;color:#a13636;}
+  .marja-galben{background:var(--amber-bg);color:var(--amber);}
+  .marja-verde{background:var(--green-bg);color:var(--green);}
+  .save-note{font-size:11px;color:var(--stone);margin-top:8px;}
+
+  @media (max-width:700px){ .page{padding:16px 12px 50px;} }
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <form id="authForm">
+    <h2 style="font-size:18px;margin-bottom:6px;">BOKAR — Prețuri & Marje</h2>
+    <p>Acces admin.</p>
+    <input type="password" id="authPass" placeholder="Cod admin" autocomplete="off" autofocus>
+    <button type="submit">Intră</button>
+  </form>
+</div>
+
+<div class="toolbar">
+  <h1>BOKAR — Prețuri & Marje</h1>
+  <div class="sub">Model live, plecând de la aceleași formule ca în Excel</div>
+</div>
+
+<div class="page">
+
+  <div class="card">
+    <h2>Inputuri</h2>
+    <div class="hint">Schimbă orice valoare — tot tabelul de mai jos se recalculează automat.</div>
+    <div class="inputs-grid">
+      <div class="field"><label>Curs EUR/RON</label><input type="number" id="in-curs" step="0.0001"></div>
+      <div class="field"><label>Transport import (lei)</label><input type="number" id="in-transport" step="1"></div>
+      <div class="field"><label>Comisionar vamal (lei)</label><input type="number" id="in-comisionar" step="1"></div>
+      <div class="field"><label>Taxă vamă (lei)</label><input type="number" id="in-vama" step="1"></div>
+      <div class="field"><label>Valoare economică marfă (€)</label><input type="number" id="in-valEconomica" step="1"></div>
+      <div class="field"><label>Discount dealer</label><input type="number" id="in-discount" step="0.01"></div>
+      <div class="field"><label>Transport Flamart→dealer (€)</label><input type="number" id="in-transportDealer" step="1"></div>
+      <div class="field"><label>Țintă marjă</label><input type="number" id="in-tintaMarja" step="0.01"></div>
+    </div>
+    <div class="save-note" id="saveNote"></div>
+  </div>
+
+  <div id="statsWrap"></div>
+
+  <div class="card">
+    <h2>Toate variantele (32)</h2>
+    <div class="hint">Editează „Listă producător", „Cost achiziție", „RRP actual" sau „RRP propus" direct în tabel.</div>
+    <div class="table-wrap">
+      <table id="produseTable"></table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const ADMIN_PASSWORD = "BokarAdmin2026";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4",
+  authDomain: "bokar-crm.firebaseapp.com",
+  projectId: "bokar-crm",
+  storageBucket: "bokar-crm.firebasestorage.app",
+  messagingSenderId: "45902513565",
+  appId: "1:45902513565:web:1d2c55629af5d23e0d9b74"
+};
+let db = null, firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){ console.error('Firebase nu s-a putut încărca', e); }
+const configDoc = firebaseReady ? db.collection('config').doc('marje') : null;
+
+// Date inițiale, extrase exact din BOKAR_Admin_RRP_Comercial_v4.xlsx (INPUTURI + GAMA COMPLETA).
+const DEFAULT_INPUTS = {
+  curs: 5.2554,
+  transport: 3368,
+  comisionar: 400,
+  vama: 100,
+  valEconomica: 5537,
+  discount: 0.35,
+  transportDealer: 60,
+  tintaMarja: 0.20
+};
+
+const DEFAULT_PRODUSE = [
+  ["Focare geam drept","6050","White",1270,635,"CONFIRMAT 50%",1397,1500],
+  ["Focare geam drept","6050","Black",1430,715,"CONFIRMAT 50%",1573,1680],
+  ["Focare geam drept","7050","White",1430,715,"CONFIRMAT 50%",1573,1680],
+  ["Focare geam drept","7050","Black",1600,800,"CONFIRMAT 50%",1760,1860],
+  ["Focare geam drept","8050","White",1540,720,"REAL Invoice 8",1694,1694],
+  ["Focare geam drept","8050","Black",1720,860,"CONFIRMAT 50%",1892,1990],
+  ["Focare geam drept","9050","White",1780,840,"REAL Invoice 8",1958,1958],
+  ["Focare geam drept","9050","Black",1990,995,"CONFIRMAT 50%",2189,2290],
+  ["Focare geam pe colț","655047 L/R","White",1730,865,"CONFIRMAT 50%",1900,2000],
+  ["Focare geam pe colț","655047 L/R","Black",1940,920,"REAL Invoice 8",2134,2134],
+  ["Focare geam pe colț","755047 L/R","White",1800,900,"CONFIRMAT 50%",2090,2090],
+  ["Focare geam pe colț","755047 L/R","Black",2020,1010,"REAL Invoice 8",2222,2320],
+  ["Focare geam pe colț","855047 L/R","White",2070,1035,"CONFIRMAT 50%",2277,2380],
+  ["Focare geam pe colț","855047 L/R","Black",2320,1160,"CONFIRMAT 50%",2552,2650],
+  ["Focare cu ghilotină","6050G","White",2180,1090,"CONFIRMAT 50%",2398,2500],
+  ["Focare cu ghilotină","6050G","Black",2440,1220,"CONFIRMAT 50%",2440,2780],
+  ["Focare cu ghilotină","9050G","White",2480,1240,"CONFIRMAT 50%",2728,2820],
+  ["Focare cu ghilotină","9050G","Black",2770,1385,"CONFIRMAT 50%",3047,3140],
+  ["Focare cu ghilotină","12050G","White",3220,1610,"CONFIRMAT 50%",null,3630],
+  ["Focare cu ghilotină","12050G","Black",3530,1765,"CONFIRMAT 50%",null,3970],
+  ["Focare cu ghilotină","755047 L/R G","White",3130,1565,"CONFIRMAT 50%",null,3530],
+  ["Focare cu ghilotină","755047 L/R G","Black",3490,1745,"CONFIRMAT 50%",null,3920],
+  ["Focare cu ghilotină","855047 L/R G","White",3500,1750,"CONFIRMAT 50%",null,3930],
+  ["Focare cu ghilotină","855047 L/R G","Black",3770,1885,"CONFIRMAT 50%",null,4230],
+  ["Focare cu ghilotină","PSG 60","White",3660,1830,"CONFIRMAT 50%",4026,4110],
+  ["Focare cu ghilotină","PSG 60","Black",3860,1930,"CONFIRMAT 50%",4246,4330],
+  ["Focare cu ghilotină","9050 P","White",2540,1270,"CONFIRMAT 50%",null,2890],
+  ["Focare cu ghilotină","9050 P","Black",2790,1395,"CONFIRMAT 50%",null,3160],
+  ["Sobe","4380","White",1330,665,"CONFIRMAT 50%",1463,1570],
+  ["Sobe","4380","Black",1490,745,"CONFIRMAT 50%",1639,1740],
+  ["Sobe sticlă pe colț","Forum","White",1860,930,"CONFIRMAT 50%",2046,2150],
+  ["Sobe sticlă pe colț","Forum","Black",2080,1040,"CONFIRMAT 50%",2288,2390]
+].map(([categorie,model,varianta,listaProducator,costAchizitie,tipCost,rrpActual,rrpPropus]) =>
+  ({categorie,model,varianta,listaProducator,costAchizitie,tipCost,rrpActual,rrpPropus})
+);
+
+let inputs = { ...DEFAULT_INPUTS };
+let produse = DEFAULT_PRODUSE.map(p => ({...p}));
+let saveTimeout = null;
+
+function fmt(n){ return n === null || n === undefined || isNaN(n) ? '—' : n.toLocaleString('ro-RO', {maximumFractionDigits:1}); }
+function fmtPct(n){ return n === null || n === undefined || isNaN(n) ? '—' : (n*100).toFixed(1)+'%'; }
+
+function calc(p){
+  const costLogisticTotal = inputs.transport + inputs.comisionar + inputs.vama;
+  const coefLogistic = (costLogisticTotal / inputs.curs) / inputs.valEconomica;
+  const logisticaImport = p.costAchizitie * coefLogistic;
+  const landedCost = p.costAchizitie + logisticaImport;
+
+  const pretDealerActual = p.rrpActual != null ? p.rrpActual * (1 - inputs.discount) : null;
+  const profitActual = pretDealerActual != null ? pretDealerActual - landedCost - inputs.transportDealer : null;
+  const marjaActuala = pretDealerActual ? profitActual / pretDealerActual : null;
+
+  const rrpTeoretic20 = (landedCost + inputs.transportDealer) / ((1 - inputs.discount) * (1 - inputs.tintaMarja));
+
+  const pretDealerPropus = p.rrpPropus != null ? p.rrpPropus * (1 - inputs.discount) : null;
+  const profitPropus = pretDealerPropus != null ? pretDealerPropus - landedCost - inputs.transportDealer : null;
+  const marjaPropusa = pretDealerPropus ? profitPropus / pretDealerPropus : null;
+
+  const deltaRRP = (p.rrpActual != null && p.rrpPropus != null) ? p.rrpPropus - p.rrpActual : null;
+  const deltaRRPpct = (deltaRRP != null && p.rrpActual) ? deltaRRP / p.rrpActual : null;
+
+  return { logisticaImport, landedCost, pretDealerActual, marjaActuala, rrpTeoretic20, pretDealerPropus, marjaPropusa, deltaRRP, deltaRRPpct };
+}
+
+function marjaBucket(m){
+  if(m === null || m === undefined) return null;
+  if(m < 0.15) return 'rosu';
+  if(m < 0.18) return 'galben';
+  return 'verde';
+}
+
+function renderInputs(){
+  document.getElementById('in-curs').value = inputs.curs;
+  document.getElementById('in-transport').value = inputs.transport;
+  document.getElementById('in-comisionar').value = inputs.comisionar;
+  document.getElementById('in-vama').value = inputs.vama;
+  document.getElementById('in-valEconomica').value = inputs.valEconomica;
+  document.getElementById('in-discount').value = inputs.discount;
+  document.getElementById('in-transportDealer').value = inputs.transportDealer;
+  document.getElementById('in-tintaMarja').value = inputs.tintaMarja;
+}
+
+['curs','transport','comisionar','vama','valEconomica','discount','transportDealer','tintaMarja'].forEach(key => {
+  document.getElementById('in-'+key).oninput = (e) => {
+    inputs[key] = Number(e.target.value);
+    renderAll();
+    scheduleSave();
+  };
+});
+
+function renderStats(){
+  const wrap = document.getElementById('statsWrap');
+  const marjeActuale = produse.map(p => marjaBucket(calc(p).marjaActuala)).filter(Boolean);
+  const marjePropuse = produse.map(p => marjaBucket(calc(p).marjaPropusa)).filter(Boolean);
+  function count(arr, val){ return arr.filter(x=>x===val).length; }
+  wrap.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card stat-red"><div class="n">${count(marjeActuale,'rosu')}</div><div class="l">Actual &lt;15%</div></div>
+      <div class="stat-card stat-amber"><div class="n">${count(marjeActuale,'galben')}</div><div class="l">Actual 15–18%</div></div>
+      <div class="stat-card stat-green"><div class="n">${count(marjeActuale,'verde')}</div><div class="l">Actual ≥18%</div></div>
+      <div class="stat-card stat-green"><div class="n">${count(marjePropuse,'verde')}</div><div class="l">Propus ≥18% (din 32)</div></div>
+    </div>
+  `;
+}
+
+function renderTable(){
+  const table = document.getElementById('produseTable');
+  let lastCat = null;
+  let rowsHtml = '';
+  produse.forEach((p, i) => {
+    if(p.categorie !== lastCat){
+      rowsHtml += `<tr class="cat-row"><td colspan="13">${p.categorie}</td></tr>`;
+      lastCat = p.categorie;
+    }
+    const c = calc(p);
+    const bucketA = marjaBucket(c.marjaActuala);
+    const bucketP = marjaBucket(c.marjaPropusa);
+    rowsHtml += `
+      <tr>
+        <td>${p.model} ${p.varianta}</td>
+        <td><input type="number" data-i="${i}" data-f="listaProducator" value="${p.listaProducator}"></td>
+        <td><input type="number" data-i="${i}" data-f="costAchizitie" value="${p.costAchizitie}"></td>
+        <td>${p.tipCost}</td>
+        <td>${fmt(c.landedCost)}</td>
+        <td><input type="number" data-i="${i}" data-f="rrpActual" value="${p.rrpActual ?? ''}" placeholder="—"></td>
+        <td>${bucketA ? `<span class="marja-pill marja-${bucketA}">${fmtPct(c.marjaActuala)}</span>` : '—'}</td>
+        <td>${fmt(c.rrpTeoretic20)}</td>
+        <td><input type="number" data-i="${i}" data-f="rrpPropus" value="${p.rrpPropus ?? ''}" placeholder="—"></td>
+        <td>${bucketP ? `<span class="marja-pill marja-${bucketP}">${fmtPct(c.marjaPropusa)}</span>` : '—'}</td>
+        <td>${fmt(c.deltaRRP)}</td>
+        <td>${fmtPct(c.deltaRRPpct)}</td>
+      </tr>
+    `;
+  });
+  table.innerHTML = `
+    <thead><tr>
+      <th>Model</th><th>Listă prod. (€)</th><th>Cost achiz. (€)</th><th>Tip cost</th><th>Landed cost (€)</th>
+      <th>RRP actual (€)</th><th>Marjă actuală</th><th>RRP teoretic 20% (€)</th><th>RRP propus (€)</th><th>Marjă propusă</th>
+      <th>Δ RRP (€)</th><th>Δ RRP %</th>
+    </tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  `;
+  table.querySelectorAll('input[data-i]').forEach(inp => {
+    inp.onchange = (e) => {
+      const i = Number(e.target.dataset.i);
+      const f = e.target.dataset.f;
+      produse[i][f] = e.target.value === '' ? null : Number(e.target.value);
+      renderAll();
+      scheduleSave();
+    };
+  });
+}
+
+function renderAll(){
+  renderStats();
+  renderTable();
+}
+
+function scheduleSave(){
+  const note = document.getElementById('saveNote');
+  note.textContent = 'Se salvează…';
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    if(!firebaseReady){ note.textContent = 'Nu s-a putut conecta la baza de date — modificările nu sunt salvate.'; return; }
+    try{
+      await configDoc.set({ inputs, produse });
+      note.textContent = 'Salvat.';
+    }catch(err){
+      console.error(err);
+      note.textContent = 'Eroare la salvare.';
+    }
+  }, 600);
+}
+
+async function loadConfig(){
+  if(!firebaseReady) return;
+  try{
+    const snap = await configDoc.get();
+    if(snap.exists){
+      const data = snap.data();
+      if(data.inputs) inputs = { ...DEFAULT_INPUTS, ...data.inputs };
+      if(data.produse && data.produse.length === DEFAULT_PRODUSE.length) produse = data.produse;
+    }
+  }catch(e){
+    console.error('Nu am putut încărca configurația salvată', e);
+  }
+}
+
+/* ---------------- ACCESS GATE ---------------- */
+(function(){
+  const STORAGE_KEY = "bokarMarjeAuthOk";
+  const gate = document.getElementById('authGate');
+  if(localStorage.getItem(STORAGE_KEY) === '1'){
+    gate.style.display = 'none';
+  } else {
+    document.body.classList.add('locked');
+  }
+  document.getElementById('authForm').onsubmit = function(e){
+    e.preventDefault();
+    if(document.getElementById('authPass').value === ADMIN_PASSWORD){
+      localStorage.setItem(STORAGE_KEY, '1');
+      gate.style.display = 'none';
+      document.body.classList.remove('locked');
+    } else {
+      alert('Cod incorect.');
+      document.getElementById('authPass').value = '';
+    }
+  };
+})();
+
+(async function init(){
+  await loadConfig();
+  renderInputs();
+  renderAll();
+})();
+</script>
+</body>
+</html>
