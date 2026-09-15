@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOKAR — Dashboard Central</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f4f1; --ink:#232324; --stone:#68686a;
+    --red:#c0392b; --red-dim:#8f2a20; --line:rgba(35,35,36,0.14); --radius:6px;
+    --green:#1e6b39; --green-bg:#e9f7ee; --amber:#8a5a00; --amber-bg:#fff7e6;
+    --blue:#1a5490; --blue-bg:#e6f0fb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-soft);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0;}
+
+  #authGate{position:fixed;inset:0;z-index:9999;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #authGate form{background:#fff;border-radius:8px;padding:32px 28px;width:100%;max-width:300px;text-align:center;}
+  #authGate p{font-size:13px;color:var(--stone);margin:0 0 16px;}
+  #authGate input{width:100%;font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;text-align:center;}
+  #authGate button{width:100%;background:var(--red);color:#fff;border:none;border-radius:var(--radius);font-weight:700;padding:10px;cursor:pointer;font-family:inherit;}
+  .role-tabs{display:flex;gap:4px;margin-bottom:14px;background:var(--bg-soft);border-radius:8px;padding:3px;}
+  .role-tab{flex:1;background:none;border:none;padding:8px 4px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--stone);cursor:pointer;border-radius:6px;}
+  .role-tab.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,0.12);}
+  body.locked{overflow:hidden;}
+
+  .toolbar{background:var(--ink);color:#fff;padding:14px 20px;}
+  .toolbar h1{font-size:17px;font-weight:800;}
+  .toolbar .sub{font-size:11.5px;color:#bbb;font-weight:500;margin-top:2px;}
+
+  .tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 20px;overflow-x:auto;}
+  .tab-btn{background:none;border:none;padding:14px 16px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--stone);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  .tab-btn.active{color:var(--red);border-bottom-color:var(--red);}
+
+  .page{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px;}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:14px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--stone);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;}
+  .field input, .field select, .field textarea{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:var(--radius);color:var(--ink);background:#fff;
+  }
+  .field.invalid input, .field.invalid select{border-color:var(--red);background:#fdf1f0;}
+  .field-error{display:none;color:var(--red);font-size:11.5px;font-weight:600;margin-top:4px;}
+  .field.invalid .field-error{display:block;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+
+  .btn{font-family:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:var(--radius);border:none;cursor:pointer;}
+  .btn-primary{background:var(--red);color:#fff;}
+  .btn-primary:hover{background:var(--red-dim);}
+
+  .success-banner{background:var(--green-bg);border:1px solid #a9dcb8;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:none;font-size:13px;font-weight:700;color:var(--green);}
+  .success-banner.show{display:block;}
+  .warning-banner{background:var(--amber-bg);border:1px solid #f0d28a;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:none;font-size:13px;font-weight:700;color:var(--amber);}
+  .warning-banner.show{display:block;}
+
+  .subtabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .subtab-btn{background:#fff;border:1px solid var(--line);border-radius:20px;padding:7px 14px;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--stone);cursor:pointer;}
+  .subtab-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  .produs-row{display:grid;grid-template-columns:1fr 0.8fr 1.3fr auto;gap:8px;align-items:start;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .produs-row label{display:block;font-size:10.5px;color:var(--stone);margin-bottom:4px;font-weight:700;text-transform:uppercase;}
+  .produs-row input, .produs-row select{width:100%;font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--radius);}
+  .produs-row textarea{width:100%;font-family:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:var(--radius);}
+  .produs-row .rm-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:18px;padding:6px;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+  .stat-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;}
+  .stat-card .n{font-size:24px;font-weight:800;color:var(--red);}
+  .stat-card .l{font-size:12px;color:var(--stone);font-weight:600;margin-top:2px;}
+
+  .channel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;}
+
+  .harta-cell{transition:transform 0.15s;}
+  .harta-cell:hover circle{stroke-width:3;}
+  .harta-cell.selected circle{stroke:var(--ink);stroke-width:3;}
+  .harta-legend{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0;font-size:12px;align-items:center;}
+  .harta-legend .sw{width:14px;height:14px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:middle;}
+  .harta-detail{margin-top:20px;}
+  .channel-card{border-radius:10px;padding:16px;}
+  .channel-card.dealer{background:var(--blue-bg);}
+  .channel-card.direct{background:var(--green-bg);}
+  .channel-card.coleg{background:var(--amber-bg);}
+  .channel-card .n{font-size:20px;font-weight:800;}
+  .channel-card .l{font-size:11.5px;font-weight:700;margin-top:2px;}
+  .channel-card .v{font-size:12px;margin-top:6px;opacity:0.85;}
+
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;}
+  .bar-row .label{width:170px;flex-shrink:0;font-weight:600;}
+  .bar-row .track{flex:1;background:var(--bg-soft);border-radius:4px;height:16px;position:relative;overflow:hidden;}
+  .bar-row .fill{background:var(--red);height:100%;border-radius:4px;}
+  .bar-row .val{width:36px;text-align:right;font-weight:700;flex-shrink:0;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.2px;color:var(--stone);padding:7px 6px;border-bottom:2px solid var(--line);}
+  tbody td{padding:7px 6px;border-bottom:1px solid var(--line);}
+  .empty{text-align:center;color:var(--stone);font-size:13px;padding:30px 0;}
+  .source-tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;}
+  .source-dealer{background:var(--blue-bg);color:var(--blue);}
+  .source-direct{background:var(--green-bg);color:var(--green);}
+  .source-coleg{background:var(--amber-bg);color:var(--amber);}
+
+  @media (max-width:650px){ .field-row{flex-direction:column;gap:0;} .page{padding:16px 12px 50px;} }
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <form id="authForm">
+    <h2 style="font-size:18px;margin-bottom:6px;">BOKAR — Portal</h2>
+    <p>Alege tipul de cont și autentifică-te.</p>
+    <div class="role-tabs">
+      <button type="button" class="role-tab active" data-role="partener">Partener</button>
+      <button type="button" class="role-tab" data-role="admin">Admin</button>
+    </div>
+
+    <div id="loginPartener" class="login-block">
+      <input type="text" id="partenerName" placeholder="Numele tău">
+      <input type="password" id="partenerPass" placeholder="Parola ta">
+    </div>
+    <div id="loginAdmin" class="login-block" style="display:none;">
+      <input type="password" id="adminPass" placeholder="Cod admin">
+    </div>
+
+    <button type="submit">Intră</button>
+    <div id="authError" style="display:none;color:var(--red);font-size:12.5px;font-weight:600;margin-top:10px;">Date incorecte. Încearcă din nou.</div>
+  </form>
+</div>
+
+<div class="toolbar">
+  <h1>BOKAR — Dashboard Central</h1>
+  <div class="sub">Tot ce mișcă în business, dintr-un singur loc</div>
+</div>
+<div class="toolbar" id="sessionBar" style="display:none;background:#333;padding:8px 20px;">
+  <span id="sessionLabel" style="font-size:12.5px;color:#ccc;"></span>
+  <a id="logoutLink" style="color:#999;font-size:12px;cursor:pointer;margin-left:14px;">Ieși din cont</a>
+</div>
+
+<div id="adminNav" class="tabs" style="display:none;">
+  <button class="tab-btn active" data-tab="overview">Prezentare generală</button>
+  <button class="tab-btn" data-tab="profituri">Profituri</button>
+  <button class="tab-btn" data-tab="dealeri">Dealeri</button>
+  <button class="tab-btn" data-tab="oferte">Oferte &amp; contraoferte</button>
+  <button class="tab-btn" data-tab="stoc">Stoc</button>
+  <button class="tab-btn" data-tab="harta">Hartă</button>
+  <button class="tab-btn" data-tab="leaduri">Lead-uri</button>
+  <button class="tab-btn" data-tab="actiuni">Acțiuni</button>
+</div>
+<div id="partenerNav" class="tabs" style="display:none;">
+  <button class="tab-btn active" data-tab="partAdauga">Adaugă ofertă</button>
+  <button class="tab-btn" data-tab="partCerere">Cerere comandă</button>
+  <button class="tab-btn" data-tab="partGarantie">Înregistrează garanție</button>
+  <button class="tab-btn" data-tab="partIstoric">Istoricul meu</button>
+  <button class="tab-btn" data-tab="partStats">Statisticile mele</button>
+</div>
+
+<div class="page">
+
+  <div id="tab-overview" class="tab-content">
+    <div id="overviewContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-profituri" class="tab-content" style="display:none;">
+    <div id="profituriContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-dealeri" class="tab-content" style="display:none;">
+    <div id="dealeriContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-oferte" class="tab-content" style="display:none;">
+    <div id="oferteContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-stoc" class="tab-content" style="display:none;">
+    <div id="stocContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-harta" class="tab-content" style="display:none;">
+    <div id="hartaContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-leaduri" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Alocare lead-uri</h2>
+      <div class="empty">În curând — colaboratorii vor putea prelua sau li se vor aloca lead-uri generate de Flamart/bokar.ro, cu scor KPI (viteză de reacție, rată de conversie), similar aplicațiilor de livrări.</div>
+    </div>
+  </div>
+
+  <div id="tab-actiuni" class="tab-content" style="display:none;">
+    <div class="subtabs">
+      <button class="subtab-btn active" data-subtab="oferta">Ofertă nouă</button>
+      <button class="subtab-btn" data-subtab="dealer">Comandă dealer</button>
+      <button class="subtab-btn" data-subtab="vanzare">Vânzare directă</button>
+      <button class="subtab-btn" data-subtab="garantie">Garanție nouă</button>
+      <button class="subtab-btn" data-subtab="import">Import nou</button>
+      <button class="subtab-btn" data-subtab="cereri">Cereri dealeri</button>
+      <button class="subtab-btn" data-subtab="conturi">Conturi parteneri</button>
+    </div>
+
+    <div id="subtab-cereri" class="subtab-content" style="display:none;">
+      <div class="card">
+        <h2>Cereri de comandă în așteptare</h2>
+        <div id="cereriContent"><div class="empty">Se încarcă…</div></div>
+      </div>
+    </div>
+
+    <div id="subtab-conturi" class="subtab-content" style="display:none;">
+      <div class="card">
+        <h2>Creează cont nou de partener</h2>
+        <div id="contSuccess" class="success-banner">Cont creat cu succes.</div>
+        <form id="contDealerForm">
+          <div class="field-row">
+            <div class="field" id="ct-nume-wrap"><label>Nume dealer</label><input type="text" id="ct-nume">
+              <div class="field-error">Completează numele</div></div>
+            <div class="field" id="ct-parola-wrap"><label>Parolă</label><input type="text" id="ct-parola">
+              <div class="field-error">Completează o parolă</div></div>
+          </div>
+          <button type="submit" class="btn btn-primary">Creează contul</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Conturi existente</h2>
+        <div id="conturiListContent"><div class="empty">Se încarcă…</div></div>
+      </div>
+    </div>
+
+    <div id="subtab-oferta" class="subtab-content">
+      <div class="card">
+        <h2>Ofertă nouă</h2>
+        <div id="ofWarning" class="warning-banner"></div>
+        <div id="ofSuccess" class="success-banner">Ofertă înregistrată cu succes.</div>
+        <form id="ofertaActionForm">
+          <div class="field-row">
+            <div class="field" id="of-coleg-wrap">
+              <label>Coleg</label>
+              <input type="text" id="of-coleg" placeholder="Nume coleg">
+              <div class="field-error">Completează numele colegului</div>
+            </div>
+            <div class="field"><label>Dată</label><input type="date" id="of-data"></div>
+          </div>
+          <div class="field-row">
+            <div class="field" id="of-judet-wrap"><label>Județ client</label><select id="of-judet"></select></div>
+            <div class="field" id="of-tel-wrap">
+              <label>Ultimele 5 cifre telefon</label>
+              <input type="text" id="of-tel" maxlength="5" inputmode="numeric">
+              <div class="field-error">Introdu exact 5 cifre</div>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Categorie</label>
+              <select id="of-categorie"><option value="focar">Focar</option><option value="grila">Grilă Luft</option></select>
+            </div>
+            <div class="field"><label>Model</label><select id="of-model"></select></div>
+            <div class="field" id="of-varianta-wrap"><label>Variantă</label>
+              <select id="of-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Valoare (EUR)</label><input type="number" id="of-valoare" step="0.01"></div>
+            <div class="field"><label>Status</label>
+              <select id="of-status"><option value="ofertat">Ofertat</option><option value="castigat">Câștigat</option><option value="pierdut">Pierdut</option></select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Salvează oferta</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="subtab-dealer" class="subtab-content" style="display:none;">
+      <div class="card">
+        <h2>Comandă dealer</h2>
+        <div id="cdSuccess" class="success-banner">Comandă înregistrată cu succes.</div>
+        <form id="dealerActionForm">
+          <div class="field-row">
+            <div class="field" id="cd-dealer-wrap">
+              <label>Dealer</label>
+              <input type="text" id="cd-dealer" list="dealeriDatalist">
+              <datalist id="dealeriDatalist"></datalist>
+              <div class="field-error">Completează numele dealerului</div>
+            </div>
+            <div class="field"><label>Județ</label><select id="cd-judet"></select></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Model</label><select id="cd-model"></select></div>
+            <div class="field"><label>Variantă</label>
+              <select id="cd-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+            </div>
+            <div class="field"><label>Cantitate</label><input type="number" id="cd-cantitate" value="1" min="1" step="1"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Valoare (EUR, preț dealer)</label><input type="number" id="cd-valoare" step="0.01"></div>
+            <div class="field"><label>Data</label><input type="date" id="cd-data"></div>
+          </div>
+          <div class="field"><label>Notă opțională</label><textarea id="cd-nota" rows="2"></textarea></div>
+          <button type="submit" class="btn btn-primary">Salvează comanda</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="subtab-vanzare" class="subtab-content" style="display:none;">
+      <div class="card">
+        <h2>Vânzare directă Flamart</h2>
+        <div class="hint">Pentru focarele vândute direct de tine către clienți finali — separat de comenzile prin dealeri.</div>
+        <div id="vanzareSuccess" class="success-banner">Vânzare înregistrată cu succes.</div>
+        <form id="vanzareForm">
+          <div class="field-row">
+            <div class="field" id="v-client-wrap">
+              <label>Client</label>
+              <input type="text" id="v-client" placeholder="Nume client">
+              <div class="field-error">Completează numele clientului</div>
+            </div>
+            <div class="field"><label>Județ</label><select id="v-judet"></select></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Model</label><select id="v-model"></select></div>
+            <div class="field"><label>Variantă</label>
+              <select id="v-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+            </div>
+            <div class="field"><label>Cantitate</label><input type="number" id="v-cantitate" value="1" min="1" step="1"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Valoare vânzare (EUR)</label><input type="number" id="v-valoare" min="0" step="0.01"></div>
+            <div class="field"><label>Data vânzării</label><input type="date" id="v-data"></div>
+          </div>
+          <div class="field"><label>Notă opțională</label><textarea id="v-nota" rows="2"></textarea></div>
+          <button type="submit" class="btn btn-primary">Salvează vânzarea</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="subtab-garantie" class="subtab-content" style="display:none;">
+      <div class="card">
+        <h2>Înregistrează o garanție</h2>
+        <div id="gSuccess" class="success-banner">Garanție înregistrată cu succes.</div>
+        <div id="gError" class="warning-banner">Această serie de șasiu este deja înregistrată.</div>
+        <form id="garantieActionForm">
+          <div class="field" id="g-serie-wrap">
+            <label>Serie de șasiu</label>
+            <input type="text" id="g-serie" placeholder="ex: BOKAR-2026-0405-7550L-01610">
+            <div class="field-error" id="g-serie-error">Completează seria de șasiu</div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Model</label><select id="g-model"></select></div>
+            <div class="field"><label>Variantă</label>
+              <select id="g-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+            </div>
+          </div>
+          <div class="field" id="g-client-wrap">
+            <label>Client final</label>
+            <input type="text" id="g-client">
+            <div class="field-error">Completează numele clientului</div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Județ</label><select id="g-judet"></select></div>
+            <div class="field" id="g-adresa-wrap"><label>Adresă montaj</label><input type="text" id="g-adresa">
+              <div class="field-error">Completează adresa</div></div>
+          </div>
+          <div class="field-row">
+            <div class="field" id="g-factura-wrap"><label>Număr factură</label><input type="text" id="g-factura">
+              <div class="field-error">Completează numărul facturii</div></div>
+            <div class="field" id="g-montator-wrap"><label>Montator</label><input type="text" id="g-montator">
+              <div class="field-error">Completează montatorul</div></div>
+          </div>
+          <div class="field" id="g-data-wrap">
+            <label>Data montajului</label>
+            <input type="date" id="g-data">
+            <div class="field-error" id="g-data-error">Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor</div>
+          </div>
+          <button type="submit" class="btn btn-primary">Salvează garanția</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="subtab-import" class="subtab-content" style="display:none;">
+      <div class="card">
+        <h2>Import nou</h2>
+        <div class="hint">Introdu seriile de șasiu individuale pentru fiecare model — devin unități urmărite în „Stoc" și actualizează automat costurile din „Prețuri &amp; Marje".</div>
+        <div id="imSuccess" class="success-banner"></div>
+        <form id="importActionForm">
+          <div class="field-row">
+            <div class="field" id="im-factura-wrap"><label>Număr factură furnizor</label><input type="text" id="im-factura">
+              <div class="field-error">Completează numărul facturii</div></div>
+            <div class="field"><label>Data importului</label><input type="date" id="im-data"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Curs EUR/RON</label><input type="number" id="im-curs" step="0.0001"></div>
+            <div class="field"><label>Transport (lei)</label><input type="number" id="im-transport" step="1"></div>
+            <div class="field"><label>Comisionar (lei)</label><input type="number" id="im-comisionar" step="1"></div>
+            <div class="field"><label>Taxă vamă (lei)</label><input type="number" id="im-vama" step="1"></div>
+          </div>
+          <h2 style="margin-top:16px;">Produse din acest import</h2>
+          <div id="imProduseRows"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="imAddProdusBtn">+ Adaugă produs</button>
+          <div style="margin-top:16px;">
+            <button type="submit" class="btn btn-primary">Salvează importul</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PARTENER (fost coleg + dealer) ============ -->
+  <div id="tab-partAdauga" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Ofertă nouă</h2>
+      <div id="partWarning" class="warning-banner"></div>
+      <div id="partSuccess" class="success-banner">Ofertă înregistrată cu succes.</div>
+      <form id="partOfertaForm">
+        <div class="field-row">
+          <div class="field" id="part-judet-wrap"><label>Județ client</label><select id="part-judet"></select></div>
+          <div class="field" id="part-tel-wrap">
+            <label>Ultimele 5 cifre telefon</label>
+            <input type="text" id="part-tel" maxlength="5" inputmode="numeric">
+            <div class="field-error">Introdu exact 5 cifre</div>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Categorie</label>
+            <select id="part-categorie"><option value="focar">Focar</option><option value="grila">Grilă Luft</option></select>
+          </div>
+          <div class="field"><label>Model</label><select id="part-model"></select></div>
+          <div class="field" id="part-varianta-wrap"><label>Variantă</label>
+            <select id="part-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+          </div>
+        </div>
+        <div class="field"><label>Valoare (EUR)</label><input type="number" id="part-valoare" step="0.01"></div>
+        <button type="submit" class="btn btn-primary">Salvează oferta</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="tab-partCerere" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Cerere comandă nouă</h2>
+      <div class="hint">Cererea ta ajunge la Flamart spre aprobare — nu se confirmă automat.</div>
+      <div id="pcSuccess" class="success-banner">Cerere trimisă — așteaptă aprobarea Flamart.</div>
+      <form id="partCerereForm">
+        <div class="field-row">
+          <div class="field"><label>Model</label><select id="pc-model"></select></div>
+          <div class="field"><label>Variantă</label>
+            <select id="pc-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+          </div>
+          <div class="field"><label>Cantitate</label><input type="number" id="pc-cantitate" value="1" min="1" step="1"></div>
+        </div>
+        <div class="field"><label>Notă opțională</label><textarea id="pc-nota" rows="2"></textarea></div>
+        <button type="submit" class="btn btn-primary">Trimite cererea</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="tab-partGarantie" class="tab-content" style="display:none;">
+    <div class="card">
+      <h2>Înregistrează o garanție</h2>
+      <div id="pgSuccess" class="success-banner">Garanție înregistrată cu succes.</div>
+      <div id="pgError" class="warning-banner">Această serie de șasiu este deja înregistrată.</div>
+      <form id="partGarantieForm">
+        <div class="field" id="pg-serie-wrap">
+          <label>Serie de șasiu</label>
+          <input type="text" id="pg-serie" placeholder="ex: BOKAR-2026-0405-7550L-01610">
+          <div class="field-error" id="pg-serie-error">Completează seria de șasiu</div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Model</label><select id="pg-model"></select></div>
+          <div class="field"><label>Variantă</label>
+            <select id="pg-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+          </div>
+        </div>
+        <div class="field" id="pg-client-wrap"><label>Client final</label><input type="text" id="pg-client">
+          <div class="field-error">Completează numele clientului</div></div>
+        <div class="field-row">
+          <div class="field"><label>Județ</label><select id="pg-judet"></select></div>
+          <div class="field" id="pg-adresa-wrap"><label>Adresă montaj</label><input type="text" id="pg-adresa">
+            <div class="field-error">Completează adresa</div></div>
+        </div>
+        <div class="field-row">
+          <div class="field" id="pg-factura-wrap"><label>Număr factură</label><input type="text" id="pg-factura">
+            <div class="field-error">Completează numărul facturii</div></div>
+          <div class="field" id="pg-montator-wrap"><label>Montator</label><input type="text" id="pg-montator">
+            <div class="field-error">Completează montatorul</div></div>
+        </div>
+        <div class="field" id="pg-data-wrap">
+          <label>Data montajului</label>
+          <input type="date" id="pg-data">
+          <div class="field-error" id="pg-data-error">Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor</div>
+        </div>
+        <button type="submit" class="btn btn-primary">Salvează garanția</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="tab-partIstoric" class="tab-content" style="display:none;">
+    <div id="partIstoricContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-partStats" class="tab-content" style="display:none;">
+    <div id="partStatsContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+</div>
+
+<script>
+const JUDETE = ["Alba","Arad","Argeș","Bacău","Bihor","Bistrița-Năsăud","Botoșani","Brăila","Brașov","București","Buzău","Caraș-Severin","Călărași","Cluj","Constanța","Covasna","Dâmbovița","Dolj","Galați","Giurgiu","Gorj","Harghita","Hunedoara","Ialomița","Iași","Ilfov","Maramureș","Mehedinți","Mureș","Neamț","Olt","Prahova","Satu Mare","Sălaj","Sibiu","Suceava","Teleorman","Timiș","Tulcea","Vaslui","Vâlcea","Vrancea"];
+
+// Poziții aproximative (col,row) într-o grilă schematică — nu geografie exactă, dar recognoscibilă.
+// Poziții x,y reale (proiecție simplă lon/lat → plan), calculate din centroidele aproximative
+// ale fiecărui județ — nu contur exact de graniță, dar plasare geografică fidelă.
+const JUDETE_POS = {"Alba": [391.7, 483.9], "Arad": [159.9, 504.5], "Argeș": [538.5, 662.4], "Bacău": [756.5, 441.3], "Bihor": [228.7, 346.6], "Bistrița-Năsăud": [504.1, 330.8], "Botoșani": [756.5, 236.1], "Brăila": [859.8, 662.4], "Brașov": [618.8, 575.5], "București": [681.9, 776.1], "Buzău": [756.5, 638.7], "Caraș-Severin": [228.7, 662.4], "Călărași": [819.6, 796.6], "Cluj": [389.4, 393.9], "Constanța": [934.4, 820.3], "Covasna": [664.7, 551.8], "Dâmbovița": [618.8, 709.7], "Dolj": [389.4, 820.3], "Galați": [882.7, 599.2], "Giurgiu": [664.7, 851.8], "Gorj": [360.7, 693.9], "Harghita": [618.8, 449.2], "Hunedoara": [309.1, 567.6], "Ialomița": [819.6, 741.3], "Iași": [825.4, 338.7], "Ilfov": [681.9, 757.1], "Maramureș": [429.5, 267.6], "Mehedinți": [286.1, 741.3], "Mureș": [515.6, 441.3], "Neamț": [710.6, 378.2], "Olt": [492.6, 788.7], "Prahova": [676.2, 670.3], "Satu Mare": [314.8, 267.6], "Sălaj": [332.0, 346.6], "Sibiu": [469.7, 567.6], "Suceava": [699.2, 283.4], "Teleorman": [578.7, 836.1], "Timiș": [131.2, 567.6], "Tulcea": [963.1, 678.2], "Vaslui": [865.5, 441.3], "Vâlcea": [458.2, 662.4], "Vrancea": [802.4, 567.6]};
+const JUDETE_SHAPES = {"Botoșani":{"pts":"771,192 770,204 765,217 758,224 756,230 752,234 746,236 747,243 751,248 765,257 769,261 787,286 801,303 804,316 804,328 809,334 812,335 817,330 819,325 822,322 827,323 829,325 836,326 854,326 861,333 864,333 866,331 863,323 867,318 871,317 875,320 878,320 885,323 887,321 887,318 893,311 906,310 890,289 889,282 891,281 891,278 882,266 882,263 884,262 881,259 881,251 875,246 876,241 874,239 875,234 871,230 868,231 866,229 866,223 862,220 859,214 860,207 855,207 850,203 851,198 849,195 844,196 841,190 832,183 825,184 822,182 819,182 817,180 814,180 805,185 801,185 787,189 780,189 775,192","c":[825.4,256.7]},"Satu Mare":{"pts":"426,259 415,250 410,242 409,237 406,237 399,233 395,234 377,216 368,213 364,217 362,226 356,233 353,235 348,235 342,231 341,239 335,242 332,248 328,252 321,255 321,262 318,265 312,267 305,275 301,277 292,278 281,273 278,273 277,279 272,283 262,282 256,287 251,293 247,306 251,314 261,323 270,340 285,338 295,345 297,352 317,342 326,341 339,345 345,350 355,354 361,349 360,345 346,341 343,338 343,333 351,326 353,319 364,306 368,306 374,312 381,315 389,305 393,295 391,291 380,288 377,284 378,278 383,274 394,274 401,277 406,277 423,265 427,261","c":[335.4,287.9]},"Maramureș":{"pts":"348,335 350,337 359,339 365,337 385,337 394,342 409,347 433,346 439,353 447,358 455,352 476,354 487,340 489,331 491,329 506,325 510,316 521,310 526,309 548,315 566,315 575,313 581,307 596,306 604,303 604,301 599,296 594,286 589,287 586,285 578,271 575,268 562,263 557,257 556,250 547,243 529,241 521,247 515,247 508,251 500,251 476,239 463,244 456,244 455,241 447,234 438,235 430,232 418,231 414,235 415,240 422,250 431,257 431,265 408,282 399,282 392,279 383,280 383,283 395,287 398,291 398,297 393,309 383,320 376,320 365,312 359,320 356,329","c":[476.1,294.1]},"Suceava":{"pts":"813,341 805,338 799,330 799,318 795,304 766,266 744,249 741,236 719,238 696,245 637,251 633,254 622,273 614,281 599,285 610,301 608,307 602,309 613,318 617,325 617,331 611,337 612,344 607,346 613,357 613,362 609,370 613,370 615,372 614,396 623,397 633,402 638,401 639,395 642,391 646,389 655,389 669,398 677,406 686,404 687,396 691,390 705,377 698,368 701,363 706,363 714,370 718,371 729,366 736,369 743,367 760,367 773,360 782,359 787,361 793,367 800,365 792,357 791,351 793,349 811,350","c":[696.5,317.5]},"Bihor":{"pts":"238,312 229,318 224,325 225,346 222,351 215,353 207,363 206,370 203,376 203,384 197,392 195,399 179,413 183,416 181,428 173,436 172,447 165,450 161,456 158,464 162,467 162,473 156,480 203,478 208,482 214,482 219,486 235,487 245,495 251,509 257,511 264,517 274,521 279,529 293,529 309,532 307,525 307,510 309,502 315,495 322,495 322,488 317,482 313,469 305,461 305,453 313,448 317,441 315,437 307,433 307,429 311,421 303,413 295,408 283,386 283,379 288,373 293,360 292,351 283,343 279,345 267,345 254,323 247,318 244,311","c":[248.0,429.8]},"Neamț":{"pts":"596,311 586,311 576,319 566,319 565,320 546,320 528,315 523,315 515,319 511,327 507,331 494,334 493,341 485,353 479,359 479,363 477,366 471,371 471,377 474,389 485,393 489,397 494,399 497,404 496,415 499,418 499,424 502,427 505,428 509,433 508,447 505,456 520,462 524,462 527,460 536,458 538,456 539,449 542,446 544,440 551,432 558,430 568,435 570,425 575,418 576,413 582,407 589,402 600,400 609,396 609,378 610,376 608,376 604,372 604,368 608,359 606,354 601,348 601,343 603,341 607,340 605,338 605,336 608,332 611,331 612,327 610,323","c":[543.4,376.7]},"Iași":{"pts":"797,354 805,362 806,366 804,369 796,371 809,386 814,401 826,402 842,413 847,413 848,410 852,407 861,409 869,401 878,401 881,404 883,410 890,417 888,423 878,427 885,441 897,442 912,440 920,442 923,441 927,435 938,437 935,437 933,435 933,422 935,420 940,420 946,424 955,434 957,431 963,430 966,434 964,444 969,444 975,448 979,446 985,446 987,448 991,445 997,445 996,439 994,437 994,429 990,420 986,415 975,411 974,408 962,398 962,395 956,391 956,384 950,374 949,369 946,366 937,363 931,352 927,348 927,332 919,330 914,326 910,314 906,316 897,315 892,320 892,323 888,328 881,328 869,323 871,334 866,338 859,338 852,331 849,330 827,330 824,328 817,338 818,345 816,352 813,355","c":[892.8,382.4]},"Sălaj":{"pts":"452,362 449,363 442,362 438,358 435,357 431,351 407,352 392,347 383,342 367,342 365,343 366,351 357,361 354,361 350,357 341,354 337,350 322,346 303,355 298,359 297,365 294,369 294,374 288,382 288,384 298,400 299,404 307,409 316,419 332,419 335,420 338,423 341,431 344,434 350,434 353,438 354,437 359,437 360,438 372,437 373,438 374,431 379,426 383,427 385,432 391,432 393,434 393,432 390,429 390,423 394,421 397,421 401,417 408,417 408,413 405,409 404,405 407,401 409,401 411,393 423,386 427,386 432,379 438,376 450,374 450,366","c":[362.8,385.3]},"Cluj":{"pts":"474,359 457,358 455,376 453,379 440,381 433,386 430,392 425,391 416,396 414,404 410,406 413,411 413,419 410,422 403,422 400,427 396,427 398,429 398,436 395,440 391,440 388,437 382,437 380,433 376,443 351,443 347,439 340,438 332,425 316,424 313,431 319,433 322,436 322,443 320,449 316,453 312,454 310,458 317,465 321,478 327,485 327,498 329,500 350,501 360,513 368,508 380,510 388,504 402,502 419,512 430,512 432,515 430,524 432,525 432,522 435,519 443,519 447,517 464,516 472,519 470,517 470,511 478,502 477,492 483,483 490,481 487,475 487,470 493,458 500,454 504,439 504,435 494,427 494,421 491,418 491,404 481,397 471,394 468,390 466,368 473,362","c":[418.4,455.4]},"Vaslui":{"pts":"691,404 700,409 705,421 716,433 716,440 709,442 711,475 716,481 716,476 718,474 725,474 730,476 741,475 747,478 757,471 763,469 768,473 771,479 771,483 779,483 785,477 803,476 806,472 814,469 819,463 826,463 834,467 836,465 835,464 836,459 841,455 840,451 842,449 846,449 850,452 851,459 854,462 869,461 878,464 882,464 884,462 880,442 873,431 873,425 878,420 884,418 877,411 875,406 871,406 863,414 854,412 849,419 840,418 824,407 812,406 809,403 806,393 798,380 783,365 780,364 775,365 762,372 744,372 740,374 733,374 727,372 720,376 713,376 708,372 710,374 709,382 699,389 694,395","c":[778.5,426.9]},"Bacău":{"pts":"646,395 644,397 643,404 640,407 632,407 640,422 640,438 638,449 642,459 641,481 633,488 625,499 618,502 609,511 608,521 604,525 598,527 601,529 601,536 591,541 591,544 602,556 612,557 628,572 644,568 660,577 663,571 674,560 677,554 689,545 694,546 701,553 701,557 705,566 718,578 728,579 760,572 765,545 762,544 758,547 750,548 748,546 748,534 745,532 736,531 730,526 731,515 736,510 731,502 729,494 729,481 721,479 722,486 720,488 716,488 709,482 706,477 704,440 707,436 711,436 710,433 703,428 694,411 690,409 674,411 665,402 653,394","c":[675.4,503.0]},"Harghita":{"pts":"626,404 611,401 602,405 594,406 587,410 581,416 579,422 575,427 573,437 570,440 565,440 558,436 555,436 550,441 547,449 543,454 543,458 539,463 532,464 526,467 518,467 501,460 497,462 492,472 495,477 495,483 492,487 488,487 484,490 482,495 483,505 476,511 475,514 486,521 486,527 482,532 486,537 493,539 497,543 499,552 501,554 516,553 522,556 531,554 543,555 547,551 556,552 559,550 563,550 565,552 565,555 563,557 564,575 568,584 573,584 575,582 580,582 584,580 590,580 598,585 599,581 606,575 622,574 615,566 608,561 598,560 585,545 584,540 586,537 596,533 592,529 592,525 603,519 603,512 605,507 615,497 621,495 636,478 637,461 633,450 635,424 634,420 627,411","c":[564.5,493.0]},"Galați":{"pts":"939,426 938,432 944,433 944,439 940,442 929,441 925,446 922,447 913,447 910,445 899,447 886,446 890,461 889,465 901,477 902,493 913,511 921,529 925,548 926,576 932,585 936,598 936,589 932,582 932,579 935,576 960,578 964,581 964,583 965,580 970,576 975,576 992,583 995,582 999,570 999,567 995,561 995,557 998,555 998,551 1005,546 1006,544 1005,536 1008,534 1008,529 1010,527 1010,524 1013,521 1013,517 1009,512 1010,494 1013,487 1011,480 1004,467 1004,463 1000,457 998,451 993,450 990,453 984,453 982,451 979,454 975,454 966,449 961,449 959,447 959,442 955,442","c":[956.4,506.2]},"Vrancea":{"pts":"885,468 879,470 867,466 852,467 847,463 846,456 845,459 841,462 841,468 835,473 829,472 826,469 821,468 821,470 818,473 810,476 806,481 788,482 784,487 781,488 768,488 765,485 766,481 763,475 761,475 749,483 743,483 739,480 735,480 734,493 736,500 741,508 741,514 736,518 735,524 742,527 748,527 752,530 754,534 753,543 760,539 766,539 770,542 771,547 765,570 770,566 774,566 779,571 782,572 785,576 784,583 789,587 791,594 802,597 808,596 808,590 813,585 830,584 853,587 858,582 865,582 870,584 883,570 889,568 902,567 908,571 913,567 920,569 920,550 915,528 897,495 897,482 895,478","c":[831.0,526.8]},"Arad":{"pts":"314,540 311,537 275,533 270,525 263,523 256,517 250,515 244,509 239,496 233,492 217,491 212,487 206,487 201,483 174,485 151,484 147,489 138,490 136,492 135,503 129,512 134,526 130,530 123,530 120,533 119,545 114,553 110,553 101,562 95,558 88,558 85,556 77,557 73,554 65,560 66,567 63,570 79,581 89,594 105,595 109,598 109,602 111,604 112,599 117,595 121,595 124,601 129,604 133,601 139,601 142,603 147,599 147,596 150,592 159,592 164,596 164,600 171,600 179,608 179,613 181,615 186,608 193,609 197,612 199,609 207,611 210,603 218,602 224,607 232,608 241,617 251,618 255,615 261,614 273,598 272,584 275,579 276,565 283,559 294,561 299,560 304,554 307,546","c":[191.6,552.6]},"Mureș":{"pts":"317,500 312,512 312,524 314,532 326,542 340,541 344,547 347,559 359,564 364,574 364,579 361,581 370,593 381,601 385,613 392,622 394,634 399,647 399,656 403,660 402,669 404,673 415,680 426,692 427,699 430,695 425,685 427,668 424,654 430,639 437,637 443,628 437,625 436,614 438,612 443,612 446,614 454,613 457,610 455,606 455,600 458,596 472,594 476,597 478,591 499,570 498,558 494,554 493,547 490,544 484,542 477,535 477,529 481,524 479,522 474,524 469,524 462,521 449,522 446,524 438,524 438,528 436,530 429,530 424,525 426,517 417,517 400,507 390,509 383,515 375,515 370,513 366,515 362,520 357,520 349,507 341,505 327,505 321,500","c":[410.7,569.9]},"Hunedoara":{"pts":"281,567 280,581 277,586 278,600 275,606 271,610 276,617 277,625 283,631 286,638 291,639 294,642 294,646 285,655 284,662 282,665 287,671 292,672 294,677 308,687 313,698 314,709 311,716 314,720 315,727 311,735 332,727 338,727 341,730 349,731 351,733 359,730 368,730 371,732 381,726 393,722 399,722 405,725 417,718 422,717 423,713 421,709 420,693 411,684 403,680 397,671 398,663 394,658 394,649 390,639 387,625 381,617 376,603 371,602 357,585 355,578 358,574 355,568 352,566 345,565 343,563 337,546 323,547 318,544 312,548 308,558 301,565 292,566 285,564","c":[341.0,647.1]},"Covasna":{"pts":"690,551 687,554 683,556 677,565 668,573 668,576 665,579 663,583 663,586 668,590 673,590 678,593 678,600 677,601 677,608 676,609 676,627 679,630 683,632 691,640 691,643 696,644 699,642 702,642 706,646 718,650 726,657 730,665 735,667 740,672 744,678 745,677 754,676 755,670 758,667 762,667 768,671 770,669 770,665 775,656 775,651 778,646 776,640 776,632 777,631 777,625 779,619 779,614 782,607 787,600 787,597 784,590 778,585 778,580 780,578 772,572 763,577 754,578 753,579 740,581 730,584 727,584 726,583 716,583 712,581 708,576 701,570 697,562 696,556","c":[728.7,614.3]},"Sibiu":{"pts":"597,591 588,585 577,587 575,589 564,588 561,584 559,576 558,557 549,556 545,560 533,559 528,561 519,561 516,559 503,559 504,564 503,574 484,592 482,595 481,601 478,604 474,603 470,599 462,600 460,602 462,607 462,612 458,617 455,619 448,620 441,617 441,621 447,623 449,625 449,629 440,642 435,642 433,644 429,656 432,666 432,674 430,683 434,690 435,696 439,693 443,693 449,688 477,688 483,691 496,683 512,679 542,679 563,673 564,672 562,658 556,645 556,641 559,637 569,633 567,630 567,625 564,621 565,616 575,609 580,608 580,603 589,598","c":[507.9,629.6]},"Buzău":{"pts":"793,600 785,613 781,636 790,646 798,661 803,667 805,668 815,667 830,681 839,686 842,686 843,682 854,683 859,687 859,692 864,698 867,698 870,696 876,696 878,698 878,701 880,699 886,699 888,701 894,702 897,709 904,711 908,711 913,702 921,694 925,693 921,683 920,673 913,663 910,662 903,654 886,609 887,599 893,591 901,585 910,584 916,578 922,578 921,574 915,573 912,576 906,576 900,572 891,573 886,575 873,589 866,589 863,587 860,587 856,593 852,593 849,591 838,591 828,589 815,590 813,592 813,599 811,601 801,602","c":[854.9,641.0]},"Timiș":{"pts":"3,582 10,590 17,605 24,608 31,615 38,616 51,630 53,639 59,647 65,641 71,645 70,665 67,675 72,683 73,689 69,695 73,696 94,720 104,724 108,728 114,725 127,739 149,744 157,751 161,746 160,736 163,733 163,727 154,718 153,709 156,698 166,691 166,686 169,681 175,678 182,678 194,685 198,685 208,679 212,679 220,689 225,688 225,678 235,677 242,671 255,674 258,667 262,664 277,661 281,651 288,645 283,644 279,635 272,628 270,617 267,614 264,619 257,620 254,623 240,622 229,613 222,612 214,607 209,616 202,615 201,621 197,621 188,613 185,620 179,622 174,616 174,611 168,605 162,605 157,597 153,597 152,601 144,609 139,609 135,606 130,610 126,610 118,601 114,609 109,609 104,605 103,600 85,598 75,585 61,575 54,579 42,580 37,575 29,573 26,577 6,578","c":[140.5,650.8]},"Brașov":{"pts":"561,643 567,656 569,672 576,671 583,678 586,676 599,676 600,675 616,677 632,688 640,706 643,709 649,708 651,703 658,697 678,693 691,693 698,696 705,695 711,701 714,697 715,691 718,688 725,688 734,693 739,683 739,681 734,673 728,670 717,656 703,651 700,648 698,649 687,649 686,648 686,642 682,638 675,634 671,629 671,607 673,596 672,595 666,596 658,588 658,583 655,580 649,578 645,574 642,573 635,577 608,580 603,585 603,592 601,595 594,601 585,606 586,612 584,614 578,614 575,617 570,619 572,622 572,628 575,630 575,635 572,638 565,640","c":[641.6,644.9]},"Brăila":{"pts":"901,591 892,601 891,604 892,611 900,629 907,650 911,656 914,657 919,662 925,671 926,681 929,688 935,693 949,695 955,702 966,707 975,706 981,708 986,708 989,705 992,705 996,703 1002,703 1006,705 1007,701 1002,694 1002,687 997,681 989,677 989,674 996,667 1002,667 1001,646 997,639 996,631 995,630 995,627 997,625 996,622 997,616 992,603 993,588 986,587 982,584 972,581 966,589 962,589 958,583 938,581 941,587 941,597 940,598 940,603 937,605 932,603 929,596 928,590 923,583 917,584 913,589","c":[953.6,640.6]},"Prahova":{"pts":"783,646 774,673 771,676 764,676 760,673 759,679 757,681 747,682 744,684 739,695 755,712 760,724 759,730 763,734 765,741 775,742 778,746 780,744 785,745 785,752 792,759 794,776 800,778 806,785 806,790 802,796 809,805 816,810 833,810 838,812 848,811 855,815 860,812 867,812 874,817 875,822 878,821 877,815 880,813 880,805 877,802 877,796 881,792 886,791 889,776 883,775 881,773 881,765 875,760 875,752 872,757 866,757 864,755 862,747 866,741 877,737 894,737 894,729 898,726 903,726 907,716 893,713 891,707 886,706 884,704 882,704 878,708 875,708 873,706 873,701 868,704 864,704 855,697 853,689 847,687 845,692 834,690 825,684 814,673 800,672 794,665","c":[823.5,736.2]},"Caraș-Severin":{"pts":"304,691 294,683 291,683 289,681 289,677 284,676 277,666 269,667 263,670 258,679 248,679 245,676 237,682 229,682 229,684 232,685 232,689 226,694 217,694 210,684 196,691 192,691 187,686 180,683 173,685 170,695 160,702 160,708 158,714 168,725 168,736 165,739 166,748 161,756 161,762 154,767 152,778 149,781 143,782 145,782 149,788 154,788 163,792 166,795 167,800 166,804 162,807 146,808 142,811 149,819 168,819 172,821 177,833 182,837 191,838 201,834 207,834 220,841 223,841 226,844 229,852 241,852 242,848 240,844 240,837 247,823 248,816 250,814 257,814 263,820 270,820 274,825 277,821 282,802 288,793 291,779 302,763 294,761 291,755 295,747 305,738 305,733 310,725 306,719 308,700","c":[228.8,755.1]},"Argeș":{"pts":"573,676 546,683 547,691 541,705 544,715 544,723 541,726 542,730 541,742 546,750 547,760 543,775 541,791 544,795 543,802 546,799 548,799 551,802 552,812 559,825 562,827 568,826 571,828 571,833 567,835 567,837 570,841 574,860 573,870 575,875 576,886 599,889 605,884 613,884 622,878 638,879 639,877 638,865 641,861 635,859 628,852 624,843 625,839 627,838 624,835 624,828 627,823 628,805 626,800 625,790 626,786 630,782 630,778 623,768 621,756 624,748 627,745 630,745 634,749 637,742 638,732 643,723 643,719 635,708 629,693 616,683 601,680 580,683 578,679","c":[590.6,774.1]},"Vâlcea":{"pts":"541,684 518,683 501,687 486,696 478,695 475,693 451,693 447,697 441,698 433,704 426,704 428,711 427,717 428,718 436,718 439,720 452,719 458,725 456,739 459,746 459,752 456,759 457,767 451,788 453,814 450,832 451,837 454,840 459,842 464,847 466,856 471,863 474,861 480,860 483,861 487,866 493,858 495,857 503,858 506,856 507,851 510,848 514,848 512,846 510,827 516,819 517,811 520,803 524,797 528,795 533,797 535,800 534,804 538,799 538,796 536,793 536,786 542,755 536,743 537,739 536,724 539,720 536,703 541,693 542,689","c":[491.7,764.6]},"Dâmbovița":{"pts":"661,702 664,722 670,727 673,734 672,741 679,750 685,763 692,771 693,783 695,788 697,790 704,789 708,793 710,798 710,803 709,804 710,810 717,811 721,813 732,826 734,824 743,824 747,822 763,823 767,819 771,817 778,817 781,819 787,814 797,814 800,812 803,807 803,805 797,799 797,792 801,787 797,783 790,780 788,775 788,765 786,760 780,755 780,752 776,752 772,747 764,747 760,744 759,738 754,733 754,723 750,714 734,698 728,697 726,695 721,693 718,702 713,706 706,705 703,700 695,701 689,698 680,698 679,699 674,699 673,700 668,700","c":[731.3,760.7]},"Ialomița":{"pts":"868,747 869,752 870,748 873,746 876,746 879,748 880,750 880,758 885,761 886,770 892,770 894,774 894,779 891,793 889,796 884,797 882,799 885,803 885,813 894,817 899,815 906,815 909,817 921,817 922,818 946,818 955,814 964,813 969,815 974,820 981,820 984,823 986,823 990,819 991,810 997,802 997,791 999,789 998,765 1004,759 1001,755 994,751 994,745 997,739 996,740 988,739 980,732 980,728 984,720 984,713 979,713 974,711 969,711 968,712 960,711 950,705 945,699 935,699 932,697 928,697 922,700 915,709 913,713 913,718 909,725 909,728 906,731 900,731 899,732 899,741 897,743 893,742 880,743 879,742 870,745","c":[942.2,765.1]},"Tulcea":{"pts":"990,712 986,730 993,735 1000,734 1002,736 1003,741 999,748 1005,751 1009,757 1008,763 1003,768 1005,773 1003,779 1004,791 1002,793 1002,804 996,813 995,820 1007,820 1020,831 1023,831 1026,823 1037,823 1043,831 1050,834 1071,832 1081,837 1082,832 1086,828 1099,823 1100,813 1091,805 1091,793 1098,784 1103,783 1106,778 1118,779 1127,786 1126,792 1119,795 1119,808 1121,808 1121,803 1125,803 1131,810 1131,818 1182,811 1186,808 1185,802 1188,798 1187,794 1192,776 1192,761 1194,757 1187,746 1187,743 1193,741 1193,727 1191,722 1178,712 1164,707 1154,706 1148,709 1140,709 1134,715 1121,720 1114,726 1110,726 1106,734 1101,735 1095,730 1086,727 1087,731 1083,734 1088,737 1088,740 1086,743 1070,744 1057,741 1044,734 1027,729 1023,726 1017,712 1017,707 1014,704 1008,711 998,708","c":[1093.5,769.6]},"Gorj":{"pts":"656,706 652,713 646,714 648,717 648,725 643,734 642,744 640,750 635,755 632,755 628,752 626,757 627,764 629,768 634,773 636,779 636,782 630,791 633,804 632,825 629,830 629,832 633,836 633,840 630,842 630,844 637,854 644,856 646,859 646,863 643,868 644,872 643,881 651,871 650,870 650,866 652,864 658,864 667,868 672,862 677,860 717,858 726,848 721,845 721,841 729,831 717,817 711,816 705,813 704,811 704,802 705,800 702,795 695,795 691,792 688,785 687,774 680,765 673,751 669,747 667,743 667,737 668,736 666,731 659,724","c":[668.2,806.7]},"Alba":{"pts":"308,742 298,752 297,756 304,757 307,760 307,764 317,774 328,774 330,775 342,787 341,798 343,808 350,817 364,831 369,834 394,841 401,846 412,858 414,858 422,852 434,848 440,848 440,830 442,828 446,828 447,824 447,814 448,812 447,811 447,802 446,801 446,786 452,767 451,757 454,750 451,740 451,733 453,727 450,724 437,725 434,723 422,722 413,726 408,730 402,730 398,727 395,727 390,730 383,731 373,737 369,737 366,735 361,735 355,738 348,738 344,735 338,735 334,732 331,734","c":[391.3,781.0]},"Mehedinți":{"pts":"305,769 300,774 296,781 293,795 286,807 282,823 279,828 285,829 300,844 313,846 321,854 322,860 317,866 314,867 309,867 301,862 298,862 296,865 295,871 292,873 287,873 286,878 289,881 289,888 294,897 302,902 309,903 312,906 312,918 338,936 345,939 350,939 360,929 365,928 364,915 367,910 368,900 372,895 376,893 373,890 374,880 383,873 384,871 383,868 385,866 394,865 400,862 408,862 408,861 400,852 393,847 383,843 367,839 359,834 347,822 338,810 336,800 337,789 332,786 326,779 313,778","c":[333.2,858.4]},"Olt":{"pts":"529,801 523,809 521,821 515,829 517,843 521,852 521,858 518,861 514,861 511,856 510,860 505,863 497,862 490,871 484,871 479,865 472,869 467,876 468,879 471,880 479,889 481,889 486,894 489,900 494,904 496,909 511,921 510,932 514,940 514,944 506,945 505,952 511,953 515,956 516,964 512,967 512,980 504,991 499,1001 522,1000 532,993 541,993 559,1000 567,994 568,992 555,967 554,956 558,950 568,947 574,941 580,940 579,930 581,921 581,892 574,892 570,886 570,877 568,872 569,861 566,846 561,837 562,832 558,831 553,826 546,812 546,806 545,810 538,817 533,817 529,810","c":[534.9,906.1]},"Călărași":{"pts":"770,824 776,827 778,838 787,843 789,846 788,851 782,855 779,860 785,864 793,860 801,860 809,865 812,864 816,859 821,858 830,865 838,864 843,867 856,866 867,871 905,870 908,868 918,868 934,871 939,874 946,875 957,884 983,894 985,894 987,889 995,882 993,873 986,871 982,867 982,863 984,862 985,848 978,841 974,841 969,837 966,832 966,826 968,822 963,818 957,819 948,823 907,822 904,820 899,822 892,822 883,818 885,820 884,825 876,828 871,828 870,821 865,817 862,817 859,820 852,820 846,816 836,817 831,815 814,815 808,810 800,819 797,820 789,819 784,824 778,824 776,822 773,822","c":[888.1,846.8]},"Constanța":{"pts":"974,825 971,828 973,833 982,837 991,847 988,866 995,868 1000,876 1000,884 992,892 985,909 977,916 959,920 951,926 933,927 916,939 895,936 893,938 893,943 901,948 906,955 930,955 934,953 940,953 943,955 949,966 956,965 964,960 974,959 979,967 983,984 987,988 1017,1001 1034,1004 1055,1004 1058,983 1066,962 1061,934 1062,930 1066,927 1061,915 1062,902 1067,896 1070,895 1071,891 1079,881 1076,878 1078,865 1074,864 1074,859 1078,855 1077,848 1081,845 1081,842 1075,841 1069,837 1064,839 1048,839 1041,836 1034,828 1030,828 1026,836 1018,837 1007,826 1002,824 992,825 989,828 982,828 978,825","c":[1013.9,918.1]},"București":{"pts":"749,827 748,828 746,828 745,829 737,829 737,830 733,834 733,835 732,836 731,836 731,837 730,838 730,840 727,843 729,843 731,845 731,850 730,851 730,852 725,857 725,858 722,861 722,862 724,865 724,873 723,874 723,875 720,880 720,882 719,883 719,892 720,893 727,896 730,900 734,900 741,907 742,907 745,910 746,910 749,912 753,912 756,909 757,909 759,907 759,906 764,901 764,898 767,894 767,893 770,890 770,889 775,884 784,880 785,879 785,878 784,877 783,877 780,874 780,867 777,866 774,862 774,858 775,857 775,855 776,854 776,853 782,848 783,848 783,847 782,847 780,845 779,845 774,842 774,841 773,840 773,836 771,833 771,830 770,829 765,829 764,828 755,828 754,827","c":[750.4,867.7]},"Giurgiu":{"pts":"445,833 445,851 443,853 436,853 424,857 411,867 402,867 397,870 391,870 391,872 387,877 379,883 378,887 385,889 387,891 387,895 385,897 379,897 373,902 372,912 369,917 370,931 368,933 363,934 355,942 357,947 355,956 349,960 337,963 333,977 333,982 336,986 345,987 365,985 374,982 378,979 402,978 413,979 426,987 444,985 455,991 494,1000 500,987 507,978 508,972 506,970 506,966 511,961 509,958 503,958 500,955 501,942 507,939 505,934 506,923 496,917 492,913 490,908 483,901 481,896 476,894 470,886 462,880 462,874 467,866 463,862 458,848 447,841","c":[430.6,932.3]},"Ilfov":{"pts":"717,863 687,864 686,865 676,866 672,870 674,873 674,877 669,886 669,890 673,899 688,902 696,909 696,912 697,913 697,933 690,938 690,942 687,948 687,957 688,958 688,964 689,965 691,980 693,985 696,988 696,991 697,992 698,1006 700,1006 707,996 713,992 721,980 735,970 735,968 743,958 753,954 759,953 770,948 780,947 780,944 786,935 786,928 784,923 781,919 770,913 766,908 755,917 747,917 742,915 731,905 727,905 723,900 719,899 715,896 714,894 714,882 719,870","c":[719.8,928.8]},"Teleorman":{"pts":"769,903 774,909 783,914 788,919 790,923 791,937 785,946 808,943 811,941 815,941 817,939 825,939 841,930 856,929 858,927 863,927 872,933 881,934 885,936 888,936 893,931 914,934 921,927 928,923 949,921 957,915 972,912 978,909 981,905 983,899 961,892 950,886 944,880 938,879 932,876 916,873 911,873 904,876 901,875 865,876 854,871 841,872 836,869 828,870 819,864 816,868 811,870 806,870 798,865 786,870 785,872 789,873 791,875 791,880 786,885 779,888 773,894","c":[865.0,902.9]},"Dolj":{"pts":"667,873 663,873 656,869 656,873 651,881 646,886 640,887 633,883 624,883 616,889 612,890 607,889 602,894 593,894 592,893 586,894 585,896 586,923 584,930 586,941 584,944 576,946 571,952 562,954 559,958 559,962 562,970 574,992 573,996 568,999 565,1002 566,1003 576,1004 577,1003 601,1002 616,1008 629,1008 637,1010 650,1019 656,1019 661,1016 673,1016 682,1012 686,1008 692,1008 693,1007 692,994 686,982 682,958 682,946 685,940 685,936 689,931 692,931 692,915 691,912 684,906 672,905 668,901 663,890 664,884 668,876","c":[632.1,951.6]}};
+const JUDETE_ABREV = {"Alba":"AB","Arad":"AR","Argeș":"AG","Bacău":"BC","Bihor":"BH","Bistrița-Năsăud":"BN","Botoșani":"BT","Brăila":"BR","Brașov":"BV","București":"B","Buzău":"BZ","Caraș-Severin":"CS","Călărași":"CL","Cluj":"CJ","Constanța":"CT","Covasna":"CV","Dâmbovița":"DB","Dolj":"DJ","Galați":"GL","Giurgiu":"GR","Gorj":"GJ","Harghita":"HR","Hunedoara":"HD","Ialomița":"IL","Iași":"IS","Ilfov":"IF","Maramureș":"MM","Mehedinți":"MH","Mureș":"MS","Neamț":"NT","Olt":"OT","Prahova":"PH","Satu Mare":"SM","Sălaj":"SJ","Sibiu":"SB","Suceava":"SV","Teleorman":"TR","Timiș":"TM","Tulcea":"TL","Vaslui":"VS","Vâlcea":"VL","Vrancea":"VN"};
+const FOCAR_MODELE = [
+  "6050","7050","8050","9050",
+  "655047 L/R","755047 L/R","855047 L/R",
+  "6050G","9050G","12050G","755047 L/R G","855047 L/R G","PSG 60","9050 P",
+  "4380 (Sobă)","Forum (Sobă sticlă colț)"
+];
+const RRP_FOCAR = {
+  "6050": { White: 1815, Black: 2032.8 }, "7050": { White: 2032.8, Black: 2250.6 },
+  "8050": { White: 2049.74, Black: 2407.9 }, "9050": { White: 2369.18, Black: 2770.9 },
+  "655047 L/R": { White: 2420, Black: 2582.14 }, "755047 L/R": { White: 2528.9, Black: 2807.2 },
+  "855047 L/R": { White: 2879.8, Black: 3206.5 }, "6050G": { White: 3025, Black: 3375.9 },
+  "9050G": { White: 3412.2, Black: 3799.4 }, "12050G": { White: 4392.3, Black: 4803.7 },
+  "755047 L/R G": { White: 4271.3, Black: 4743.2 }, "855047 L/R G": { White: 4755.3, Black: 5118.3 },
+  "PSG 60": { White: 4973.1, Black: 5239.3 }, "9050 P": { White: 3496.9, Black: 3823.6 },
+  "4380 (Sobă)": { White: 1899.7, Black: 2105.4 }, "Forum (Sobă sticlă colț)": { White: 2601.5, Black: 2891.9 }
+};
+const ADMIN_PASSWORD = "BokarAdmin2026";
+const WARRANTY_YEARS = 5;
+const MAX_ZILE_INREGISTRARE = 60;
+const DISCOUNT_DEALER = 0.35;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4",
+  authDomain: "bokar-crm.firebaseapp.com",
+  projectId: "bokar-crm",
+  storageBucket: "bokar-crm.firebasestorage.app",
+  messagingSenderId: "45902513565",
+  appId: "1:45902513565:web:1d2c55629af5d23e0d9b74"
+};
+let db = null, firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){ console.error('Firebase nu s-a putut încărca', e); }
+
+// Seria are formatul BOKAR-AAAA-LLZZ-MODEL-SECVENȚĂ — extragem data fabricației din ea.
+function parseSerie(serie){
+  const m = serie.trim().toUpperCase().match(/^BOKAR-(\d{4})-(\d{2})(\d{2})-([A-Z0-9]+)-(\d+)$/);
+  if(!m) return null;
+  const [, an, luna, zi] = m;
+  const lunaNum = Number(luna), ziNum = Number(zi);
+  if(lunaNum < 1 || lunaNum > 12 || ziNum < 1 || ziNum > 31) return null;
+  return { dataFabricatie: `${an}-${luna}-${zi}` };
+}
+
+function populateSelects(){
+  document.getElementById('v-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('v-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('v-data').value = new Date().toISOString().slice(0,10);
+  updateValoareAuto();
+
+  document.getElementById('of-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('of-data').value = new Date().toISOString().slice(0,10);
+  refreshOfModelOptions();
+
+  document.getElementById('cd-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('cd-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('cd-data').value = new Date().toISOString().slice(0,10);
+  updateCdValoareAuto();
+
+  document.getElementById('g-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('g-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('g-data').value = new Date().toISOString().slice(0,10);
+
+  document.getElementById('im-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('imProduseRows').innerHTML = '';
+  addImProdusRow();
+
+  document.getElementById('part-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('pg-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('pc-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('pg-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('pg-data').value = new Date().toISOString().slice(0,10);
+  refreshPartModelOptions();
+  updatePcValoareAuto();
+}
+function refreshPartModelOptions(){
+  const cat = document.getElementById('part-categorie').value;
+  const variantaWrap = document.getElementById('part-varianta-wrap');
+  const modelSel = document.getElementById('part-model');
+  if(cat === 'focar'){
+    modelSel.innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+    variantaWrap.style.display = 'block';
+  } else {
+    modelSel.innerHTML = `<option value="Grilă Luft — standard">Grilă Luft — standard</option>`;
+    variantaWrap.style.display = 'none';
+  }
+  updatePartValoareAuto();
+}
+function updatePartValoareAuto(){
+  const cat = document.getElementById('part-categorie').value;
+  const model = document.getElementById('part-model').value;
+  const varianta = document.getElementById('part-varianta').value;
+  if(cat === 'focar'){
+    const rrp = RRP_FOCAR[model]?.[varianta];
+    if(rrp !== undefined) document.getElementById('part-valoare').value = rrp;
+  }
+}
+document.getElementById('part-categorie').onchange = refreshPartModelOptions;
+document.getElementById('part-model').onchange = updatePartValoareAuto;
+document.getElementById('part-varianta').onchange = updatePartValoareAuto;
+
+function updatePcValoareAuto(){
+  // fără câmp vizibil — valoarea se calculează direct la trimiterea cererii (vezi partCerereForm)
+}
+document.getElementById('pc-model').onchange = updatePcValoareAuto;
+document.getElementById('pc-varianta').onchange = updatePcValoareAuto;
+document.getElementById('pc-cantitate').oninput = updatePcValoareAuto;
+
+function updateValoareAuto(){
+  const model = document.getElementById('v-model').value;
+  const varianta = document.getElementById('v-varianta').value;
+  const cant = Number(document.getElementById('v-cantitate').value) || 1;
+  const rrp = RRP_FOCAR[model]?.[varianta];
+  if(rrp !== undefined) document.getElementById('v-valoare').value = (rrp*cant).toFixed(2);
+}
+document.getElementById('v-model').onchange = updateValoareAuto;
+document.getElementById('v-varianta').onchange = updateValoareAuto;
+document.getElementById('v-cantitate').oninput = updateValoareAuto;
+
+function refreshOfModelOptions(){
+  const cat = document.getElementById('of-categorie').value;
+  const variantaWrap = document.getElementById('of-varianta-wrap');
+  const modelSel = document.getElementById('of-model');
+  if(cat === 'focar'){
+    modelSel.innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+    variantaWrap.style.display = 'block';
+  } else {
+    modelSel.innerHTML = `<option value="Grilă Luft — standard">Grilă Luft — standard</option>`;
+    variantaWrap.style.display = 'none';
+  }
+  updateOfValoareAuto();
+}
+function updateOfValoareAuto(){
+  const cat = document.getElementById('of-categorie').value;
+  const model = document.getElementById('of-model').value;
+  const varianta = document.getElementById('of-varianta').value;
+  if(cat === 'focar'){
+    const rrp = RRP_FOCAR[model]?.[varianta];
+    if(rrp !== undefined) document.getElementById('of-valoare').value = rrp;
+  }
+}
+document.getElementById('of-categorie').onchange = refreshOfModelOptions;
+document.getElementById('of-model').onchange = updateOfValoareAuto;
+document.getElementById('of-varianta').onchange = updateOfValoareAuto;
+
+function updateCdValoareAuto(){
+  const model = document.getElementById('cd-model').value;
+  const varianta = document.getElementById('cd-varianta').value;
+  const cant = Number(document.getElementById('cd-cantitate').value) || 1;
+  const rrp = RRP_FOCAR[model]?.[varianta];
+  if(rrp !== undefined) document.getElementById('cd-valoare').value = (rrp*(1-DISCOUNT_DEALER)*cant).toFixed(2);
+}
+document.getElementById('cd-model').onchange = updateCdValoareAuto;
+document.getElementById('cd-varianta').onchange = updateCdValoareAuto;
+document.getElementById('cd-cantitate').oninput = updateCdValoareAuto;
+
+let imRowCount = 0;
+function addImProdusRow(){
+  const id = imRowCount++;
+  const div = document.createElement('div');
+  div.className = 'produs-row';
+  div.innerHTML = `
+    <div>
+      <label>Model</label>
+      <select class="im-model">${FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+      <label style="margin-top:6px;">Variantă</label>
+      <select class="im-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+    </div>
+    <div>
+      <label>Cost/unit (€)</label>
+      <input type="number" class="im-cost" step="0.01" placeholder="ex: 720">
+    </div>
+    <div>
+      <label>Serii de șasiu (una pe linie)</label>
+      <textarea class="im-serii" rows="3" placeholder="BOKAR-2026-0405-7550L-01610"></textarea>
+    </div>
+    <button type="button" class="rm-btn">✕</button>
+  `;
+  div.querySelector('.rm-btn').onclick = () => div.remove();
+  document.getElementById('imProduseRows').appendChild(div);
+}
+document.getElementById('imAddProdusBtn').onclick = addImProdusRow;
+
+function markFieldValid(wrapId, isValid){
+  document.getElementById(wrapId).classList.toggle('invalid', !isValid);
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+function daysSince(iso){ return Math.floor((new Date() - new Date(iso)) / (1000*60*60*24)); }
+
+document.getElementById('vanzareForm').onsubmit = async function(e){
+  e.preventDefault();
+  const client = document.getElementById('v-client').value.trim();
+  const judet = document.getElementById('v-judet').value;
+  const model = document.getElementById('v-model').value;
+  const varianta = document.getElementById('v-varianta').value;
+  const cantitate = Number(document.getElementById('v-cantitate').value) || 1;
+  const valoare = Number(document.getElementById('v-valoare').value) || 0;
+  const data = document.getElementById('v-data').value;
+  const nota = document.getElementById('v-nota').value.trim();
+
+  let valid = true;
+  markFieldValid('v-client-wrap', !!client); if(!client) valid = false;
+  if(!valid) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    await db.collection('vanzariDirecte').add({ client, judet, model, varianta, cantitate, valoare, data, nota });
+    document.getElementById('vanzareSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+    loadOverview();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+
+document.getElementById('ofertaActionForm').onsubmit = async function(e){
+  e.preventDefault();
+  document.getElementById('ofWarning').classList.remove('show');
+  document.getElementById('ofSuccess').classList.remove('show');
+  const coleg = document.getElementById('of-coleg').value.trim();
+  const judet = document.getElementById('of-judet').value;
+  const tel5 = document.getElementById('of-tel').value.trim();
+  const data = document.getElementById('of-data').value;
+  const categorie = document.getElementById('of-categorie').value;
+  const model = document.getElementById('of-model').value;
+  const varianta = categorie === 'focar' ? document.getElementById('of-varianta').value : '';
+  const valoare = Number(document.getElementById('of-valoare').value) || 0;
+  const status = document.getElementById('of-status').value;
+
+  let valid = true;
+  markFieldValid('of-coleg-wrap', !!coleg); if(!coleg) valid = false;
+  markFieldValid('of-judet-wrap', !!judet); if(!judet) valid = false;
+  const tel5Valid = /^\d{5}$/.test(tel5);
+  markFieldValid('of-tel-wrap', tel5Valid); if(!tel5Valid) valid = false;
+  if(!valid) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    const existing = CACHE.oferte || [];
+    function daysBetweenStr(d1,d2){ return Math.abs((new Date(d1)-new Date(d2))/(1000*60*60*24)); }
+    const dup = existing.find(o => o.judet===judet && o.tel5===tel5 && o.coleg.trim().toLowerCase()!==coleg.trim().toLowerCase() && o.status!=='pierdut' && daysBetweenStr(o.data,data)<=30);
+
+    await db.collection('oferte').add({ coleg, judet, tel5, categorie, model, varianta, data, status, valoare, nota:'' });
+    document.getElementById('ofSuccess').classList.add('show');
+    if(dup){
+      document.getElementById('ofWarning').textContent = `Client posibil deja ofertat de ${dup.coleg}, pe ${fmtDate(dup.data)}, pentru ${dup.model}.`;
+      document.getElementById('ofWarning').classList.add('show');
+    }
+    this.reset();
+    populateSelects();
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+
+document.getElementById('dealerActionForm').onsubmit = async function(e){
+  e.preventDefault();
+  const dealer = document.getElementById('cd-dealer').value.trim();
+  const judet = document.getElementById('cd-judet').value;
+  const model = document.getElementById('cd-model').value;
+  const varianta = document.getElementById('cd-varianta').value;
+  const cantitate = Number(document.getElementById('cd-cantitate').value) || 1;
+  const valoare = Number(document.getElementById('cd-valoare').value) || 0;
+  const data = document.getElementById('cd-data').value;
+  const nota = document.getElementById('cd-nota').value.trim();
+
+  markFieldValid('cd-dealer-wrap', !!dealer);
+  if(!dealer) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    await db.collection('dealeriComenzi').add({ dealer, judet, model, varianta, cantitate, valoare, data, nota, status:'aprobata' });
+    document.getElementById('cdSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+
+document.getElementById('garantieActionForm').onsubmit = async function(e){
+  e.preventDefault();
+  document.getElementById('gSuccess').classList.remove('show');
+  document.getElementById('gError').classList.remove('show');
+
+  const serie = document.getElementById('g-serie').value.trim();
+  const model = document.getElementById('g-model').value;
+  const varianta = document.getElementById('g-varianta').value;
+  const clientNume = document.getElementById('g-client').value.trim();
+  const judet = document.getElementById('g-judet').value;
+  const adresa = document.getElementById('g-adresa').value.trim();
+  const factura = document.getElementById('g-factura').value.trim();
+  const montator = document.getElementById('g-montator').value.trim();
+  const dataMontaj = document.getElementById('g-data').value;
+
+  let valid = true;
+  markFieldValid('g-serie-wrap', !!serie); if(!serie) valid = false;
+  markFieldValid('g-client-wrap', !!clientNume); if(!clientNume) valid = false;
+  markFieldValid('g-adresa-wrap', !!adresa); if(!adresa) valid = false;
+  markFieldValid('g-factura-wrap', !!factura); if(!factura) valid = false;
+  markFieldValid('g-montator-wrap', !!montator); if(!montator) valid = false;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() - MAX_ZILE_INREGISTRARE);
+  const dataMontajDate = dataMontaj ? new Date(dataMontaj) : null;
+  let dataValida = !!dataMontaj && dataMontajDate <= today && dataMontajDate >= minDate;
+  let dataErrorMsg = 'Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor';
+  const parsedSerie = serie ? parseSerie(serie) : null;
+  if(dataValida && parsedSerie){
+    const dataFabricatieDate = new Date(parsedSerie.dataFabricatie);
+    if(dataMontajDate < dataFabricatieDate){
+      dataValida = false;
+      dataErrorMsg = `Data montajului nu poate fi înainte de data fabricației codificate în serie (${fmtDate(parsedSerie.dataFabricatie)})`;
+    }
+  }
+  document.getElementById('g-data-error').textContent = dataErrorMsg;
+  markFieldValid('g-data-wrap', dataValida); if(!dataValida) valid = false;
+  if(!valid) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    const existing = await db.collection('garantii').where('serie','==',serie).get();
+    if(!existing.empty){
+      document.getElementById('gError').classList.add('show');
+      return;
+    }
+    const dataExpirare = addYearsStr(dataMontaj, WARRANTY_YEARS);
+    await db.collection('garantii').add({ serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataExpirare, inregistratDe:'Admin' });
+
+    // Dacă seria a fost logată la import (colecția „unitati"), o marcăm drept vândută.
+    const unitSnap = await db.collection('unitati').where('serie','==',serie).get();
+    if(!unitSnap.empty){
+      await db.collection('unitati').doc(unitSnap.docs[0].id).update({ status:'vandut', dataVanzare: dataMontaj });
+    }
+
+    document.getElementById('gSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+function addYearsStr(dateStr, years){
+  const d = new Date(dateStr);
+  d.setFullYear(d.getFullYear() + years);
+  return d.toISOString().slice(0,10);
+}
+
+document.getElementById('importActionForm').onsubmit = async function(e){
+  e.preventDefault();
+  const factura = document.getElementById('im-factura').value.trim();
+  const data = document.getElementById('im-data').value;
+  const curs = Number(document.getElementById('im-curs').value);
+  const transport = Number(document.getElementById('im-transport').value) || 0;
+  const comisionar = Number(document.getElementById('im-comisionar').value) || 0;
+  const vama = Number(document.getElementById('im-vama').value) || 0;
+
+  markFieldValid('im-factura-wrap', !!factura);
+  if(!factura) return;
+
+  const rows = Array.from(document.querySelectorAll('#imProduseRows .produs-row')).map(row => {
+    const serii = row.querySelector('.im-serii').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    return {
+      model: row.querySelector('.im-model').value,
+      varianta: row.querySelector('.im-varianta').value,
+      costAchizitie: Number(row.querySelector('.im-cost').value) || 0,
+      serii
+    };
+  }).filter(r => r.serii.length > 0 && r.costAchizitie > 0);
+
+  if(rows.length === 0){ alert('Adaugă cel puțin un produs cu cost și cel puțin o serie de șasiu.'); return; }
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    const valoareTotalaMarfa = rows.reduce((s,r) => s + r.serii.length * r.costAchizitie, 0);
+    const produseAggregat = rows.map(r => ({ model:r.model, varianta:r.varianta, cantitate:r.serii.length, costAchizitie:r.costAchizitie }));
+    await db.collection('importuri').add({ factura, data, curs, transport, comisionar, vama, produse: produseAggregat, valoareTotalaMarfa });
+
+    // O unitate urmărită per serie de șasiu, gata pentru „Stoc".
+    const batch = db.batch();
+    rows.forEach(r => {
+      r.serii.forEach(serie => {
+        const ref = db.collection('unitati').doc();
+        batch.set(ref, { serie, model:r.model, varianta:r.varianta, dataImport:data, facturaImport:factura, status:'custodie' });
+      });
+    });
+    await batch.commit();
+
+    // Actualizează costurile reale + inputurile globale din „Prețuri & Marje".
+    const marjeSnap = await db.collection('config').doc('marje').get();
+    if(marjeSnap.exists){
+      const marjeData = marjeSnap.data();
+      const produseMarje = marjeData.produse || [];
+      rows.forEach(r => {
+        const match = produseMarje.find(p => p.model === r.model && p.varianta === r.varianta);
+        if(match){ match.costAchizitie = r.costAchizitie; match.tipCost = `REAL ${factura}`; }
+      });
+      const newInputs = { ...(marjeData.inputs||{}), curs, transport, comisionar, vama, valEconomica: valoareTotalaMarfa };
+      await db.collection('config').doc('marje').set({ inputs: newInputs, produse: produseMarje });
+    }
+
+    document.getElementById('imSuccess').textContent = `Import salvat — ${rows.reduce((s,r)=>s+r.serii.length,0)} unități noi în stoc.`;
+    document.getElementById('imSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea și încearcă din nou.');
+  }
+};
+
+document.getElementById('partOfertaForm').onsubmit = async function(e){
+  e.preventDefault();
+  document.getElementById('partWarning').classList.remove('show');
+  document.getElementById('partSuccess').classList.remove('show');
+  const judet = document.getElementById('part-judet').value;
+  const tel5 = document.getElementById('part-tel').value.trim();
+  const categorie = document.getElementById('part-categorie').value;
+  const model = document.getElementById('part-model').value;
+  const varianta = categorie === 'focar' ? document.getElementById('part-varianta').value : '';
+  const valoare = Number(document.getElementById('part-valoare').value) || 0;
+
+  let valid = true;
+  markFieldValid('part-judet-wrap', !!judet); if(!judet) valid = false;
+  const tel5Valid = /^\d{5}$/.test(tel5);
+  markFieldValid('part-tel-wrap', tel5Valid); if(!tel5Valid) valid = false;
+  if(!valid) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  const data = new Date().toISOString().slice(0,10);
+  try{
+    function daysBetweenStr(d1,d2){ return Math.abs((new Date(d1)-new Date(d2))/(1000*60*60*24)); }
+    const existingSnap = await db.collection('oferte').where('judet','==',judet).get();
+    const dup = existingSnap.docs.map(d=>d.data()).find(o => o.tel5===tel5 && o.coleg.trim().toLowerCase()!==currentUser.name.trim().toLowerCase() && o.status!=='pierdut' && daysBetweenStr(o.data,data)<=30);
+
+    await db.collection('oferte').add({ coleg: currentUser.name, judet, tel5, categorie, model, varianta, data, status:'ofertat', valoare, nota:'' });
+    document.getElementById('partSuccess').classList.add('show');
+    if(dup){
+      document.getElementById('partWarning').innerHTML =
+        `<p>În sistem există deja o ofertă asociată unui proiect cu aceleași ultime 5 cifre ale numărului de telefon și același județ.</p>
+         <p>Poți continua și transmite propria ofertă, însă proiectul este deja lucrat de un alt partener BOKAR.</p>`;
+      document.getElementById('partWarning').classList.add('show');
+    }
+    this.reset();
+    populateSelects();
+    loadPartenerView();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+
+document.getElementById('partCerereForm').onsubmit = async function(e){
+  e.preventDefault();
+  const model = document.getElementById('pc-model').value;
+  const varianta = document.getElementById('pc-varianta').value;
+  const cantitate = Number(document.getElementById('pc-cantitate').value) || 1;
+  const nota = document.getElementById('pc-nota').value.trim();
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  const rrp = RRP_FOCAR[model]?.[varianta] || 0;
+  const valoare = Math.round(rrp * (1 - DISCOUNT_DEALER) * cantitate * 100) / 100;
+  try{
+    await db.collection('dealeriComenzi').add({
+      dealer: currentUser.name, judet:'', model, varianta, cantitate, valoare,
+      data: new Date().toISOString().slice(0,10), nota, status:'in_asteptare'
+    });
+    document.getElementById('pcSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+    loadPartenerView();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut trimite cererea.');
+  }
+};
+
+document.getElementById('partGarantieForm').onsubmit = async function(e){
+  e.preventDefault();
+  document.getElementById('pgSuccess').classList.remove('show');
+  document.getElementById('pgError').classList.remove('show');
+
+  const serie = document.getElementById('pg-serie').value.trim();
+  const model = document.getElementById('pg-model').value;
+  const varianta = document.getElementById('pg-varianta').value;
+  const clientNume = document.getElementById('pg-client').value.trim();
+  const judet = document.getElementById('pg-judet').value;
+  const adresa = document.getElementById('pg-adresa').value.trim();
+  const factura = document.getElementById('pg-factura').value.trim();
+  const montator = document.getElementById('pg-montator').value.trim();
+  const dataMontaj = document.getElementById('pg-data').value;
+
+  let valid = true;
+  markFieldValid('pg-serie-wrap', !!serie); if(!serie) valid = false;
+  markFieldValid('pg-client-wrap', !!clientNume); if(!clientNume) valid = false;
+  markFieldValid('pg-adresa-wrap', !!adresa); if(!adresa) valid = false;
+  markFieldValid('pg-factura-wrap', !!factura); if(!factura) valid = false;
+  markFieldValid('pg-montator-wrap', !!montator); if(!montator) valid = false;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() - MAX_ZILE_INREGISTRARE);
+  const dataMontajDate = dataMontaj ? new Date(dataMontaj) : null;
+  let dataValida = !!dataMontaj && dataMontajDate <= today && dataMontajDate >= minDate;
+  let dataErrorMsg = 'Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor';
+  const parsedSerie = serie ? parseSerie(serie) : null;
+  if(dataValida && parsedSerie){
+    const dataFabricatieDate = new Date(parsedSerie.dataFabricatie);
+    if(dataMontajDate < dataFabricatieDate){
+      dataValida = false;
+      dataErrorMsg = `Data montajului nu poate fi înainte de data fabricației codificate în serie (${fmtDate(parsedSerie.dataFabricatie)})`;
+    }
+  }
+  document.getElementById('pg-data-error').textContent = dataErrorMsg;
+  markFieldValid('pg-data-wrap', dataValida); if(!dataValida) valid = false;
+  if(!valid) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+
+  try{
+    const existing = await db.collection('garantii').where('serie','==',serie).get();
+    if(!existing.empty){
+      document.getElementById('pgError').classList.add('show');
+      return;
+    }
+    const dataExpirare = addYearsStr(dataMontaj, WARRANTY_YEARS);
+    await db.collection('garantii').add({ serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataExpirare, inregistratDe: currentUser.name });
+
+    const unitSnap = await db.collection('unitati').where('serie','==',serie).get();
+    if(!unitSnap.empty){
+      await db.collection('unitati').doc(unitSnap.docs[0].id).update({ status:'vandut', dataVanzare: dataMontaj });
+    }
+
+    document.getElementById('pgSuccess').classList.add('show');
+    this.reset();
+    populateSelects();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut salva — verifică conexiunea.');
+  }
+};
+
+async function loadPartenerView(){
+  const [oferteToate, dealeriComenziToate] = await Promise.all([safeGetAll('oferte'), safeGetAll('dealeriComenzi')]);
+  const ofertele = oferteToate.filter(o => o.coleg === currentUser.name);
+  const comenzile = dealeriComenziToate.filter(c => c.dealer === currentUser.name);
+
+  const istEl = document.getElementById('partIstoricContent');
+  const aprobate = comenzile.filter(c => (c.status||'aprobata')==='aprobata');
+  const inAsteptare = comenzile.filter(c => c.status==='in_asteptare');
+  istEl.innerHTML = `
+    <div class="card">
+      <h2>Ofertele mele</h2>
+      ${ofertele.length ? `
+        <table><thead><tr><th>Dată</th><th>Județ</th><th>Model</th><th>Status</th></tr></thead>
+        <tbody>${[...ofertele].sort((a,b)=>b.data.localeCompare(a.data)).map(o=>`
+          <tr><td>${fmtDate(o.data)}</td><td>${o.judet}</td><td>${o.model}${o.varianta?' '+o.varianta:''}</td><td>${o.status}</td></tr>
+        `).join('')}</tbody></table>
+      ` : '<div class="empty">Nicio ofertă încă.</div>'}
+    </div>
+    <div class="card">
+      <h2>Comenzile mele</h2>
+      ${comenzile.length ? `
+        <table><thead><tr><th>Dată</th><th>Model</th><th>Cantitate</th><th>Valoare</th><th>Status</th></tr></thead>
+        <tbody>${[...comenzile].sort((a,b)=>b.data.localeCompare(a.data)).map(c=>`
+          <tr><td>${fmtDate(c.data)}</td><td>${c.model}${c.varianta?' '+c.varianta:''}</td><td>${c.cantitate}</td><td>${Number(c.valoare||0).toLocaleString('ro-RO')} €</td>
+          <td><span class="source-tag source-${c.status==='in_asteptare'?'coleg':c.status==='respinsa'?'dealer':'direct'}">${c.status==='in_asteptare'?'În așteptare':c.status==='respinsa'?'Respinsă':'Aprobată'}</span></td></tr>
+        `).join('')}</tbody></table>
+      ` : '<div class="empty">Nicio comandă încă.</div>'}
+    </div>
+  `;
+
+  const statsEl = document.getElementById('partStatsContent');
+  const castigate = ofertele.filter(o=>o.status==='castigat').length;
+  const pierdute = ofertele.filter(o=>o.status==='pierdut').length;
+  const decise = castigate + pierdute;
+  const rataSucces = decise ? Math.round((castigate/decise)*100) : 0;
+  const unitatiAprobate = aprobate.reduce((s,c)=>s+(Number(c.cantitate)||0),0);
+  function nivelDealerLocal(n){ if(n>=10) return 'STUDIO'; if(n>=6) return 'PRO'; if(n>=3) return 'PARTNER'; return 'START'; }
+  statsEl.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${ofertele.length}</div><div class="l">Oferte totale</div></div>
+      <div class="stat-card"><div class="n">${rataSucces}%</div><div class="l">Rată succes oferte</div></div>
+      <div class="stat-card"><div class="n">${unitatiAprobate}</div><div class="l">Unități comandate (aprobate)</div></div>
+      <div class="stat-card"><div class="n">${nivelDealerLocal(unitatiAprobate)}</div><div class="l">Nivelul tău</div></div>
+    </div>
+  `;
+}
+
+document.querySelectorAll('.subtab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.subtab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.subtab-content').forEach(c=>c.style.display='none');
+    document.getElementById('subtab-'+btn.dataset.subtab).style.display='block';
+  };
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+  };
+});
+
+async function safeGetAll(collName){
+  if(!firebaseReady) return [];
+  try{
+    const snap = await db.collection(collName).get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }catch(e){
+    console.error('Eroare citire '+collName, e);
+    return [];
+  }
+}
+
+async function safeGet(collName, docId){
+  if(!firebaseReady) return null;
+  try{
+    const snap = await db.collection(collName).doc(docId).get();
+    return snap.exists ? snap.data() : null;
+  }catch(e){
+    console.error('Eroare citire '+collName+'/'+docId, e);
+    return null;
+  }
+}
+
+function nivelDealer(unitati){
+  if(unitati >= 10) return 'STUDIO';
+  if(unitati >= 6) return 'PRO';
+  if(unitati >= 3) return 'PARTNER';
+  return 'START';
+}
+const PRAG_URMATOR = { START: 3, PARTNER: 6, PRO: 10, STUDIO: null };
+function daysSinceStr(iso){ return Math.floor((new Date() - new Date(iso)) / (1000*60*60*24)); }
+const INACTIV_ZILE = 90;
+
+// Calculează costul unitar "aterizat" (landed) pentru un model, folosind exact formulele din
+// bokar-marje.html — necesar ca să estimăm profitul, nu doar cifra de afaceri.
+function landedCostFor(model, varianta, marjeData){
+  if(!marjeData) return null;
+  const p = (marjeData.produse||[]).find(x => x.model===model && x.varianta===varianta);
+  if(!p) return null;
+  const inp = marjeData.inputs || {};
+  const costLogisticTotal = (inp.transport||0) + (inp.comisionar||0) + (inp.vama||0);
+  const coefLogistic = inp.curs && inp.valEconomica ? (costLogisticTotal / inp.curs) / inp.valEconomica : 0;
+  const logisticaImport = p.costAchizitie * coefLogistic;
+  return { landedCost: p.costAchizitie + logisticaImport, transportDealer: inp.transportDealer || 0 };
+}
+
+let CACHE = {};
+
+async function loadAll(){
+  const [oferte, dealeriComenziToate, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi] = await Promise.all([
+    safeGetAll('oferte'), safeGetAll('dealeriComenzi'), safeGetAll('vanzariDirecte'),
+    safeGetAll('garantii'), safeGetAll('importuri'), safeGet('config','marje'), safeGetAll('unitati'), safeGetAll('parteneriConturi')
+  ]);
+  // Comenzile fără status sunt cele vechi, introduse direct de admin — le tratăm ca aprobate.
+  const dealeriComenzi = dealeriComenziToate.filter(c => (c.status||'aprobata') === 'aprobata');
+  const cereriInAsteptare = dealeriComenziToate.filter(c => c.status === 'in_asteptare');
+  CACHE = { oferte, dealeriComenzi, dealeriComenziToate, cereriInAsteptare, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi };
+  renderOverview();
+  renderProfituri();
+  renderDealeriTab();
+  renderOferteTab();
+  renderStoc();
+  renderHarta();
+  renderCereri();
+  renderConturiList();
+  document.getElementById('dealeriDatalist').innerHTML =
+    [...new Set(dealeriComenzi.map(d=>d.dealer))].map(d=>`<option value="${d}">`).join('');
+}
+// alias păstrat pentru compatibilitate cu apelurile existente
+async function loadOverview(){ await loadAll(); }
+
+function renderHarta(){
+  const { dealeriComenzi, vanzariDirecte, oferte } = CACHE;
+  const el = document.getElementById('hartaContent');
+  const ofertateCastigate = oferte.filter(o => o.status === 'castigat');
+
+  const perJudet = {};
+  function add(judet, sursa, valoare, model){
+    if(!judet) return;
+    if(!perJudet[judet]) perJudet[judet] = { dealer:0, direct:0, coleg:0, total:0, modele:{} };
+    perJudet[judet][sursa] += valoare;
+    perJudet[judet].total += valoare;
+    if(model) perJudet[judet].modele[model] = (perJudet[judet].modele[model]||0) + 1;
+  }
+  dealeriComenzi.forEach(o => add(o.judet, 'dealer', Number(o.valoare)||0, o.model));
+  vanzariDirecte.forEach(o => add(o.judet, 'direct', Number(o.valoare)||0, o.model));
+  ofertateCastigate.forEach(o => add(o.judet, 'coleg', Number(o.valoare)||0, o.model));
+
+  function bucketColor(total){
+    if(total === undefined || total === 0) return '#c7cbd1'; // fără activitate — neutru, plat
+    if(total < 10000) return '#2c5f8a';
+    if(total < 50000) return '#1f8ac0';
+    if(total < 100000) return '#1fb0a8';
+    return '#e0b400';
+  }
+
+  const maxTotal = Math.max(1, ...Object.values(perJudet).map(d=>d.total));
+  const MAX_HEIGHT = 90; // px, înălțimea maximă a „coloanei" pentru cel mai mare județ
+
+  const svgShapes = JUDETE.map(j => {
+    const data = perJudet[j];
+    const total = data ? data.total : 0;
+    const color = bucketColor(total);
+    const height = total > 0 ? Math.max(10, (total/maxTotal) * MAX_HEIGHT) : 0;
+
+    const shape = JUDETE_SHAPES[j];
+    if(!shape){
+      // fără contur extras (ex: Bistrița-Năsăud) — marcator simplu de rezervă
+      const pos = JUDETE_POS[j];
+      if(!pos) return '';
+      return `
+        <g class="harta-cell" data-judet="${j}" transform="translate(${pos[0]},${pos[1]-height})" style="cursor:pointer;">
+          <circle r="24" fill="${color}" stroke="#fff" stroke-width="3"/>
+          <text y="5" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" style="pointer-events:none;">${JUDETE_ABREV[j]}</text>
+        </g>
+      `;
+    }
+
+    const [cx, cy] = shape.c;
+    let extrusion = '';
+    if(height > 0){
+      // „perete" simplu: conturul de bază, umbră întunecată, apoi conturul ridicat cu culoarea reală
+      const shadowColor = '#00000030';
+      extrusion = `
+        <path d="M${shape.pts.split(' ').map(p=>p).join(' L')} Z" fill="${shadowColor}" transform="translate(0,0)"/>
+        <path d="M${shape.pts.split(' ').map(p=>p).join(' L')} Z" fill="${color}" fill-opacity="0.94" stroke="#fff" stroke-width="1" transform="translate(0,${-height})"/>
+      `;
+    }
+
+    return `
+      <g class="harta-cell" data-judet="${j}" style="cursor:pointer;">
+        <path d="M${shape.pts.split(' ').map(p=>p).join(' L')} Z" fill="${height>0?'#dfe2e6':color}" stroke="#fff" stroke-width="1"/>
+        ${extrusion}
+        <g transform="translate(${cx},${cy - height})" style="pointer-events:none;">
+          <text y="4" text-anchor="middle" font-size="13" font-weight="800" fill="${height>0?'#fff':'#fff'}">${JUDETE_ABREV[j]}</text>
+          ${total > 0 ? `<text y="16" text-anchor="middle" font-size="10.5" font-weight="700" fill="${height>0?'#fff':'#fff'}">${(total/1000).toFixed(0)}k€</text>` : ''}
+        </g>
+      </g>
+    `;
+  }).join('');
+
+  const totalJudeteActive = Object.keys(perJudet).length;
+  const totalValoare = Object.values(perJudet).reduce((s,d)=>s+d.total,0);
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${totalJudeteActive}</div><div class="l">Județe cu activitate</div></div>
+      <div class="stat-card"><div class="n">${totalValoare.toLocaleString('ro-RO',{maximumFractionDigits:0})} €</div><div class="l">Valoare totală, toate canalele</div></div>
+    </div>
+    <div class="card">
+      <h2>Acoperire pe județ</h2>
+      <div class="hint">Contur real, colorat pe fiecare județ. Cele cu vânzări se „ridică" proporțional cu valoarea.</div>
+      <div class="harta-legend">
+        <span><span class="sw" style="background:#c7cbd1;"></span>Fără activitate</span>
+        <span><span class="sw" style="background:#2c5f8a;"></span>&lt; 10.000 €</span>
+        <span><span class="sw" style="background:#1f8ac0;"></span>10.000–50.000 €</span>
+        <span><span class="sw" style="background:#1fb0a8;"></span>50.000–100.000 €</span>
+        <span><span class="sw" style="background:#e0b400;"></span>&gt; 100.000 €</span>
+      </div>
+      <div style="max-width:760px;margin:0 auto;background:#fff;">
+        <svg viewBox="0 -110 1200 1200" style="width:100%;display:block;">${svgShapes}</svg>
+      </div>
+      <div id="hartaDetail" class="harta-detail"></div>
+    </div>
+  `;
+
+  document.querySelectorAll('.harta-cell').forEach(cell => {
+    cell.onclick = () => {
+      document.querySelectorAll('.harta-cell').forEach(c=>c.classList.remove('selected'));
+      cell.classList.add('selected');
+      const judet = cell.dataset.judet;
+      const data = perJudet[judet];
+      const detailEl = document.getElementById('hartaDetail');
+      if(!data){
+        detailEl.innerHTML = `<div class="card"><h2>${judet}</h2><div class="empty">Nicio activitate înregistrată încă în acest județ.</div></div>`;
+        return;
+      }
+      const topModele = Object.entries(data.modele).sort((a,b)=>b[1]-a[1]).slice(0,3);
+      detailEl.innerHTML = `
+        <div class="card">
+          <h2>${judet}</h2>
+          <div class="channel-grid">
+            <div class="channel-card dealer"><div class="n">${data.dealer.toLocaleString('ro-RO',{maximumFractionDigits:0})} €</div><div class="l">Prin dealeri</div></div>
+            <div class="channel-card direct"><div class="n">${data.direct.toLocaleString('ro-RO',{maximumFractionDigits:0})} €</div><div class="l">Direct Flamart</div></div>
+            <div class="channel-card coleg"><div class="n">${data.coleg.toLocaleString('ro-RO',{maximumFractionDigits:0})} €</div><div class="l">Oferte câștigate (colegi)</div></div>
+          </div>
+          ${topModele.length ? `<div class="hint">Cele mai vândute modele aici: ${topModele.map(([m,n])=>`${m} (${n})`).join(', ')}</div>` : ''}
+        </div>
+      `;
+    };
+  });
+}
+
+function renderStoc(){
+  const { unitati } = CACHE;
+  const el = document.getElementById('stocContent');
+  if(!unitati || unitati.length === 0){
+    el.innerHTML = '<div class="card"><div class="empty">Nicio unitate importată încă cu serie de șasiu (folosește „Acțiuni → Import nou").</div></div>';
+    return;
+  }
+  const custodie = unitati.filter(u => u.status === 'custodie');
+  const vandute = unitati.filter(u => u.status === 'vandut');
+
+  const perModel = {};
+  custodie.forEach(u => {
+    const k = `${u.model}${u.varianta?' '+u.varianta:''}`;
+    perModel[k] = (perModel[k]||0) + 1;
+  });
+  const modelSorted = Object.entries(perModel).sort((a,b)=>b[1]-a[1]);
+  const maxModel = modelSorted.length ? modelSorted[0][1] : 1;
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${unitati.length}</div><div class="l">Unități urmărite total</div></div>
+      <div class="stat-card"><div class="n">${custodie.length}</div><div class="l">În custodie (pe stoc)</div></div>
+      <div class="stat-card"><div class="n">${vandute.length}</div><div class="l">Vândute</div></div>
+    </div>
+    <div class="card">
+      <h2>În custodie, pe model</h2>
+      ${modelSorted.length ? modelSorted.map(([m,n]) => `
+        <div class="bar-row">
+          <div class="label">${m}</div>
+          <div class="track"><div class="fill" style="width:${(n/maxModel)*100}%"></div></div>
+          <div class="val">${n}</div>
+        </div>
+      `).join('') : '<div class="empty">Nimic pe stoc — tot ce ai importat a fost vândut.</div>'}
+    </div>
+    <div class="card">
+      <h2>Toate unitățile</h2>
+      <table>
+        <thead><tr><th>Serie</th><th>Model</th><th>Status</th><th>Import</th><th>Vândută la</th></tr></thead>
+        <tbody>
+          ${[...unitati].sort((a,b)=>b.dataImport.localeCompare(a.dataImport)).map(u => `
+            <tr>
+              <td>${u.serie}</td>
+              <td>${u.model}${u.varianta?' '+u.varianta:''}</td>
+              <td><span class="source-tag source-${u.status==='custodie'?'dealer':'direct'}">${u.status==='custodie'?'Custodie':'Vândută'}</span></td>
+              <td>${fmtDate(u.dataImport)}</td>
+              <td>${u.dataVanzare ? fmtDate(u.dataVanzare) : '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function approveCerere(id, approve){
+  if(!firebaseReady) return;
+  try{
+    await db.collection('dealeriComenzi').doc(id).update({ status: approve ? 'aprobata' : 'respinsa' });
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut actualiza cererea.');
+  }
+}
+
+function renderCereri(){
+  const el = document.getElementById('cereriContent');
+  const cereri = CACHE.cereriInAsteptare || [];
+  if(cereri.length === 0){
+    el.innerHTML = '<div class="empty">Nicio cerere în așteptare.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table>
+      <thead><tr><th>Partener</th><th>Model</th><th>Cantitate</th><th>Valoare</th><th>Dată</th><th>Notă</th><th></th></tr></thead>
+      <tbody>
+        ${cereri.map(c => `
+          <tr>
+            <td>${c.dealer}</td>
+            <td>${c.model}${c.varianta?' '+c.varianta:''}</td>
+            <td>${c.cantitate}</td>
+            <td>${Number(c.valoare||0).toLocaleString('ro-RO')} €</td>
+            <td>${fmtDate(c.data)}</td>
+            <td>${c.nota||''}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" data-approve="${c.id}">Aprobă</button>
+              <button class="btn btn-ghost btn-sm" data-reject="${c.id}">Respinge</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  el.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => approveCerere(b.dataset.approve, true));
+  el.querySelectorAll('[data-reject]').forEach(b => b.onclick = () => approveCerere(b.dataset.reject, false));
+}
+
+function renderConturiList(){
+  const el = document.getElementById('conturiListContent');
+  const conturi = CACHE.parteneriConturi || [];
+  if(conturi.length === 0){
+    el.innerHTML = '<div class="empty">Niciun cont creat încă.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table>
+      <thead><tr><th>Nume</th><th>Parolă</th></tr></thead>
+      <tbody>
+        ${conturi.map(c => `<tr><td>${c.nume}</td><td>${c.parola}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+document.getElementById('contDealerForm').onsubmit = async function(e){
+  e.preventDefault();
+  const nume = document.getElementById('ct-nume').value.trim();
+  const parola = document.getElementById('ct-parola').value.trim();
+  markFieldValid('ct-nume-wrap', !!nume);
+  markFieldValid('ct-parola-wrap', !!parola);
+  if(!nume || !parola) return;
+  if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+  try{
+    await db.collection('parteneriConturi').add({ nume, parola });
+    document.getElementById('contSuccess').classList.add('show');
+    this.reset();
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut crea contul.');
+  }
+};
+
+function renderOverview(){
+  const { oferte, dealeriComenzi, vanzariDirecte, garantii, importuri } = CACHE;
+  const el = document.getElementById('overviewContent');
+  const ofertateCastigate = oferte.filter(o => o.status === 'castigat');
+
+  const unitatiDealer = dealeriComenzi.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+  const valoareDealer = dealeriComenzi.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+  const unitatiDirect = vanzariDirecte.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+  const valoareDirect = vanzariDirecte.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+  const unitatiColeg = ofertateCastigate.length;
+  const valoareColeg = ofertateCastigate.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+  const totalUnitati = unitatiDealer + unitatiDirect + unitatiColeg;
+  const totalValoare = valoareDealer + valoareDirect + valoareColeg;
+
+  const perModel = {};
+  function addModel(model, varianta, cant){
+    if(!model) return;
+    const k = `${model}${varianta?' '+varianta:''}`;
+    perModel[k] = (perModel[k]||0) + cant;
+  }
+  dealeriComenzi.forEach(o => addModel(o.model, o.varianta, Number(o.cantitate)||0));
+  vanzariDirecte.forEach(o => addModel(o.model, o.varianta, Number(o.cantitate)||0));
+  ofertateCastigate.forEach(o => addModel(o.model, o.varianta, 1));
+  const modelSorted = Object.entries(perModel).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxModel = modelSorted.length ? modelSorted[0][1] : 1;
+
+  const garantiiActive = garantii.filter(g => new Date().toISOString().slice(0,10) <= g.dataExpirare).length;
+  const garantiiExpirate = garantii.length - garantiiActive;
+  const ultimulImport = [...importuri].sort((a,b)=>b.data.localeCompare(a.data))[0];
+
+  const activitate = [
+    ...dealeriComenzi.map(o=>({sursa:'dealer', label:`${o.dealer} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
+    ...vanzariDirecte.map(o=>({sursa:'direct', label:`${o.client} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
+    ...ofertateCastigate.map(o=>({sursa:'coleg', label:`${o.coleg} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
+  ].sort((a,b)=>b.data.localeCompare(a.data)).slice(0,10);
+
+  if(totalUnitati === 0 && garantii.length === 0 && importuri.length === 0){
+    el.innerHTML = '<div class="card"><div class="empty">Niciun date încă în niciunul dintre instrumente.</div></div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${totalUnitati}</div><div class="l">Unități vândute total</div></div>
+      <div class="stat-card"><div class="n">${totalValoare.toLocaleString('ro-RO')} €</div><div class="l">Valoare totală business</div></div>
+      <div class="stat-card"><div class="n">${garantiiActive}</div><div class="l">Garanții active</div></div>
+      <div class="stat-card"><div class="n">${importuri.length}</div><div class="l">Importuri înregistrate</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Pe canal de vânzare</h2>
+      <div class="channel-grid">
+        <div class="channel-card dealer">
+          <div class="n">${unitatiDealer} unități</div>
+          <div class="l">Prin dealeri</div>
+          <div class="v">${valoareDealer.toLocaleString('ro-RO')} €</div>
+        </div>
+        <div class="channel-card direct">
+          <div class="n">${unitatiDirect} unități</div>
+          <div class="l">Vânzări directe Flamart</div>
+          <div class="v">${valoareDirect.toLocaleString('ro-RO')} €</div>
+        </div>
+        <div class="channel-card coleg">
+          <div class="n">${unitatiColeg} unități</div>
+          <div class="l">Oferte câștigate (colegi)</div>
+          <div class="v">${valoareColeg.toLocaleString('ro-RO')} €</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Cele mai vândute modele (tot BOKAR)</h2>
+      ${modelSorted.length ? modelSorted.map(([m,n]) => `
+        <div class="bar-row">
+          <div class="label">${m}</div>
+          <div class="track"><div class="fill" style="width:${(n/maxModel)*100}%"></div></div>
+          <div class="val">${n}</div>
+        </div>
+      `).join('') : '<div class="empty">Fără date încă.</div>'}
+    </div>
+
+    <div class="card">
+      <h2>Activitate recentă</h2>
+      ${activitate.length ? `
+        <table>
+          <thead><tr><th>Sursă</th><th>Detalii</th><th>Dată</th><th>Valoare</th></tr></thead>
+          <tbody>
+            ${activitate.map(a => `
+              <tr>
+                <td><span class="source-tag source-${a.sursa}">${a.sursa==='dealer'?'Dealer':a.sursa==='direct'?'Direct':'Coleg'}</span></td>
+                <td>${a.label}</td>
+                <td>${fmtDate(a.data)}</td>
+                <td>${Number(a.valoare||0).toLocaleString('ro-RO')} €</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="empty">Fără activitate încă.</div>'}
+    </div>
+
+    ${ultimulImport ? `
+    <div class="card">
+      <h2>Ultimul import</h2>
+      <div style="font-size:13px;">${ultimulImport.factura} — ${fmtDate(ultimulImport.data)} — ${Number(ultimulImport.valoareTotalaMarfa).toLocaleString('ro-RO')} € valoare marfă</div>
+    </div>
+    ` : ''}
+
+    ${garantiiExpirate > 0 ? `
+    <div class="card">
+      <h2>Garanții</h2>
+      <div style="font-size:13px;">${garantiiActive} active · ${garantiiExpirate} expirate, din ${garantii.length} total</div>
+    </div>
+    ` : ''}
+  `;
+}
+
+function renderProfituri(){
+  const { oferte, dealeriComenzi, vanzariDirecte, marjeData } = CACHE;
+  const el = document.getElementById('profituriContent');
+
+  if(!marjeData){
+    el.innerHTML = '<div class="card"><div class="empty">Panoul „Prețuri &amp; Marje" nu are încă date salvate — deschide-l o dată ca să se inițializeze, apoi revino aici.</div></div>';
+    return;
+  }
+
+  const ofertateCastigate = oferte.filter(o => o.status === 'castigat');
+  function profitFor(model, varianta, valoare, cantitate){
+    const lc = landedCostFor(model, varianta, marjeData);
+    if(!lc || !valoare) return null;
+    const cant = cantitate || 1;
+    return valoare - cant * (lc.landedCost + lc.transportDealer);
+  }
+
+  const toate = [
+    ...dealeriComenzi.map(o=>({sursa:'Dealer', label:`${o.dealer} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,Number(o.cantitate)||1)})),
+    ...vanzariDirecte.map(o=>({sursa:'Direct', label:`${o.client} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,Number(o.cantitate)||1)})),
+    ...ofertateCastigate.map(o=>({sursa:'Coleg', label:`${o.coleg} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,1)})),
+  ];
+
+  const cunoscute = toate.filter(t => t.profit !== null);
+  const totalProfit = cunoscute.reduce((s,t)=>s+t.profit,0);
+  const totalValoare = cunoscute.reduce((s,t)=>s+t.valoare,0);
+  const marjaMedie = totalValoare ? (totalProfit/totalValoare)*100 : 0;
+  const necunoscute = toate.length - cunoscute.length;
+
+  const perSursa = {};
+  cunoscute.forEach(t => { perSursa[t.sursa] = (perSursa[t.sursa]||0) + t.profit; });
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${totalProfit.toLocaleString('ro-RO',{maximumFractionDigits:0})} €</div><div class="l">Profit estimat total</div></div>
+      <div class="stat-card"><div class="n">${marjaMedie.toFixed(1)}%</div><div class="l">Marjă medie efectivă</div></div>
+      <div class="stat-card"><div class="n">${cunoscute.length}</div><div class="l">Vânzări cu profit calculat</div></div>
+    </div>
+    ${necunoscute>0 ? `<div class="card"><div class="empty">${necunoscute} vânzări nu au un model recunoscut în panoul de marje — profitul lor nu e inclus mai sus.</div></div>` : ''}
+    <div class="card">
+      <h2>Profit pe canal</h2>
+      ${Object.entries(perSursa).map(([s,p]) => `
+        <div class="bar-row">
+          <div class="label">${s}</div>
+          <div class="track"><div class="fill" style="width:${totalProfit ? (p/totalProfit)*100 : 0}%"></div></div>
+          <div class="val">${p.toLocaleString('ro-RO',{maximumFractionDigits:0})}€</div>
+        </div>
+      `).join('') || '<div class="empty">Fără date încă.</div>'}
+    </div>
+    <div class="card">
+      <h2>Detaliu, per vânzare</h2>
+      <table>
+        <thead><tr><th>Sursă</th><th>Detalii</th><th>Valoare</th><th>Profit estimat</th></tr></thead>
+        <tbody>
+          ${toate.map(t => `
+            <tr>
+              <td>${t.sursa}</td><td>${t.label}</td>
+              <td>${t.valoare.toLocaleString('ro-RO')} €</td>
+              <td>${t.profit!==null ? t.profit.toLocaleString('ro-RO',{maximumFractionDigits:0})+' €' : '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderDealeriTab(){
+  const { dealeriComenzi } = CACHE;
+  const el = document.getElementById('dealeriContent');
+  if(dealeriComenzi.length === 0){
+    el.innerHTML = '<div class="card"><div class="empty">Niciun dealer înregistrat încă.</div></div>';
+    return;
+  }
+  const groups = {};
+  dealeriComenzi.forEach(c => { (groups[c.dealer] = groups[c.dealer]||[]).push(c); });
+  const summaries = Object.entries(groups).map(([nume, orders]) => {
+    const unitati = orders.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+    const valoare = orders.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+    const ultimaComanda = orders.reduce((max,o)=> o.data > max ? o.data : max, orders[0].data);
+    const nivel = nivelDealer(unitati);
+    const zileInactiv = daysSinceStr(ultimaComanda);
+    const prag = PRAG_URMATOR[nivel];
+    return { nume, unitati, valoare, ultimaComanda, nivel, zileInactiv, aproapeDeUpgrade: prag!==null && (prag-unitati)<=1 };
+  }).sort((a,b)=>b.unitati-a.unitati);
+
+  const actiuni = [];
+  summaries.forEach(d => {
+    if(d.aproapeDeUpgrade) actiuni.push(`${d.nume} e la 1 unitate distanță de nivelul următor — merită o atenție comercială.`);
+    if(d.zileInactiv > INACTIV_ZILE) actiuni.push(`${d.nume} nu a mai comandat de ${d.zileInactiv} zile — verifică ce se întâmplă.`);
+  });
+
+  el.innerHTML = `
+    ${actiuni.length ? `
+    <div class="card">
+      <h2>Căi de acțiune</h2>
+      ${actiuni.map(a => `<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--line);">⚑ ${a}</div>`).join('')}
+    </div>` : ''}
+    <div class="card">
+      <h2>Nivelurile dealerilor (${summaries.length})</h2>
+      <table>
+        <thead><tr><th>Dealer</th><th>Nivel</th><th>Unități</th><th>Valoare</th><th>Ultima comandă</th></tr></thead>
+        <tbody>
+          ${summaries.map(d => `
+            <tr>
+              <td>${d.nume}</td>
+              <td><span class="source-tag source-dealer">${d.nivel}</span></td>
+              <td>${d.unitati}</td>
+              <td>${d.valoare.toLocaleString('ro-RO')} €</td>
+              <td>${fmtDate(d.ultimaComanda)} (${d.zileInactiv}z)</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderOferteTab(){
+  const { oferte } = CACHE;
+  const el = document.getElementById('oferteContent');
+  if(oferte.length === 0){
+    el.innerHTML = '<div class="card"><div class="empty">Nicio ofertă introdusă încă.</div></div>';
+    return;
+  }
+  function daysBetweenStr(d1,d2){ return Math.abs((new Date(d1)-new Date(d2))/(1000*60*60*24)); }
+  const contraofertate = oferte.map(o => {
+    const match = oferte.find(other =>
+      other.id !== o.id && other.coleg !== o.coleg &&
+      other.judet === o.judet && other.tel5 === o.tel5 &&
+      daysBetweenStr(other.data, o.data) <= 30
+    );
+    return { ...o, contraofertatDe: match ? match.coleg : null };
+  }).sort((a,b)=> b.data.localeCompare(a.data));
+
+  const totalContra = contraofertate.filter(o=>o.contraofertatDe).length;
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${oferte.length}</div><div class="l">Oferte total</div></div>
+      <div class="stat-card"><div class="n">${totalContra}</div><div class="l">Cu contraofertare detectată</div></div>
+    </div>
+    <div class="card">
+      <h2>Toate ofertele (acces complet, admin)</h2>
+      <table>
+        <thead><tr><th>Dată</th><th>Coleg</th><th>Județ</th><th>Model</th><th>Status</th><th>Contraofertat de</th></tr></thead>
+        <tbody>
+          ${contraofertate.map(o => `
+            <tr>
+              <td>${fmtDate(o.data)}</td>
+              <td>${o.coleg}</td>
+              <td>${o.judet}</td>
+              <td>${o.model}${o.varianta?' '+o.varianta:''}</td>
+              <td><span class="source-tag source-${o.status==='castigat'?'direct':o.status==='pierdut'?'dealer':'coleg'}">${o.status}</span></td>
+              <td>${o.contraofertatDe || '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* ---------------- ACCES / ROLURI ---------------- */
+const TEAM_PASSWORD = "Bokar2026";
+let currentUser = { role: null, name: '' };
+
+document.querySelectorAll('.role-tab').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.role-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.login-block').forEach(b=>b.style.display='none');
+    document.getElementById('login'+btn.dataset.role.charAt(0).toUpperCase()+btn.dataset.role.slice(1)).style.display='block';
+  };
+});
+
+function activeRoleTab(){
+  return document.querySelector('.role-tab.active').dataset.role;
+}
+
+document.getElementById('authForm').onsubmit = async function(e){
+  e.preventDefault();
+  const role = activeRoleTab();
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+
+  if(role === 'admin'){
+    const pass = document.getElementById('adminPass').value;
+    if(pass === ADMIN_PASSWORD){
+      loginAs('admin', 'Admin');
+    } else {
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if(role === 'partener'){
+    const name = document.getElementById('partenerName').value.trim();
+    const pass = document.getElementById('partenerPass').value;
+    if(!name || !pass || !firebaseReady){ errEl.style.display = 'block'; return; }
+    try{
+      const snap = await db.collection('parteneriConturi').where('nume','==',name).get();
+      const match = snap.docs.find(d => d.data().parola === pass);
+      if(match){
+        loginAs('partener', name);
+      } else {
+        errEl.style.display = 'block';
+      }
+    }catch(err){
+      console.error(err);
+      errEl.textContent = 'Eroare de conexiune — încearcă din nou.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+};
+
+function loginAs(role, name){
+  currentUser = { role, name };
+  localStorage.setItem('bokarPortalUser', JSON.stringify(currentUser));
+  enterApp();
+}
+
+document.getElementById('logoutLink').onclick = () => {
+  localStorage.removeItem('bokarPortalUser');
+  location.reload();
+};
+
+function enterApp(){
+  document.getElementById('authGate').style.display = 'none';
+  document.body.classList.remove('locked');
+  document.getElementById('sessionBar').style.display = 'flex';
+  document.getElementById('sessionLabel').textContent =
+    `${currentUser.name} · ${currentUser.role === 'admin' ? 'Admin' : 'Partener'}`;
+
+  document.getElementById('adminNav').style.display = currentUser.role === 'admin' ? 'flex' : 'none';
+  document.getElementById('partenerNav').style.display = currentUser.role === 'partener' ? 'flex' : 'none';
+
+  // Afișează tab-ul implicit corect pentru rolul curent, ascunde tot restul.
+  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const defaultTab = currentUser.role === 'admin' ? 'overview' : 'partAdauga';
+  document.getElementById('tab-'+defaultTab).style.display = 'block';
+  const navId = currentUser.role === 'admin' ? 'adminNav' : 'partenerNav';
+  document.querySelector('#'+navId+' .tab-btn').classList.add('active');
+
+  populateSelects();
+
+  if(currentUser.role === 'admin') loadAll();
+  else if(currentUser.role === 'partener') loadPartenerView();
+}
+
+(function(){
+  const saved = localStorage.getItem('bokarPortalUser');
+  if(saved){
+    try{ currentUser = JSON.parse(saved); enterApp(); return; }catch(e){}
+  }
+  document.body.classList.add('locked');
+})();
+</script>
+</body>
+</html>
