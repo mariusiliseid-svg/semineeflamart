@@ -1662,7 +1662,7 @@ document.getElementById('authForm').onsubmit = async function(e){
   if(role === 'admin'){
     const pass = document.getElementById('adminPass').value;
     if(pass === ADMIN_PASSWORD){
-      loginAs('admin', 'Admin');
+      await loginAs('admin', 'Admin');
     } else {
       errEl.style.display = 'block';
     }
@@ -1677,7 +1677,7 @@ document.getElementById('authForm').onsubmit = async function(e){
       const snap = await db.collection('parteneriConturi').where('nume','==',name).get();
       const match = snap.docs.find(d => d.data().parola === pass);
       if(match){
-        loginAs('partener', name);
+        await loginAs('partener', name);
       } else {
         errEl.style.display = 'block';
       }
@@ -1690,16 +1690,25 @@ document.getElementById('authForm').onsubmit = async function(e){
   }
 };
 
-function loginAs(role, name){
+async function loginAs(role, name){
   currentUser = { role, name };
   localStorage.setItem('bokarPortalUser', JSON.stringify(currentUser));
   // Scriem un "act de identitate" în Firestore, legat de sesiunea anonimă curentă —
   // regulile de securitate citesc de-aici cine are voie la ce. Se scrie DOAR aici,
   // după o verificare de parolă reușită — niciodată la restaurarea sesiunii din localStorage.
+  // IMPORTANT: așteptăm să se termine scrierea înainte de a continua — altfel primele
+  // citiri de date pot ajunge înaintea scrierii rolului, iar regulile le refuză (par date
+  // "dispărute", deși nu sunt — doar accesul era respins temporar).
   if(auth && auth.currentUser && db){
-    db.collection('roles').doc(auth.currentUser.uid).set({
-      role, name, updatedAt: new Date().toISOString()
-    }).catch(e => console.error('Nu am putut scrie rolul', e));
+    try{
+      await db.collection('roles').doc(auth.currentUser.uid).set({
+        role, name, updatedAt: new Date().toISOString()
+      });
+    }catch(e){
+      console.error('Nu am putut scrie rolul', e);
+      alert('Nu am putut confirma identitatea în baza de date. Încearcă din nou sau verifică conexiunea.');
+      return;
+    }
   }
   enterApp();
 }
