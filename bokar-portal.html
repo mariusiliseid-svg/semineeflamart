@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
   :root{
     --bg:#ffffff; --bg-soft:#f6f4f1; --ink:#232324; --stone:#68686a;
@@ -536,11 +537,14 @@ const firebaseConfig = {
   messagingSenderId: "45902513565",
   appId: "1:45902513565:web:1d2c55629af5d23e0d9b74"
 };
-let db = null, firebaseReady = false;
+let db = null, auth = null, firebaseReady = false;
 try{
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
-  firebaseReady = true;
+  auth = firebase.auth();
+  auth.signInAnonymously()
+    .then(() => { firebaseReady = true; })
+    .catch((e) => { console.error('Autentificare anonimă eșuată', e); });
 }catch(e){ console.error('Firebase nu s-a putut încărca', e); }
 
 // Seria are formatul BOKAR-AAAA-LLZZ-MODEL-SECVENȚĂ — extragem data fabricației din ea.
@@ -1689,6 +1693,14 @@ document.getElementById('authForm').onsubmit = async function(e){
 function loginAs(role, name){
   currentUser = { role, name };
   localStorage.setItem('bokarPortalUser', JSON.stringify(currentUser));
+  // Scriem un "act de identitate" în Firestore, legat de sesiunea anonimă curentă —
+  // regulile de securitate citesc de-aici cine are voie la ce. Se scrie DOAR aici,
+  // după o verificare de parolă reușită — niciodată la restaurarea sesiunii din localStorage.
+  if(auth && auth.currentUser && db){
+    db.collection('roles').doc(auth.currentUser.uid).set({
+      role, name, updatedAt: new Date().toISOString()
+    }).catch(e => console.error('Nu am putut scrie rolul', e));
+  }
   enterApp();
 }
 
