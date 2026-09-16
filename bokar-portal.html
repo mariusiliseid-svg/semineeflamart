@@ -1453,7 +1453,10 @@ function renderLeaduri(){
         </div>
         <div class="field-row">
           <div class="field"><label>Județ</label><select id="la-judet"></select></div>
-          <div class="field"><label>Interes (model/categorie)</label><input type="text" id="la-interes" placeholder="ex: 8050 sau grilă Luft"></div>
+          <div class="field"><label>Model interes</label><select id="la-model"></select></div>
+          <div class="field"><label>Variantă</label>
+            <select id="la-varianta"><option value="White">White</option><option value="Black">Black</option></select>
+          </div>
           <div class="field"><label>Valoare estimată (EUR)</label><input type="number" id="la-valoare" min="0" step="0.01"></div>
         </div>
         <div class="field"><label>Mesaj / notă</label><textarea id="la-mesaj" rows="2"></textarea></div>
@@ -1527,13 +1530,25 @@ function renderLeaduri(){
   });
 
   document.getElementById('la-judet').innerHTML = JUDETE.map(j=>`<option value="${j}">${j}</option>`).join('');
+  document.getElementById('la-model').innerHTML = FOCAR_MODELE.map(m=>`<option value="${m}">${m}</option>`).join('');
+  function updateLaValoareAuto(){
+    const model = document.getElementById('la-model').value;
+    const varianta = document.getElementById('la-varianta').value;
+    const rrp = RRP_FOCAR[model]?.[varianta];
+    if(rrp !== undefined) document.getElementById('la-valoare').value = rrp;
+  }
+  document.getElementById('la-model').onchange = updateLaValoareAuto;
+  document.getElementById('la-varianta').onchange = updateLaValoareAuto;
+  updateLaValoareAuto();
 
   document.getElementById('adminAddLeadForm').onsubmit = async function(e){
     e.preventDefault();
     const nume = document.getElementById('la-nume').value.trim();
     const telefon = document.getElementById('la-telefon').value.trim();
     const judet = document.getElementById('la-judet').value;
-    const interes = document.getElementById('la-interes').value.trim();
+    const model = document.getElementById('la-model').value;
+    const varianta = document.getElementById('la-varianta').value;
+    const interes = `${model} ${varianta}`;
     const valoare = Number(document.getElementById('la-valoare').value) || 0;
     const mesaj = document.getElementById('la-mesaj').value.trim();
 
@@ -1545,7 +1560,7 @@ function renderLeaduri(){
 
     try{
       await db.collection('leaduri').add({
-        nume, telefon, judet, interes, valoare, mesaj, sursa: 'manual-admin',
+        nume, telefon, judet, model, varianta, interes, valoare, mesaj, sursa: 'manual-admin',
         data: new Date().toISOString().slice(0,10), status: 'nou',
         preluatDe: null, dataPreluare: null, dataFinalizare: null
       });
