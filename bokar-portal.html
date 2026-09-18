@@ -991,19 +991,41 @@ function generareCertificatGarantiePDF(g){
         const imgWpx = canvas.width, imgHpx = canvas.height;
         const pxPerMm = imgWpx / pageW;
         const pageHpx = Math.floor(pageH * pxPerMm);
+        const ctx = canvas.getContext('2d');
+
+        // Caută cea mai apropiată linie "goală" (aproape complet albă) de punctul de
+        // tăiere țintă, ca să nu tăiem exact printr-un rând de text. Căutăm în ambele
+        // direcții, până la 50px distanță; dacă nu găsim nimic, folosim tăierea brută.
+        function safeBreak(targetY){
+          const maxSearch = 50;
+          for(let delta = 0; delta <= maxSearch; delta++){
+            for(const y of (delta === 0 ? [targetY] : [targetY - delta, targetY + delta])){
+              if(y <= 0 || y >= imgHpx) continue;
+              const row = ctx.getImageData(0, y, imgWpx, 1).data;
+              let allWhite = true;
+              for(let i = 0; i < row.length; i += 4*6){
+                if(row[i] < 248 || row[i+1] < 248 || row[i+2] < 248){ allWhite = false; break; }
+              }
+              if(allWhite) return y;
+            }
+          }
+          return targetY;
+        }
 
         let renderedPx = 0, first = true;
         while(renderedPx < imgHpx){
-          const sliceHpx = Math.min(pageHpx, imgHpx - renderedPx);
+          const targetEnd = renderedPx + pageHpx;
+          const sliceEnd = targetEnd >= imgHpx ? imgHpx : safeBreak(targetEnd);
+          const sliceHpx = sliceEnd - renderedPx;
           const sliceCanvas = document.createElement('canvas');
           sliceCanvas.width = imgWpx;
           sliceCanvas.height = sliceHpx;
-          const ctx = sliceCanvas.getContext('2d');
-          ctx.drawImage(canvas, 0, renderedPx, imgWpx, sliceHpx, 0, 0, imgWpx, sliceHpx);
+          const sctx = sliceCanvas.getContext('2d');
+          sctx.drawImage(canvas, 0, renderedPx, imgWpx, sliceHpx, 0, 0, imgWpx, sliceHpx);
           const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.95);
           if(!first) doc.addPage();
           doc.addImage(sliceData, 'JPEG', 0, 0, pageW, sliceHpx / pxPerMm);
-          renderedPx += sliceHpx;
+          renderedPx = sliceEnd;
           first = false;
         }
 
