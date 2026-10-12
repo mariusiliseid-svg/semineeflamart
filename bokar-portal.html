@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BOKAR — Dashboard Central</title>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -105,6 +105,84 @@
   .source-coleg{background:var(--amber-bg);color:var(--amber);}
 
   @media (max-width:650px){ .field-row{flex-direction:column;gap:0;} .page{padding:16px 12px 50px;} }
+  .btn-secondary{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .btn-secondary:hover{background:var(--bg-soft);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  [hidden]{display:none!important;}
+
+  /* ---- Contracte de custodie ---- */
+  .cu-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .cu-acts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
+  .cu-pill{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;background:var(--bg-soft);color:var(--stone);}
+  .cu-pill.ok{background:var(--green-bg);color:var(--green);}
+  .cu-pill.info{background:var(--blue-bg);color:var(--blue);}
+  .cu-pill.warn{background:var(--amber-bg);color:var(--amber);}
+  .cu-pill.bad{background:#fdf1f0;color:var(--red);}
+  .cu-rowlink{cursor:pointer;} .cu-rowlink:hover td{background:var(--bg-soft);}
+  .cu-seg{display:flex;flex-wrap:wrap;gap:6px;}
+  .cu-seg button{flex:1 1 120px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 8px;font-family:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;text-align:center;}
+  .cu-seg button small{display:block;font-weight:500;color:var(--stone);font-size:11px;margin-top:2px;}
+  .cu-seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .cu-seg button[aria-pressed="true"] small{color:#ddd;}
+  .cu-prod{display:grid;grid-template-columns:1.6fr 1.3fr .5fr .9fr auto;gap:8px;align-items:end;padding:12px 0;border-bottom:1px solid var(--line);}
+  .cu-prod .cu-full{grid-column:1/-1;}
+  .cu-rm{background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:6px;}
+  .cu-pad{width:100%;height:160px;border:1.5px dashed var(--blue);border-radius:8px;background:#fff;touch-action:none;display:block;}
+  .cu-clr{color:var(--blue);cursor:pointer;text-transform:none;letter-spacing:0;}
+  .cu-sm{font-size:12px;padding:5px 10px;}
+  .cu-linkbox{background:var(--blue-bg);border-radius:10px;padding:14px 16px;margin-bottom:14px;}
+  .cu-docwrap{overflow-x:auto;background:var(--bg-soft);border:1px solid var(--line);padding:14px;border-radius:10px;margin-top:6px;}
+  .cu-overlay{position:fixed;inset:0;z-index:9500;background:rgba(20,20,20,.55);display:none;place-items:center;color:#fff;font-weight:700;padding:16px;}
+  .cu-overlay .m{background:#fff;color:var(--ink);border-radius:12px;padding:18px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:10px;font-weight:500;}
+  @media (max-width:650px){ .cu-prod{grid-template-columns:1fr 1fr;} }
+
+  /* documentul contractului (aceleași clase ca pagina de semnare) */
+  .cdoc{background:#fff;color:#18202c;font-family:'Source Serif 4',Georgia,'Times New Roman',serif;font-size:12.6px;line-height:1.5;max-width:760px;margin:0 auto;padding:30px 34px;border-radius:4px;box-shadow:0 1px 2px rgba(10,30,60,.08),0 10px 30px rgba(10,30,60,.10);}
+  .cdoc.pdf{width:688px;max-width:none;padding:0;box-shadow:none;border-radius:0;}
+  .cdoc .dh{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-bottom:12px;border-bottom:3px solid #173f7a;}
+  .cdoc .dh .logo img{max-height:52px;max-width:180px;display:block;}
+  .cdoc .wm{font-family:'Manrope',sans-serif;font-weight:800;font-size:22px;letter-spacing:.14em;color:#173f7a;line-height:1;}
+  .cdoc .wm small{display:block;font-weight:600;font-size:9px;letter-spacing:.24em;color:#5d6b80;margin-top:4px;}
+  .cdoc .firm{text-align:right;font-family:'Manrope',sans-serif;font-size:10px;color:#4a5668;line-height:1.45;}
+  .cdoc .firm b{color:#18202c;font-size:11px;}
+  .cdoc .dtitle{text-align:center;margin:20px 0 4px;}
+  .cdoc .dtitle h2{font-family:'Manrope',sans-serif;font-size:19px;letter-spacing:.12em;margin:0;color:#173f7a;font-weight:800;}
+  .cdoc .dtitle p{margin:3px 0 0;font-size:12.5px;color:#4a5668;font-style:italic;}
+  .cdoc .dmeta{display:flex;justify-content:center;gap:8px;margin:10px 0 16px;font-family:'Manrope',sans-serif;font-size:11px;}
+  .cdoc .dmeta span{background:#eaf0f9;color:#173f7a;padding:4px 10px;border-radius:99px;font-weight:700;}
+  .cdoc .keys{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #c9d5e6;border-radius:6px;margin-bottom:16px;font-family:'Manrope',sans-serif;}
+  .cdoc .keys div{padding:7px 10px;border-left:1px solid #c9d5e6;}
+  .cdoc .keys div:first-child{border-left:0;}
+  .cdoc .keys span{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:#5d6b80;}
+  .cdoc .keys b{font-size:12px;color:#18202c;font-variant-numeric:tabular-nums;}
+  .cdoc .parties{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;}
+  .cdoc .party{border:1px solid #c9d5e6;border-radius:6px;padding:9px 11px;font-size:11.4px;line-height:1.5;}
+  .cdoc .party h4,.cdoc .sig h4{margin:0 0 4px;font-family:'Manrope',sans-serif;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#2a62b5;}
+  .cdoc .party .n{font-weight:700;font-size:12.5px;margin-bottom:2px;}
+  .cdoc h3{font-family:'Manrope',sans-serif;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:#173f7a;margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid #d7e0ec;}
+  .cdoc p{margin:0 0 6px;text-align:justify;}
+  .cdoc p .a{font-family:'Manrope',sans-serif;font-weight:700;color:#2a62b5;font-size:11px;margin-right:3px;}
+  .cdoc table{width:100%;border-collapse:collapse;font-size:11.4px;margin:6px 0 10px;font-variant-numeric:tabular-nums;}
+  .cdoc th{background:#173f7a;color:#fff;font-family:'Manrope',sans-serif;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:6px 7px;text-align:left;border:0;}
+  .cdoc td{padding:6px 7px;border-bottom:1px solid #d7e0ec;}
+  .cdoc tr:nth-child(even) td{background:#f5f8fc;}
+  .cdoc .r{text-align:right;}
+  .cdoc tfoot td{font-weight:700;border-bottom:2px solid #173f7a;background:#fff!important;}
+  .cdoc .blank{background:#fff4d1;padding:0 4px;border-radius:2px;color:#8a6a10;}
+  .cdoc .signs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px;}
+  .cdoc .sig{border:1px solid #c9d5e6;border-radius:6px;padding:10px 12px;font-size:11.2px;min-height:140px;display:flex;flex-direction:column;}
+  .cdoc .sig .im{flex:1;display:flex;align-items:center;justify-content:center;min-height:70px;border-bottom:1px solid #9aabc4;margin:6px 0 5px;}
+  .cdoc .sig .im img{max-height:70px;max-width:100%;}
+  .cdoc .sig .when{font-size:9.5px;color:#5d6b80;font-family:'Manrope',sans-serif;}
+  .cdoc .dfoot{margin-top:16px;padding-top:8px;border-top:1px solid #d7e0ec;font-family:'Manrope',sans-serif;font-size:9px;color:#7a8698;text-align:center;}
+  @media (max-width:650px){
+    .cdoc:not(.pdf){padding:18px 14px;font-size:12px;}
+    .cdoc:not(.pdf) .keys{grid-template-columns:1fr 1fr;}
+    .cdoc:not(.pdf) .parties,.cdoc:not(.pdf) .signs{grid-template-columns:1fr;}
+    .cdoc:not(.pdf) .dh{flex-direction:column;align-items:flex-start;}
+    .cdoc:not(.pdf) .firm{text-align:left;}
+  }
+
 </style>
 </head>
 <body>
@@ -148,6 +226,7 @@
   <button class="tab-btn" data-tab="partIstoric">Istoricul meu</button>
   <button class="tab-btn" data-tab="partStats">Statisticile mele</button>
   <button class="tab-btn" data-tab="partLeaduri">Lead-uri</button>
+  <button class="tab-btn" data-tab="partCustodie">Custodie</button>
 </div>
 
 <div class="page">
@@ -188,6 +267,7 @@
       <button class="subtab-btn" data-subtab="garantie">Garanție nouă</button>
       <button class="subtab-btn" data-subtab="import">Import nou</button>
       <button class="subtab-btn" data-subtab="cereri">Cereri dealeri</button>
+      <button class="subtab-btn" data-subtab="custodie">Contracte custodie</button>
       <button class="subtab-btn" data-subtab="conturi">Conturi parteneri</button>
     </div>
 
@@ -196,6 +276,10 @@
         <h2>Cereri de comandă în așteptare</h2>
         <div id="cereriContent"><div class="empty">Se încarcă…</div></div>
       </div>
+    </div>
+
+    <div id="subtab-custodie" class="subtab-content" style="display:none;">
+      <div id="cuRoot"><div class="empty">Se încarcă…</div></div>
     </div>
 
     <div id="subtab-conturi" class="subtab-content" style="display:none;">
@@ -500,6 +584,10 @@
 
   <div id="tab-partLeaduri" class="tab-content" style="display:none;">
     <div id="partLeaduriContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-partCustodie" class="tab-content" style="display:none;">
+    <div id="partCustodieContent"><div class="empty">Se încarcă…</div></div>
   </div>
 
 </div>
@@ -1279,6 +1367,7 @@ async function loadPartenerView(){
   `;
 
   loadPartLeaduri();
+  loadPartCustodie();
 }
 
 document.querySelectorAll('.subtab-btn').forEach(btn => {
@@ -1365,14 +1454,15 @@ function landedCostFor(model, varianta, marjeData){
 let CACHE = {};
 
 async function loadAll(){
-  const [oferte, dealeriComenziToate, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri] = await Promise.all([
+  const [oferte, dealeriComenziToate, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri, custodii, custodieCfg] = await Promise.all([
     safeGetAll('oferte'), safeGetAll('dealeriComenzi'), safeGetAll('vanzariDirecte'),
-    safeGetAll('garantii'), safeGetAll('importuri'), safeGet('config','marje'), safeGetAll('unitati'), safeGetAll('parteneriConturi'), safeGetAll('leaduri')
+    safeGetAll('garantii'), safeGetAll('importuri'), safeGet('config','marje'), safeGetAll('unitati'), safeGetAll('parteneriConturi'), safeGetAll('leaduri'),
+    safeGetAll('custodii'), safeGet('config','custodie')
   ]);
   // Comenzile fără status sunt cele vechi, introduse direct de admin — le tratăm ca aprobate.
   const dealeriComenzi = dealeriComenziToate.filter(c => (c.status||'aprobata') === 'aprobata');
   const cereriInAsteptare = dealeriComenziToate.filter(c => c.status === 'in_asteptare');
-  CACHE = { oferte, dealeriComenzi, dealeriComenziToate, cereriInAsteptare, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri };
+  CACHE = { oferte, dealeriComenzi, dealeriComenziToate, cereriInAsteptare, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri, custodii, custodieCfg: custodieCfg || {} };
   renderOverview();
   renderProfituri();
   renderDealeriTab();
@@ -1382,6 +1472,8 @@ async function loadAll(){
   renderConturiList();
   renderLeaduri();
   renderGarantiiTab();
+  if(CU.view !== 'form') renderCustodie();
+  cuSyncSemnari();
   document.getElementById('dealeriDatalist').innerHTML =
     [...new Set(dealeriComenzi.map(d=>d.dealer))].map(d=>`<option value="${d}">`).join('');
 }
@@ -1411,6 +1503,7 @@ function renderStoc(){
     <div class="stat-grid">
       <div class="stat-card"><div class="n">${unitati.length}</div><div class="l">Unități urmărite total</div></div>
       <div class="stat-card"><div class="n">${custodie.length}</div><div class="l">În custodie (pe stoc)</div></div>
+      <div class="stat-card"><div class="n">${custodie.filter(u=>u.showroom).length}</div><div class="l">Din care în showroom-uri</div></div>
       <div class="stat-card"><div class="n">${vandute.length}</div><div class="l">Vândute</div></div>
     </div>
     <div class="card">
@@ -1426,13 +1519,14 @@ function renderStoc(){
     <div class="card">
       <h2>Toate unitățile</h2>
       <table>
-        <thead><tr><th>Serie</th><th>Model</th><th>Status</th><th>Import</th><th>Vândută la</th></tr></thead>
+        <thead><tr><th>Serie</th><th>Model</th><th>Status</th><th>Unde e</th><th>Import</th><th>Vândută la</th></tr></thead>
         <tbody>
           ${[...unitati].sort((a,b)=>b.dataImport.localeCompare(a.dataImport)).map(u => `
             <tr>
               <td>${u.serie}</td>
               <td>${u.model}${u.varianta?' '+u.varianta:''}</td>
               <td><span class="source-tag source-${u.status==='custodie'?'dealer':'direct'}">${u.status==='custodie'?'Custodie':'Vândută'}</span></td>
+              <td>${u.status==='custodie' ? (u.showroom ? 'Showroom: '+u.showroom : 'Depozit') : '—'}</td>
               <td>${fmtDate(u.dataImport)}</td>
               <td>${u.dataVanzare ? fmtDate(u.dataVanzare) : '—'}</td>
             </tr>
@@ -2216,6 +2310,664 @@ function renderOferteTab(){
     </div>
   `;
 }
+
+/* ================= CONTRACTE DE CUSTODIE =================
+   Contractele stau în colecția „custodii”. Semnarea la distanță folosește colecția „semnari”
+   și pagina de semnare de pe bokar-custodie.netlify.app (același format de link ca până acum).
+   Produsele alese din stoc („unitati”) primesc câmpurile showroom + custodieId cât timp sunt expuse. */
+const CU_FIRME = [
+  { n:'FLAMART PROJECT SRL', s:'Flamart Project', cui:'47523170', adr:'Str. Carpați nr. 5, Municipiul Bacău, Județul Bacău' },
+  { n:'DOVENT PROJECT SRL', s:'Dovent Project', cui:'55246453', adr:'Strada Carpați, Nr. 5, Sc. C, Ap. 4, Municipiul Bacău, Județul Bacău' },
+  { n:'FOCARESTI SRL', s:'Focărești', cui:'50073092', adr:'Str. Prietenie nr. 37, Sat Pădureni, Com. Filipești, Jud. Bacău' }
+];
+const CU_TIERS = ['START','PARTNER','PRO','STUDIO'];
+const CU_SIGN_BASE = 'https://bokar-custodie.netlify.app/?s=';
+const CU_LINK_ZILE = 14;
+let CU = { view:'list', cur:null, openId:null, pads:{} };
+
+const cuEsc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const cuFmt = n => (Number(n)||0).toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2});
+function cuLocalDate(d){ d = d ? new Date(d) : new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10); }
+const cuToday = () => cuLocalDate();
+function cuDRo(iso){ if(!iso) return ''; const [y,m,d] = String(iso).slice(0,10).split('-'); return `${d}.${m}.${y}`; }
+function cuDt(iso){ if(!iso) return ''; const d = new Date(iso); return `${cuDRo(cuLocalDate(d))}, ora ${d.toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}`; }
+function cuAddMonths(iso,n){ if(!iso) return ''; const d = new Date(iso+'T12:00:00'); d.setMonth(d.getMonth()+Number(n||0)); return d.toISOString().slice(0,10); }
+function cuDays(fromIso,toIso){ const a = new Date(String(fromIso).slice(0,10)+'T12:00:00'), b = new Date((toIso||cuToday())+'T12:00:00'); return Math.round((b-a)/864e5); }
+function cuCfg(){ return Object.assign({ serie:'CUS', next:1, logo:'', firme:[{},{},{}] }, (typeof CACHE!=='undefined' && CACHE.custodieCfg) || {}); }
+function cuFirm(i){ const f = CU_FIRME[i]||CU_FIRME[0], o = (cuCfg().firme||[])[i]||{};
+  return { n:o.n||f.n, s:f.s, cui:o.cui||f.cui, adr:o.adr||f.adr, rc:o.rc||'', rep:o.rep||'', fct:o.fct||'Administrator' }; }
+const cuMon = c => c.moneda==='RON' ? 'lei' : '€';
+const cuTotal = c => (c.prods||[]).reduce((a,p)=>a+(+p.q||0)*(+p.p||0),0);
+const cuEnd = c => cuAddMonths(c.data, c.durata);
+const cuExpuse = c => (c.prods||[]).filter(p => (p.stare||'expus')==='expus');
+function cuLastBase(c){ return c.ultimaVanzare || (c.signedAt ? cuLocalDate(c.signedAt) : '') || c.data; }
+function cuState(c){
+  if(c.status==='ciorna') return { t:'Ciornă', cls:'' };
+  if(c.status==='trimis') return { t:'La semnat', cls:'info' };
+  if(c.status==='incheiat') return { t:'Încheiat', cls:'' };
+  const left = cuDays(cuToday(), cuEnd(c));
+  if(left < 0) return { t:'Expirat', cls:'bad' };
+  const ns = cuDays(cuLastBase(c));
+  if(cuExpuse(c).length && ns >= (c.zileVanz??60)) return { t:`${ns} zile fără vânzare`, cls:'warn' };
+  if(left <= 30) return { t:`Expiră în ${left} z`, cls:'warn' };
+  return { t:'Activ', cls:'ok' };
+}
+function cuBlank(){
+  const f = cuFirm(0);
+  return { status:'ciorna', dep:0, depRep:f.rep, depFct:f.fct, data:cuToday(), durata:12, loc:'Bacău', dealerUid:'', dealerName:'',
+    dz:{ firma:'', cui:'', rc:'', sediu:'', show:'', rep:'', fct:'Administrator', tel:'', mail:'' }, tier:'PARTNER',
+    prods:[{ m:'', s:'', q:1, p:0, unitId:'', stare:'expus' }], moneda:'EUR', disc:35, plata:5, anunt:2, pen:0.1, retur:10, transp:'d',
+    preaviz:5, zileVanz:60, extra:'', sig:{ dep:'', dz:'' }, mode:'link' };
+}
+const cuGet = (o,p) => p.split('.').reduce((a,k)=>a==null?a:a[k], o);
+function cuSetP(o,p,v){ const ks = p.split('.'); let a = o; ks.slice(0,-1).forEach(k=>{ a[k]=a[k]||{}; a=a[k]; }); a[ks[ks.length-1]] = v; }
+function cuPlain(c){ const o = JSON.parse(JSON.stringify(c)); delete o.id; return o; }
+function cuToken(){ const a = new Uint8Array(18); crypto.getRandomValues(a); return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+
+/* ---------- documentul (același text ca în aplicația de custodie) ---------- */
+function cuBuildDoc(c, opt){
+  opt = opt || {};
+  const F = c.depFirma || cuFirm(c.dep);
+  const B = (v,ph='…………………') => v!=='' && v!=null ? cuEsc(v) : `<span class="blank">${ph}</span>`;
+  const fin = cuEnd(c), tot = cuTotal(c), mon = cuMon(c), sig = c.sig || {};
+  let n=0, k=0;
+  const H = t => { n++; k=0; return `<h3>Art. ${n}. ${t}</h3>`; };
+  const A = () => `<span class="a">${n}.${++k}</span>`;
+  const transp = c.transp==='d' ? 'Depozitar' : 'Deponent';
+  const logoSrc = c.logo || cuCfg().logo;
+  const logo = logoSrc ? `<img src="${logoSrc}" alt="Logo">` : `<div class="wm">FLAMART<small>DISTRIBUITOR BOKAR</small></div>`;
+  const depTxt = sig.dep ? `Semnat electronic la ${cuDt(c.sigDepAt||c.signedAt)}` : 'Nesemnat';
+  const dzTxt = sig.dz && c.signedAt ? (c.remote ? `Semnat de ${cuEsc(c.semnatar)} la ${cuDt(c.signedAt)}, prin link unic de semnare` : `Semnat electronic la ${cuDt(c.signedAt)}`) : 'Nesemnat';
+  const dzImg = opt.forLink ? '<!--SIGDZ-->' : (sig.dz ? `<img src="${sig.dz}" alt="Semnătura depozitarului">` : '');
+  const dzWhen = opt.forLink ? '<!--SIGDZTXT-->Nesemnat<!--/SIGDZTXT-->' : dzTxt;
+  const pretNota = c.moneda==='RON' ? '' : ' Prețurile sunt exprimate în euro, fără TVA; facturile se emit în lei, la cursul BNR din ziua emiterii.';
+  return `
+<div class="dh"><div class="logo">${logo}</div>
+ <div class="firm"><b>${cuEsc(F.n)}</b><br>CUI ${cuEsc(F.cui)}${c.depRc?` · ${cuEsc(c.depRc)}`:''}<br>${cuEsc(F.adr)}</div></div>
+<div class="dtitle"><h2>CONTRACT DE CUSTODIE</h2><p>pentru expunerea produselor BOKAR în showroom</p></div>
+<div class="dmeta"><span>Nr. ${cuEsc(c.nr||'ciornă')}</span><span>Data ${cuDRo(c.data)}</span></div>
+<div class="keys">
+ <div><span>Valoare marfă</span><b>${cuFmt(tot)} ${mon}</b></div>
+ <div><span>Durată</span><b>${cuEsc(c.durata)} luni</b></div>
+ <div><span>Valabil până la</span><b>${cuDRo(fin)||'—'}</b></div>
+ <div><span>Discount la vânzare</span><b>${cuEsc(c.disc)}%</b></div>
+</div>
+${H('Părțile contractante')}
+<div class="parties">
+ <div class="party"><h4>Deponent</h4><div class="n">${cuEsc(F.n)}</div>
+  Sediul: ${cuEsc(F.adr)}<br>CUI ${cuEsc(F.cui)} · Reg. Com. ${B(c.depRc)}<br>Reprezentant: ${B(c.depRep)}, ${B(c.depFct)}</div>
+ <div class="party"><h4>Depozitar · partener ${cuEsc(c.tier)}</h4><div class="n">${B(c.dz.firma)}</div>
+  Sediul: ${B(c.dz.sediu)}<br>CUI ${B(c.dz.cui)} · Reg. Com. ${B(c.dz.rc)}<br>Reprezentant: ${B(c.dz.rep)}, ${B(c.dz.fct)}<br>Tel. ${B(c.dz.tel)} · ${B(c.dz.mail)}</div>
+</div>
+<p>Părțile au convenit încheierea prezentului contract de custodie, în temeiul art. 2103 și următoarele din Codul civil, în condițiile de mai jos.</p>
+
+${H('Obiectul contractului')}
+<p>${A()} Deponentul predă, iar Depozitarul primește în custodie produsele BOKAR de mai jos, în scopul exclusiv al expunerii lor în showroom-ul Depozitarului din <b>${B(c.dz.show)}</b>.${pretNota}</p>
+<table><thead><tr><th>Nr.</th><th>Produs / model</th><th>Serie șasiu</th><th class="r">Buc.</th><th class="r">Preț listă</th><th class="r">Valoare</th></tr></thead>
+<tbody>${(c.prods||[]).map((p,i)=>`<tr><td>${i+1}</td><td>${B(p.m)}</td><td>${B(p.s)}</td><td class="r">${+p.q||0}</td><td class="r">${p.p?cuFmt(p.p):B('')}</td><td class="r">${cuFmt((+p.q||0)*(+p.p||0))}</td></tr>`).join('')}</tbody>
+<tfoot><tr><td colspan="5">Total, ${mon} fără TVA</td><td class="r">${cuFmt(tot)}</td></tr></tfoot></table>
+<p>${A()} Produsele rămân pe toată durata contractului proprietatea exclusivă a Deponentului. Depozitarul nu le poate gaja, înstrăina sau greva în niciun fel, cu excepția vânzării în condițiile art. 5.</p>
+<p>${A()} Prin semnarea prezentului contract, Depozitarul confirmă primirea produselor din tabel, în stare bună. Valoarea din tabel este și valoarea de despăgubire în caz de pierdere sau deteriorare.</p>
+
+${H('Durata contractului')}
+<p>${A()} Contractul se încheie pe ${B(c.durata)} luni, de la ${cuDRo(c.data)} până la <b>${cuDRo(fin)}</b>, și se poate prelungi prin act adițional.</p>
+
+${H('Obligațiile Depozitarului')}
+<p>${A()} Să păstreze produsele cu grija unui bun proprietar, într-un spațiu închis, uscat și protejat, și să le expună numai în showroom-ul de la art. 2.1. Mutarea lor în altă locație se face doar cu acordul scris al Deponentului.</p>
+<p>${A()} Să nu folosească produsele în alt scop decât expunerea. Montajul demonstrativ și racordarea la coș se fac numai cu acordul scris al Deponentului; în lipsa acestuia, produsele nu se pun în funcțiune.</p>
+<p>${A()} Să nu modifice și să nu demonteze produsele și să nu îndepărteze etichetele sau plăcuțele cu seria de șasiu.</p>
+<p>${A()} Să suporte riscul pierderii, furtului, distrugerii sau deteriorării produselor de la primire până la returnare, cu excepția uzurii normale din expunere.</p>
+<p>${A()} Să permită Deponentului verificarea produselor în showroom, în programul de lucru, cu o notificare de 24 de ore.</p>
+<p>${A()} Să promoveze produsele cu respectarea prețurilor de listă comunicate de Deponent și a politicii de parteneri BOKAR.</p>
+<p>${A()} Să anunțe Deponentul în scris, în cel mult 24 de ore, despre orice deteriorare, pierdere sau furt.</p>
+
+${H('Vânzarea produselor din expunere')}
+<p>${A()} Depozitarul poate vinde produsele expuse unui client final și anunță vânzarea în scris în ${B(c.anunt)} zile, indicând modelul și seria de șasiu.</p>
+<p>${A()} Produsul vândut se consideră cumpărat de Depozitar de la Deponent la prețul de listă minus ${B(c.disc)}%, plus TVA. Deponentul emite factura, iar Depozitarul o achită în ${B(c.plata)} zile de la emitere.</p>
+<p>${A()} Garanția BOKAR de 5 ani se activează pe numele clientului final, pe baza seriei de șasiu, după achitarea integrală a facturii.</p>
+<p>${A()} Deponentul poate înlocui produsul vândut cu unul nou, printr-un act adițional la prezentul contract.</p>
+
+${H('Obligațiile Deponentului')}
+<p>${A()} Să predea produsele în stare bună, cu documentația tehnică și materiale de prezentare.</p>
+<p>${A()} Să ofere Depozitarului informații tehnice și instruire despre produsele expuse.</p>
+<p>${A()} Să comunice în scris orice modificare a prețurilor de listă.</p>
+
+${H('Returnarea produselor')}
+<p>${A()} La încetarea contractului, Depozitarul returnează produsele nevândute în ${B(c.retur)} zile; produsele retrase potrivit art. 9.2 se returnează la expirarea termenului de notificare, în starea în care le-a primit, pe bază de proces-verbal de predare-primire. Transportul la retur este plătit de ${transp}.</p>
+<p>${A()} Produsele lipsă sau deteriorate la returnare se facturează Depozitarului la prețul de listă, plus TVA, fără discount.</p>
+
+${H('Penalități')}
+<p>${A()} Pentru întârzierea plății sau a returnării, Depozitarul datorează penalități de ${B(c.pen)}% pe zi, calculate la suma neachitată, respectiv la valoarea produselor nereturnate.</p>
+<p>${A()} Vânzarea unui produs neanunțată în termenul de la art. 5.1 dă dreptul Deponentului să o factureze la prețul de listă, fără discount.</p>
+
+${H('Încetarea contractului și retragerea produselor')}
+<p>${A()} Contractul încetează: a) la expirarea duratei; b) prin acordul părților; c) prin denunțare unilaterală de către oricare parte, cu o notificare scrisă de ${B(c.preaviz??5)} zile, fără a fi necesară vreo justificare; d) prin reziliere de drept, fără punere în întârziere și fără intervenția instanței, dacă Depozitarul încalcă obligațiile de la art. 4 sau art. 5; e) prin insolvența sau dizolvarea uneia dintre părți.</p>
+<p>${A()} Deponentul poate retrage oricând unul sau mai multe produse din custodie, de exemplu pentru livrarea către un alt client, cu o notificare scrisă de ${B(c.preaviz??5)} zile. Pentru produsele rămase, contractul continuă în aceleași condiții.</p>
+<p>${A()} Dacă timp de ${B(c.zileVanz??60)} de zile consecutive, socotite de la predarea produselor sau de la ultima vânzare, nu are loc nicio vânzare a produselor din custodie, Deponentul poate rezilia contractul printr-o notificare scrisă, cu efect de la data indicată în aceasta.</p>
+<p>${A()} La încetarea contractului sau la retragerea unor produse, acestea se returnează potrivit art. 7.</p>
+
+${H('Forța majoră și litigii')}
+<p>${A()} Forța majoră, dovedită potrivit legii, exonerează de răspundere partea care o invocă și o notifică în 5 zile. Furtul nu este caz de forță majoră.</p>
+<p>${A()} Litigiile se rezolvă pe cale amiabilă, iar în caz contrar de instanțele de la sediul Deponentului.</p>
+${c.extra?`${H('Clauze suplimentare')}<p>${cuEsc(c.extra).replace(/\n/g,'<br>')}</p>`:''}
+${H('Dispoziții finale')}
+<p>${A()} Modificările se fac prin act adițional semnat de ambele părți. Notificările se fac în scris, prin e-mail sau scrisoare recomandată.</p>
+<p>${A()} Contractul a fost încheiat la ${B(c.loc)}, la data de ${cuDRo(c.data)}, și semnat electronic de ambele părți. Fiecare parte primește documentul în format PDF.</p>
+
+<div class="signs">
+ <div class="sig"><h4>Deponent</h4><b>${cuEsc(F.n)}</b>prin ${B(c.depRep)}, ${cuEsc(c.depFct||'')}
+  <div class="im">${sig.dep?`<img src="${sig.dep}" alt="Semnătura deponentului">`:''}</div><span class="when">${depTxt}</span></div>
+ <div class="sig"><h4>Depozitar</h4><b>${B(c.dz.firma)}</b>prin ${B(c.dz.rep)}, ${cuEsc(c.dz.fct||'')}
+  <div class="im">${dzImg}</div><span class="when">${dzWhen}</span></div>
+</div>
+${c.status==='incheiat'?`<p style="margin-top:14px;font-size:11px;color:#173f7a"><b>Custodie încheiată</b> la ${cuDRo(c.closedAt)}</p>`:''}
+<div class="dfoot">${cuEsc(F.n)} · Contract de custodie ${cuEsc(c.nr||'')} · document generat electronic${c.token?` · ID semnare ${cuEsc(c.token.slice(0,10))}`:''}</div>`;
+}
+
+/* ---------- PDF: fiecare pagină A4 se desenează separat (merge și pe iPhone) ---------- */
+const CU_PDF_W = 688, CU_MM = { l:14, r:14, t:12, b:16 };
+const CU_PDF_H = Math.floor(CU_PDF_W*(297-CU_MM.t-CU_MM.b)/(210-CU_MM.l-CU_MM.r));
+function cuOverlay(html){ let o = document.getElementById('cuOverlay');
+  if(!o){ o = document.createElement('div'); o.id = 'cuOverlay'; o.className = 'cu-overlay'; document.body.appendChild(o); }
+  o.innerHTML = html; o.style.display = 'grid'; return o; }
+function cuOverlayClose(){ const o = document.getElementById('cuOverlay'); if(o){ o.style.display = 'none'; o.innerHTML = ''; } }
+async function cuMakePdf(c){
+  if(!window.jspdf || !window.html2canvas){ alert('Generatorul PDF nu s-a încărcat. Verifică internetul și reîncarcă pagina.'); return; }
+  cuOverlay('Se generează PDF-ul…');
+  const host = document.createElement('div'); host.style.cssText = `position:fixed;left:-10000px;top:0;width:${CU_PDF_W}px`;
+  const src = document.createElement('article'); src.className = 'cdoc pdf'; src.innerHTML = cuBuildDoc(c); host.appendChild(src); document.body.appendChild(host);
+  const name = `Contract-custodie-${c.nr||'ciorna'}-${(c.dz.firma||'').replace(/[^\p{L}\p{N}]+/gu,'-')}.pdf`;
+  try{
+    try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
+    await Promise.all([...src.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    await new Promise(r => setTimeout(r, 50));
+    const blocks = [...src.children], n = blocks.length, tops = blocks.map(b => b.offsetTop), total = src.scrollHeight;
+    const hs = blocks.map((b,i) => (i<n-1 ? tops[i+1] : total) - tops[i]);
+    const pages = []; let cur = [], used = 0;
+    for(let i=0;i<n;i++){
+      const keep = (blocks[i].tagName==='H3' && i<n-1) ? hs[i]+hs[i+1] : hs[i];
+      if(used>0 && used+keep>CU_PDF_H){ pages.push(cur); cur = []; used = 0; }
+      cur.push(i); used += hs[i];
+    }
+    if(cur.length) pages.push(cur);
+    const pdf = new window.jspdf.jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const cw = 210-CU_MM.l-CU_MM.r, ch = 297-CU_MM.t-CU_MM.b;
+    for(let p=0;p<pages.length;p++){
+      cuOverlay(`Se generează PDF-ul… pagina ${p+1} din ${pages.length}`);
+      const box = document.createElement('article'); box.className = 'cdoc pdf';
+      pages[p].forEach(i => box.appendChild(blocks[i].cloneNode(true)));
+      if(box.firstElementChild) box.firstElementChild.style.marginTop = '0';
+      host.appendChild(box);
+      const cv = await window.html2canvas(box, { scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth:1024, logging:false });
+      let w = cw, h = cv.height/cv.width*cw; if(h>ch){ h = ch; w = ch*cv.width/cv.height; }
+      if(p>0) pdf.addPage();
+      pdf.addImage(cv.toDataURL('image/jpeg',0.92), 'JPEG', CU_MM.l+(cw-w)/2, CU_MM.t, w, h);
+      box.remove(); cv.width = cv.height = 0;
+    }
+    const N = pdf.internal.getNumberOfPages(); pdf.setFontSize(8); pdf.setTextColor(120,134,152);
+    for(let i=1;i<=N;i++){ pdf.setPage(i); pdf.text(`Contract de custodie ${c.nr||''}  -  pagina ${i} din ${N}`, 105, 291, { align:'center' }); }
+    cuPdfReady(pdf.output('blob'), name);
+  }catch(e){ console.error(e); cuOverlayClose(); alert('PDF-ul nu a putut fi generat. Încearcă din nou.'); }
+  finally{ host.remove(); }
+}
+function cuPdfReady(blob, name){
+  const u = URL.createObjectURL(blob), file = new File([blob], name, { type:'application/pdf' });
+  const canShare = !!(navigator.canShare && navigator.canShare({ files:[file] }));
+  cuOverlay(`<div class="m"><b>PDF-ul este gata</b>
+    ${canShare?'<button class="btn btn-primary" id="cuPShare" type="button">Trimite sau salvează</button>':''}
+    <a class="btn ${canShare?'btn-secondary':'btn-primary'}" href="${u}" target="_blank" rel="noopener" download="${cuEsc(name)}" style="text-align:center;text-decoration:none">Deschide PDF-ul</a>
+    <button class="btn btn-secondary" id="cuPClose" type="button">Închide</button></div>`);
+  const close = () => { cuOverlayClose(); setTimeout(() => URL.revokeObjectURL(u), 60000); };
+  if(canShare) document.getElementById('cuPShare').onclick = async () => { try{ await navigator.share({ files:[file], title:name }); close(); }catch(e){} };
+  document.getElementById('cuPClose').onclick = close;
+}
+
+/* ---------- semnături pe ecran ---------- */
+function cuMakePad(canvas, key){
+  const ctx = canvas.getContext('2d'); let down = false, last = null;
+  const P = { dirty:false, canvas,
+    size(){ const r = canvas.getBoundingClientRect(); if(!r.width) return; const dpr = window.devicePixelRatio||1;
+      canvas.width = r.width*dpr; canvas.height = r.height*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.lineWidth = 2.3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f2a55';
+      const src = CU.cur && CU.cur.sig[key];
+      if(src){ const im = new Image(); im.onload = () => ctx.drawImage(im,0,0,r.width,r.height); im.src = src; P.dirty = true; } },
+    clear(){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); P.dirty = false; if(CU.cur) CU.cur.sig[key] = ''; P.size(); } };
+  const pt = e => { const r = canvas.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; };
+  canvas.onpointerdown = e => { down = true; last = pt(e); canvas.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.arc(last.x,last.y,1.1,0,7); ctx.fillStyle = '#0f2a55'; ctx.fill(); P.dirty = true; };
+  canvas.onpointermove = e => { if(!down) return; const p = pt(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last = p; };
+  canvas.onpointerup = canvas.onpointercancel = () => { down = false; if(P.dirty && CU.cur) CU.cur.sig[key] = canvas.toDataURL('image/png'); };
+  return P;
+}
+
+/* ---------- ecranul principal (admin) ---------- */
+function renderCustodie(){
+  const el = document.getElementById('cuRoot'); if(!el) return;
+  if(CU.view==='form') return cuRenderForm(el);
+  if(CU.view==='detail') return cuRenderDetail(el);
+  if(CU.view==='setari') return cuRenderSetari(el);
+  cuRenderList(el);
+}
+function cuGo(view, opts){ Object.assign(CU, { view }, opts||{}); renderCustodie(); const el = document.getElementById('cuRoot'); if(el) el.scrollIntoView({ block:'start' }); }
+
+function cuRenderList(el){
+  const all = [...(CACHE.custodii||[])].sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  const active = all.filter(c => c.status==='activ');
+  const expuse = active.reduce((s,c) => s+cuExpuse(c).reduce((a,p)=>a+(+p.q||0),0), 0);
+  const atentie = active.filter(c => ['warn','bad'].includes(cuState(c).cls)).length;
+  const laSemnat = all.filter(c => c.status==='trimis').length;
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${active.length}</div><div class="l">Contracte active</div></div>
+      <div class="stat-card"><div class="n">${expuse}</div><div class="l">Produse în showroom-uri</div></div>
+      <div class="stat-card"><div class="n">${atentie}</div><div class="l">Necesită atenție (expiră / fără vânzări)</div></div>
+      <div class="stat-card"><div class="n">${laSemnat}</div><div class="l">Așteaptă semnătura</div></div>
+    </div>
+    <div class="card">
+      <div class="cu-top"><h2 style="margin:0">Contracte de custodie</h2>
+        <div class="cu-acts" style="margin:0"><button class="btn btn-secondary" id="cuSet" type="button">Setări contract</button>
+        <button class="btn btn-primary" id="cuNew" type="button">+ Contract nou</button></div></div>
+      ${all.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Nr.</th><th>Revânzător</th><th>Showroom</th><th>Produse expuse</th><th>Valoare</th><th>Până la</th><th>Stare</th></tr></thead><tbody>
+        ${all.map(c => { const s = cuState(c); const nExp = cuExpuse(c).reduce((a,p)=>a+(+p.q||0),0);
+          return `<tr class="cu-rowlink" data-cu="${c.id}"><td>${cuEsc(c.nr||'—')}</td><td>${cuEsc(c.dz&&c.dz.firma||c.dealerName||'—')}</td>
+            <td>${cuEsc(c.dz&&c.dz.show||'')}</td><td>${nExp}</td><td>${cuFmt(cuTotal(c))} ${cuMon(c)}</td>
+            <td>${c.status==='ciorna'?'—':cuDRo(cuEnd(c))}</td><td><span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></td></tr>`; }).join('')}
+      </tbody></table></div>` : '<div class="empty">Niciun contract de custodie încă. Apasă „+ Contract nou”.</div>'}
+    </div>`;
+  document.getElementById('cuNew').onclick = () => cuGo('form', { cur:cuBlank() });
+  document.getElementById('cuSet').onclick = () => cuGo('setari');
+  el.querySelectorAll('[data-cu]').forEach(r => r.onclick = () => {
+    const c = all.find(x => x.id===r.dataset.cu);
+    if(c.status==='ciorna') cuGo('form', { cur:JSON.parse(JSON.stringify(c)) });
+    else cuGo('detail', { openId:c.id });
+  });
+}
+
+function cuRenderForm(el){
+  const c = CU.cur;
+  const partners = (CACHE.parteneriConturi||[]).filter(p => p.uid && p.activ!==false);
+  const units = (CACHE.unitati||[]).filter(u => u.status==='custodie' && (!u.custodieId || u.custodieId===c.id));
+  const inp = (f, type, extra) => `<input data-f="${f}" ${type?`type="${type}"`:''} ${extra||''}>`;
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="cuBack" type="button">← Înapoi la listă</button>
+      <span class="cu-pill">${c.nr?cuEsc(c.nr):'Contract nou · ciornă'}</span></div>
+    <div id="cuErr" class="warning-banner"></div>
+    <div class="card"><h2>1. Emitent și durată</h2>
+      <div class="field"><label>Firma care predă marfa</label>
+        <div class="cu-seg" id="cuDep">${CU_FIRME.map((f,i)=>`<button type="button" data-dep="${i}" aria-pressed="${c.dep===i}">${cuEsc(f.s)}<small>CUI ${cuEsc(cuFirm(i).cui)}</small></button>`).join('')}</div></div>
+      <div class="field-row"><div class="field"><label>Reprezentant</label>${inp('depRep')}</div><div class="field"><label>Funcția</label>${inp('depFct')}</div></div>
+      <div class="field-row"><div class="field"><label>Data</label>${inp('data','date')}</div>
+        <div class="field"><label>Durata (luni)</label>${inp('durata','number','min="1"')}</div>
+        <div class="field"><label>Localitatea</label>${inp('loc')}</div></div>
+    </div>
+    <div class="card"><h2>2. Revânzătorul</h2>
+      <div class="field"><label>Cont partener în portal</label>
+        <select id="cuDealer"><option value="">— Revânzător fără cont în portal —</option>
+          ${partners.map(p=>`<option value="${cuEsc(p.uid)}" ${c.dealerUid===p.uid?'selected':''}>${cuEsc(p.nume)} (${cuEsc(p.email)})</option>`).join('')}</select>
+        <div style="font-size:12px;color:var(--stone);margin-top:5px">Dacă alegi un cont, partenerul vede contractul în portal, la tab-ul „Custodie”. Datele firmei se completează din ultimul lui contract.</div></div>
+      <div class="field"><label>Denumire firmă</label>${inp('dz.firma','','data-req')}</div>
+      <div class="field-row"><div class="field"><label>CUI</label>${inp('dz.cui','','data-req')}</div><div class="field"><label>Nr. Reg. Com.</label>${inp('dz.rc')}</div></div>
+      <div class="field"><label>Sediul social</label>${inp('dz.sediu')}</div>
+      <div class="field"><label>Adresa showroom-ului</label>${inp('dz.show','','data-req')}</div>
+      <div class="field-row"><div class="field"><label>Reprezentant</label>${inp('dz.rep','','data-req')}</div><div class="field"><label>Funcția</label>${inp('dz.fct')}</div></div>
+      <div class="field-row"><div class="field"><label>Telefon</label>${inp('dz.tel','tel')}</div><div class="field"><label>E-mail</label>${inp('dz.mail','email')}</div></div>
+      <div class="field"><label>Nivel partener</label><div class="cu-seg" id="cuTier">${CU_TIERS.map(t=>`<button type="button" data-tier="${t}" aria-pressed="${c.tier===t}">${t}</button>`).join('')}</div></div>
+    </div>
+    <div class="card"><h2>3. Produse în custodie</h2>
+      <div id="cuProds"></div>
+      <button type="button" class="btn btn-secondary" id="cuAddP" style="margin-top:12px">+ Adaugă produs</button>
+      <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:14px"><span>Total fără TVA</span><span id="cuSum"></span></div>
+    </div>
+    <div class="card"><h2>4. Condiții</h2>
+      <div class="field-row"><div class="field"><label>Moneda prețurilor</label>
+          <select data-f="moneda"><option value="EUR">Euro (facturare în lei, la curs BNR)</option><option value="RON">Lei</option></select></div>
+        <div class="field"><label>Discount la vânzare (%)</label>${inp('disc','number','min="0" max="100"')}</div></div>
+      <div class="field-row"><div class="field"><label>Plată factură (zile)</label>${inp('plata','number','min="0"')}</div>
+        <div class="field"><label>Anunțare vânzare (zile)</label>${inp('anunt','number','min="0"')}</div>
+        <div class="field"><label>Penalități (% / zi)</label>${inp('pen','number','min="0" step="0.01"')}</div></div>
+      <div class="field-row"><div class="field"><label>Preaviz (zile)</label>${inp('preaviz','number','min="1"')}</div>
+        <div class="field"><label>Reziliere dacă nu vinde în (zile)</label>${inp('zileVanz','number','min="1"')}</div>
+        <div class="field"><label>Returnare în (zile)</label>${inp('retur','number','min="0"')}</div></div>
+      <div class="field"><label>Transport retur plătit de</label><select data-f="transp"><option value="d">Revânzător</option><option value="dp">Emitent</option></select></div>
+      <div class="field"><label>Clauze suplimentare (opțional)</label><textarea data-f="extra" rows="3"></textarea></div>
+    </div>
+    <div class="card"><h2>5. Semnături</h2>
+      <div class="cu-seg" id="cuMode">
+        <button type="button" data-mode="link" aria-pressed="${c.mode!=='loc'}">Trimit link<small>Revânzătorul semnează de pe telefonul lui</small></button>
+        <button type="button" data-mode="loc" aria-pressed="${c.mode==='loc'}">Pe loc<small>Semnați amândoi pe acest ecran</small></button></div>
+      <div class="field" id="cuSbDz" style="margin-top:14px" ${c.mode!=='loc'?'hidden':''}><label>Revânzător (depozitar) · <a class="cu-clr" data-clear="dz">șterge</a></label><canvas class="cu-pad" id="cuPadDz"></canvas></div>
+      <div class="field" style="margin-top:14px"><label>Emitent (deponent) · <a class="cu-clr" data-clear="dep">șterge</a></label><canvas class="cu-pad" id="cuPadDep"></canvas></div>
+      <p style="font-size:12px;color:var(--stone);margin:6px 0 0">${c.mode!=='loc'
+        ? `După ce semnezi, primești un link valabil ${CU_LINK_ZILE} zile, pe care îl trimiți revânzătorului pe WhatsApp sau e-mail.`
+        : 'Fiecare parte primește PDF-ul semnat.'}</p>
+    </div>
+    <div class="cu-acts"><button class="btn btn-secondary" id="cuDraft" type="button">Salvează ciorna</button>
+      <button class="btn btn-primary" id="cuFinal" type="button">${c.mode!=='loc'?'Semnează și creează linkul':'Finalizează contractul'}</button></div>`;
+
+  el.querySelectorAll('[data-f]').forEach(x => {
+    const v = cuGet(c, x.dataset.f); x.value = v ?? '';
+    x.addEventListener('input', () => { cuSetP(c, x.dataset.f, x.type==='number' ? (x.value===''?'':+x.value) : x.value); x.closest('.field')?.classList.remove('invalid');
+      if(x.dataset.f==='moneda') cuRenderProds(units); });
+    x.addEventListener('change', () => { if(x.tagName==='SELECT') cuSetP(c, x.dataset.f, x.value); });
+  });
+  el.querySelectorAll('#cuDep [data-dep]').forEach(b => b.onclick = () => { cuCollect(); const i = +b.dataset.dep; const f = cuFirm(i);
+    c.dep = i; c.depRep = f.rep || c.depRep; c.depFct = f.fct || c.depFct; cuRenderForm(el); });
+  el.querySelectorAll('#cuTier [data-tier]').forEach(b => b.onclick = () => { cuCollect(); c.tier = b.dataset.tier; cuRenderForm(el); });
+  el.querySelectorAll('#cuMode [data-mode]').forEach(b => b.onclick = () => { cuCollect(); c.mode = b.dataset.mode; cuRenderForm(el); });
+  document.getElementById('cuDealer').onchange = e => {
+    const uid = e.target.value; const p = partners.find(x => x.uid===uid);
+    c.dealerUid = uid; c.dealerName = p ? p.nume : '';
+    if(p){ const prev = (CACHE.custodii||[]).filter(x => x.dealerUid===uid && x.id!==c.id).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')))[0];
+      if(prev){ c.dz = JSON.parse(JSON.stringify(prev.dz)); c.tier = prev.tier || c.tier; }
+      else if(!c.dz.firma){ c.dz.firma = p.nume; c.dz.mail = c.dz.mail || p.email; } }
+    cuCollect(); cuRenderForm(el);
+  };
+  document.getElementById('cuBack').onclick = () => cuGo('list', { cur:null });
+  document.getElementById('cuAddP').onclick = () => { c.prods.push({ m:'', s:'', q:1, p:0, unitId:'', stare:'expus' }); cuRenderProds(units); };
+  document.getElementById('cuDraft').onclick = () => cuSaveDraft();
+  document.getElementById('cuFinal').onclick = () => cuFinalize();
+  el.querySelectorAll('[data-clear]').forEach(a => a.onclick = () => { const p = CU.pads[a.dataset.clear]; if(p) p.clear(); });
+  cuRenderProds(units);
+  setTimeout(() => { CU.pads = { dz:cuMakePad(document.getElementById('cuPadDz'),'dz'), dep:cuMakePad(document.getElementById('cuPadDep'),'dep') };
+    CU.pads.dz.size(); CU.pads.dep.size(); }, 30);
+}
+function cuCollect(){ const c = CU.cur; if(!c) return; ['dz','dep'].forEach(k => { const p = CU.pads[k]; if(p && p.dirty) c.sig[k] = p.canvas.toDataURL('image/png'); }); }
+function cuRenderProds(units){
+  const c = CU.cur, box = document.getElementById('cuProds'); if(!box) return;
+  box.innerHTML = c.prods.map((p,i) => `<div class="cu-prod">
+    <div class="field cu-full" style="margin:0"><label>Produs ${i+1} · din stoc (serie de șasiu)</label>
+      <select data-pu="${i}"><option value="">— Manual (grile, accesorii sau focar fără serie în stoc) —</option>
+        ${units.map(u => `<option value="${cuEsc(u.id)}" ${p.unitId===u.id?'selected':''} ${c.prods.some((q,j)=>j!==i&&q.unitId===u.id)?'disabled':''}>${cuEsc(u.serie)} · ${cuEsc(u.model)} ${cuEsc(u.varianta||'')}</option>`).join('')}
+      </select></div>
+    <div class="field" style="margin:0"><label>Model</label><input data-pi="${i}" data-pk="m" value="${cuEsc(p.m)}"></div>
+    <div class="field" style="margin:0"><label>Serie șasiu</label><input data-pi="${i}" data-pk="s" value="${cuEsc(p.s)}" placeholder="— dacă nu are"></div>
+    <div class="field" style="margin:0"><label>Buc.</label><input type="number" min="1" data-pi="${i}" data-pk="q" value="${p.q}"></div>
+    <div class="field" style="margin:0"><label>Preț listă (${cuMon(c)})</label><input type="number" min="0" step="0.01" data-pi="${i}" data-pk="p" value="${p.p||''}"></div>
+    <button type="button" class="cu-rm" data-prm="${i}" title="Elimină produsul" ${c.prods.length<2?'hidden':''}>✕</button>
+  </div>`).join('');
+  const sum = () => { const s = document.getElementById('cuSum'); if(s) s.textContent = `${cuFmt(cuTotal(c))} ${cuMon(c)}`; };
+  box.querySelectorAll('[data-pu]').forEach(s => s.onchange = () => {
+    const p = c.prods[+s.dataset.pu], u = units.find(x => x.id===s.value);
+    if(u){ p.unitId = u.id; p.m = `Focar BOKAR ${u.model}${u.varianta?' '+u.varianta:''}`; p.s = u.serie; p.q = 1;
+      const rrp = (RRP_FOCAR[u.model]||{})[u.varianta]; if(rrp && c.moneda!=='RON') p.p = rrp; }
+    else p.unitId = '';
+    cuRenderProds(units);
+  });
+  box.querySelectorAll('[data-pi]').forEach(x => x.oninput = () => { const p = c.prods[+x.dataset.pi], k = x.dataset.pk;
+    p[k] = (k==='q'||k==='p') ? (+x.value||0) : x.value; x.closest('.field')?.classList.remove('invalid'); sum(); });
+  box.querySelectorAll('[data-prm]').forEach(b => b.onclick = () => { c.prods.splice(+b.dataset.prm,1); cuRenderProds(units); });
+  sum();
+}
+function cuErr(msg){ const e = document.getElementById('cuErr'); if(!e) { alert(msg); return; } e.textContent = msg; e.classList.toggle('show', !!msg); if(msg) e.scrollIntoView({ block:'center', behavior:'smooth' }); }
+function cuValidate(full){
+  const c = CU.cur, root = document.getElementById('cuRoot'); let bad = [];
+  root.querySelectorAll('.field.invalid').forEach(f => f.classList.remove('invalid'));
+  if(!full) return '';
+  if(!c.data || !(+c.durata>0)) return 'Completează data și durata contractului.';
+  root.querySelectorAll('input[data-req]').forEach(x => { if(!x.value.trim()) bad.push(x); });
+  c.prods.forEach((p,i) => { ['m','s','p'].forEach(k => { const v = p[k]; if(k==='p' ? !(+v>0) : !String(v||'').trim()) bad.push(root.querySelector(`[data-pi="${i}"][data-pk="${k}"]`)); }); });
+  bad.forEach(x => x && x.closest('.field')?.classList.add('invalid'));
+  if(bad.length) return 'Completează câmpurile marcate cu roșu (la produse: model, serie — sau „—” — și preț).';
+  if(!c.sig.dep) return 'Semnează ca emitent în chenarul „Emitent”.';
+  if(c.mode==='loc' && !c.sig.dz) return 'Lipsește semnătura revânzătorului.';
+  return '';
+}
+async function cuNextNr(){
+  const ref = db.collection('config').doc('custodie');
+  return db.runTransaction(async t => {
+    const s = await t.get(ref); const d = s.exists ? s.data() : {};
+    const serie = d.serie || 'CUS', next = +d.next || 1;
+    t.set(ref, { serie, next:next+1 }, { merge:true });
+    return `${serie}-${String(next).padStart(4,'0')}`;
+  });
+}
+async function cuSaveDraft(){
+  cuCollect(); cuErr('');
+  const c = CU.cur;
+  try{
+    const ref = c.id ? db.collection('custodii').doc(c.id) : db.collection('custodii').doc();
+    c.id = ref.id; c.status = 'ciorna'; c.created = c.created || new Date().toISOString(); c.createdBy = c.createdBy || currentUser.uid;
+    await ref.set(cuPlain(c));
+    alert('Ciorna a fost salvată.');
+    CU.cur = null; CU.view = 'list'; await loadAll();
+  }catch(e){ console.error(e); cuErr('Ciorna nu s-a putut salva. Verifică conexiunea.'); }
+}
+async function cuFinalize(){
+  cuCollect();
+  const c = CU.cur; const msg = cuValidate(true); if(msg){ cuErr(msg); return; } cuErr('');
+  const btn = document.getElementById('cuFinal'); btn.disabled = true; btn.textContent = 'Se salvează…';
+  try{
+    const ref = c.id ? db.collection('custodii').doc(c.id) : db.collection('custodii').doc();
+    c.id = ref.id; c.created = c.created || new Date().toISOString(); c.createdBy = c.createdBy || currentUser.uid;
+    if(!c.nr) c.nr = await cuNextNr();
+    c.depFirma = cuFirm(c.dep); c.depRc = c.depFirma.rc; c.logo = cuCfg().logo || '';
+    c.prods.forEach(p => { p.stare = p.stare || 'expus'; });
+    if(c.mode!=='loc'){
+      const tok = c.token || cuToken(); const now = new Date();
+      c.sigDepAt = now.toISOString(); c.token = tok;
+      const snap = cuPlain(c); snap.sig = { dep:c.sig.dep, dz:'' };
+      const docHtml = cuBuildDoc(snap, { forLink:true });
+      delete snap.logo;   // logo-ul e deja în docHtml; nu-l dublăm (limita de 1 MB pe document)
+      await db.collection('semnari').doc(tok).set({
+        contract:snap, docHtml, status:'trimis', sigDz:'', semnatar:'', dispozitiv:'', semnatLa:null,
+        creat:firebase.firestore.FieldValue.serverTimestamp(), expira:firebase.firestore.Timestamp.fromMillis(now.getTime()+CU_LINK_ZILE*864e5),
+        emitent:currentUser.uid, custodieId:c.id });
+      Object.assign(c, { status:'trimis', sentAt:now.toISOString(), expira:new Date(now.getTime()+CU_LINK_ZILE*864e5).toISOString() });
+    }else{
+      c.status = 'activ'; c.signedAt = new Date().toISOString(); c.sigDepAt = c.signedAt; c.remote = false;
+    }
+    await ref.set(cuPlain(c));
+    await cuSyncUnits(c);
+    CU.cur = null; CU.view = 'detail'; CU.openId = c.id;
+    await loadAll();
+  }catch(e){ console.error(e); cuErr('Contractul nu s-a putut salva. Verifică conexiunea și încearcă din nou.'); btn.disabled = false; btn.textContent = 'Încearcă din nou'; }
+}
+/* aliniază stocul („unitati”) cu starea produselor din contract */
+async function cuSyncUnits(c){
+  const del = firebase.firestore.FieldValue.delete(); const b = db.batch(); let n = 0;
+  const label = (c.dz && c.dz.firma) || c.dealerName || '';
+  (c.prods||[]).forEach(p => {
+    if(!p.unitId) return; const r = db.collection('unitati').doc(p.unitId); const st = p.stare || 'expus';
+    if(st==='vandut'){ b.update(r, { status:'vandut', dataVanzare:p.dataStare||cuToday(), showroom:del }); n++; }
+    else if(st==='expus' && (c.status==='trimis' || c.status==='activ')){ b.update(r, { custodieId:c.id, showroom:label }); n++; }
+    else { b.update(r, { custodieId:del, showroom:del }); n++; }
+  });
+  if(n) await b.commit();
+}
+
+function cuRenderDetail(el){
+  const c = (CACHE.custodii||[]).find(x => x.id===CU.openId);
+  if(!c){ CU.view = 'list'; return cuRenderList(el); }
+  const s = cuState(c), zv = c.zileVanz??60, ns = cuDays(cuLastBase(c));
+  const prodRows = (c.prods||[]).map((p,i) => { const st = p.stare||'expus';
+    return `<tr><td>${cuEsc(p.m)}</td><td>${cuEsc(p.s)}</td><td>${cuFmt(p.p)} ${cuMon(c)}</td>
+      <td><span class="cu-pill ${st==='expus'?'ok':st==='vandut'?'info':''}">${st==='expus'?'În showroom':st==='vandut'?'Vândut':'Retras'}</span>${p.dataStare?` <span style="color:var(--stone);font-size:11px">${cuDRo(p.dataStare)}</span>`:''}</td>
+      <td>${c.status==='activ' && st==='expus' ? `<button class="btn btn-secondary cu-sm" data-sold="${i}" type="button">Vândut</button> <button class="btn btn-secondary cu-sm" data-pull="${i}" type="button">Retras</button>` : ''}</td></tr>`; }).join('');
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="cuBack" type="button">← Înapoi la listă</button>
+      <span><b>${cuEsc(c.nr)}</b> · ${cuEsc(c.dz.firma)} &nbsp;<span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></span></div>
+    ${c.status==='trimis' ? cuLinkBox(c) : ''}
+    ${c.status==='activ' || c.status==='incheiat' ? `<div class="card"><h2>Produsele din contract</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Produs</th><th>Serie</th><th>Preț listă</th><th>Stare</th><th></th></tr></thead><tbody>${prodRows}</tbody></table></div>
+      ${c.status==='activ' ? `<p style="font-size:12.5px;margin:12px 0 0;color:${ns>=zv&&cuExpuse(c).length?'var(--amber)':'var(--stone)'};font-weight:600">
+        ${c.ultimaVanzare?`Ultima vânzare: ${cuDRo(c.ultimaVanzare)}`:'Nicio vânzare încă'} · ${ns} ${ns===1?'zi':'zile'} fără vânzare (prag ${zv} zile)
+        ${ns>=zv&&cuExpuse(c).length?' — poți rezilia contractul potrivit art. 9.3.':''}</p>
+        <p style="font-size:12px;color:var(--stone);margin:6px 0 0">Când înregistrezi o garanție sau o vânzare directă cu seria unui produs de aici, acesta se marchează automat ca vândut.</p>` : ''}
+    </div>` : ''}
+    <div class="cu-acts">
+      <button class="btn btn-primary" id="cuPdf" type="button">PDF</button>
+      <button class="btn btn-secondary" id="cuDup" type="button">Contract nou, același revânzător</button>
+      ${c.status==='activ' ? '<button class="btn btn-secondary" id="cuClose" type="button">Încheie custodia</button>' : ''}
+      ${c.status!=='activ' && c.status!=='incheiat' ? '<button class="btn btn-secondary" id="cuDel" type="button" style="color:var(--red)">Șterge</button>' : ''}
+    </div>
+    <div class="cu-docwrap"><article class="cdoc">${cuBuildDoc(c)}</article></div>`;
+  document.getElementById('cuBack').onclick = () => cuGo('list');
+  document.getElementById('cuPdf').onclick = () => cuMakePdf(c);
+  document.getElementById('cuDup').onclick = () => { const n = cuBlank();
+    Object.assign(n, { dep:c.dep, depRep:c.depRep, depFct:c.depFct, dealerUid:c.dealerUid||'', dealerName:c.dealerName||'', dz:JSON.parse(JSON.stringify(c.dz)), tier:c.tier,
+      moneda:c.moneda||'EUR', disc:c.disc, plata:c.plata, anunt:c.anunt, pen:c.pen, retur:c.retur, transp:c.transp, preaviz:c.preaviz??5, zileVanz:c.zileVanz??60, durata:c.durata, loc:c.loc });
+    cuGo('form', { cur:n }); };
+  const cl = document.getElementById('cuClose'); if(cl) cl.onclick = () => cuClose(c);
+  const dl = document.getElementById('cuDel'); if(dl) dl.onclick = () => cuDelete(c);
+  el.querySelectorAll('[data-sold]').forEach(b => b.onclick = () => cuSetProd(c, +b.dataset.sold, 'vandut'));
+  el.querySelectorAll('[data-pull]').forEach(b => b.onclick = () => cuSetProd(c, +b.dataset.pull, 'retras'));
+  if(c.status==='trimis') cuBindLinkBox(c);
+}
+function cuLinkBox(c){
+  const link = CU_SIGN_BASE + c.token;
+  const expired = c.expira && new Date(c.expira) < new Date();
+  return `<div class="cu-linkbox"><b>${expired?'Linkul a expirat':'Așteaptă semnătura revânzătorului'}</b>
+    <p style="margin:4px 0 10px;font-size:12.5px;color:var(--stone)">${expired?'Revânzătorul nu a semnat la timp. Retrage linkul și trimite-l din nou.'
+      :`Link creat la ${cuDt(c.sentAt)}, valabil până la ${cuDRo(cuLocalDate(c.expira))}. Când semnează, contractul trece automat în „Activ”.`}</p>
+    <div style="display:flex;gap:8px"><input id="cuLink" readonly value="${cuEsc(link)}" style="flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;border:1px solid var(--line);border-radius:6px">
+      <button class="btn btn-secondary" id="cuCopy" type="button">Copiază</button></div>
+    <div class="cu-acts" style="margin-bottom:0"><a class="btn btn-primary" id="cuWa" target="_blank" rel="noopener" style="text-decoration:none">WhatsApp</a>
+      <a class="btn btn-secondary" id="cuMail" style="text-decoration:none">E-mail</a>
+      <button class="btn btn-secondary" id="cuCheck" type="button">Verifică acum</button>
+      <button class="btn btn-secondary" id="cuRetract" type="button">Retrage linkul</button></div></div>`;
+}
+function cuBindLinkBox(c){
+  const link = CU_SIGN_BASE + c.token;
+  const msg = `Bună ziua, vă trimit spre semnare contractul de custodie ${c.nr} pentru produsele BOKAR expuse în showroom. Îl puteți citi și semna de pe telefon aici: ${link}`;
+  let ph = (c.dz.tel||'').replace(/\D/g,''); if(ph.startsWith('0')) ph = '4'+ph;
+  document.getElementById('cuWa').href = `https://wa.me/${ph}?text=${encodeURIComponent(msg)}`;
+  document.getElementById('cuMail').href = `mailto:${c.dz.mail||''}?subject=${encodeURIComponent('Contract de custodie '+c.nr)}&body=${encodeURIComponent(msg)}`;
+  document.getElementById('cuCopy').onclick = () => { const i = document.getElementById('cuLink');
+    try{ navigator.clipboard.writeText(msg).then(() => alert('Mesajul cu linkul a fost copiat.'), () => i.select()); }catch(e){ i.select(); } };
+  document.getElementById('cuCheck').onclick = async () => { const n = await cuSyncSemnari(true); if(!n) alert('Revânzătorul nu a semnat încă.'); };
+  document.getElementById('cuRetract').onclick = async () => {
+    if(!confirm('Retragi linkul? Nu va mai funcționa, iar contractul revine la ciornă.')) return;
+    try{ await db.collection('semnari').doc(c.token).delete(); }catch(e){}
+    const upd = Object.assign(JSON.parse(JSON.stringify(c)), { status:'ciorna', token:'', sentAt:'', expira:'' });
+    await cuSyncUnits(Object.assign({}, upd, { status:'ciorna' }));
+    await db.collection('custodii').doc(c.id).set(cuPlain(upd));
+    CU.cur = upd; CU.view = 'form'; await loadAll();
+  };
+}
+async function cuSetProd(c, i, stare){
+  const p = c.prods[i];
+  const q = stare==='vandut'
+    ? `Marchezi ca vândut „${p.m}” (${p.s})? Urmează să emiți factura către ${c.dz.firma} la preț de listă minus ${c.disc}%.`
+    : `Marchezi ca retras „${p.m}” (${p.s})? Produsul revine pe stoc.`;
+  if(!confirm(q)) return;
+  const prods = JSON.parse(JSON.stringify(c.prods)); prods[i].stare = stare; prods[i].dataStare = cuToday();
+  const upd = { prods }; if(stare==='vandut') upd.ultimaVanzare = cuToday();
+  try{
+    await db.collection('custodii').doc(c.id).update(upd);
+    await cuSyncUnits(Object.assign({}, c, upd));
+    await loadAll();
+  }catch(e){ console.error(e); alert('Nu am putut salva. Verifică conexiunea.'); }
+}
+async function cuClose(c){
+  if(!confirm(`Închei custodia ${c.nr}? Produsele rămase în showroom se marchează ca retrase și revin pe stoc.`)) return;
+  const prods = JSON.parse(JSON.stringify(c.prods)).map(p => (p.stare||'expus')==='expus' ? Object.assign(p, { stare:'retras', dataStare:cuToday() }) : p);
+  const upd = { status:'incheiat', closedAt:cuToday(), prods };
+  try{ await db.collection('custodii').doc(c.id).update(upd); await cuSyncUnits(Object.assign({}, c, upd)); await loadAll(); }
+  catch(e){ console.error(e); alert('Nu am putut încheia contractul. Verifică conexiunea.'); }
+}
+async function cuDelete(c){
+  if(!confirm(`Ștergi ${c.nr||'ciorna'}? Nu se poate anula.`)) return;
+  try{
+    if(c.token){ try{ await db.collection('semnari').doc(c.token).delete(); }catch(e){} }
+    await cuSyncUnits(Object.assign({}, c, { status:'ciorna' }));
+    await db.collection('custodii').doc(c.id).delete();
+    CU.view = 'list'; await loadAll();
+  }catch(e){ console.error(e); alert('Nu am putut șterge. Verifică conexiunea.'); }
+}
+/* preia semnăturile venite prin link și vânzările înregistrate prin garanție / vânzare directă */
+let cuSyncing = false;
+async function cuSyncSemnari(force){
+  if(cuSyncing || currentUser.role!=='admin') return 0; cuSyncing = true; let n = 0;
+  try{
+    for(const c of (CACHE.custodii||[]).filter(x => x.status==='trimis' && x.token)){
+      const d = await db.collection('semnari').doc(c.token).get(); if(!d.exists) continue; const x = d.data();
+      if(x.status==='semnat'){
+        await db.collection('custodii').doc(c.id).update({ status:'activ', 'sig.dz':x.sigDz, semnatar:x.semnatar||'', dispozitiv:x.dispozitiv||'', remote:true,
+          signedAt:(x.semnatLa && typeof x.semnatLa.toDate==='function') ? x.semnatLa.toDate().toISOString() : new Date().toISOString() });
+        n++;
+      }
+    }
+    for(const c of (CACHE.custodii||[]).filter(x => x.status==='activ')){
+      let changed = false; const prods = JSON.parse(JSON.stringify(c.prods||[]));
+      prods.forEach(p => { if(p.unitId && (p.stare||'expus')==='expus'){ const u = (CACHE.unitati||[]).find(u => u.id===p.unitId);
+        if(u && u.status==='vandut'){ p.stare = 'vandut'; p.dataStare = u.dataVanzare || cuToday(); changed = true; } } });
+      if(changed){ const last = prods.filter(p => p.stare==='vandut').map(p => p.dataStare).sort().pop();
+        await db.collection('custodii').doc(c.id).update({ prods, ultimaVanzare:last && (!c.ultimaVanzare || last>c.ultimaVanzare) ? last : (c.ultimaVanzare||last) });
+        await cuSyncUnits(Object.assign({}, c, { prods })); n++; }
+    }
+  }catch(e){ console.error('Sincronizare custodii', e); }
+  finally{ cuSyncing = false; }
+  if(n){ await loadAll(); }
+  return n;
+}
+
+function cuRenderSetari(el){
+  const s = cuCfg();
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="cuBack" type="button">← Înapoi la listă</button></div>
+    <div class="card"><h2>Numerotare</h2>
+      <div class="field-row"><div class="field"><label>Seria</label><input id="cs_serie" value="${cuEsc(s.serie)}"></div>
+        <div class="field"><label>Următorul număr</label><input id="cs_next" type="number" min="1" value="${cuEsc(s.next)}"></div></div></div>
+    ${CU_FIRME.map((f,i) => { const d = cuFirm(i); return `<div class="card"><h2>Firma ${i+1} · ${cuEsc(f.s)}</h2>
+      <div class="field"><label>Denumire</label><input id="cs_n${i}" value="${cuEsc(d.n)}"></div>
+      <div class="field-row"><div class="field"><label>CUI</label><input id="cs_cui${i}" value="${cuEsc(d.cui)}"></div>
+        <div class="field"><label>Nr. Reg. Com.</label><input id="cs_rc${i}" value="${cuEsc(d.rc)}" placeholder="J04/…/…"></div></div>
+      <div class="field"><label>Sediul social</label><input id="cs_adr${i}" value="${cuEsc(d.adr)}"></div>
+      <div class="field-row"><div class="field"><label>Reprezentant</label><input id="cs_rep${i}" value="${cuEsc(d.rep)}"></div>
+        <div class="field"><label>Funcția</label><input id="cs_fct${i}" value="${cuEsc(d.fct)}"></div></div></div>`; }).join('')}
+    <div class="card"><h2>Logo pe contract</h2>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">${s.logo?`<img src="${s.logo}" alt="Logo" style="max-height:48px;max-width:160px;border:1px solid var(--line);border-radius:6px;padding:4px;background:#fff">`:'<span style="color:var(--stone);font-size:13px">Fără logo — apare textul FLAMART</span>'}
+        <input type="file" id="cs_logo" accept="image/*">${s.logo?'<button class="btn btn-secondary" id="cs_logoDel" type="button">Scoate logo-ul</button>':''}</div></div>
+    <div class="cu-acts"><button class="btn btn-primary" id="cs_save" type="button">Salvează setările</button></div>`;
+  let logo = s.logo || '';
+  document.getElementById('cuBack').onclick = () => cuGo('list');
+  document.getElementById('cs_logo').onchange = e => { const f = e.target.files[0]; if(!f) return; const r = new FileReader();
+    r.onload = () => { const im = new Image(); im.onload = () => { const k = Math.min(1, 400/im.width); const cv = document.createElement('canvas');
+      cv.width = im.width*k; cv.height = im.height*k; cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height); logo = cv.toDataURL('image/png'); alert('Logo încărcat. Apasă „Salvează setările”.'); }; im.src = r.result; };
+    r.readAsDataURL(f); };
+  const ld = document.getElementById('cs_logoDel'); if(ld) ld.onclick = () => { logo = ''; ld.textContent = 'Logo scos — salvează'; };
+  document.getElementById('cs_save').onclick = async () => {
+    const firme = CU_FIRME.map((f,i) => ({ n:document.getElementById('cs_n'+i).value.trim(), cui:document.getElementById('cs_cui'+i).value.trim(),
+      rc:document.getElementById('cs_rc'+i).value.trim(), adr:document.getElementById('cs_adr'+i).value.trim(),
+      rep:document.getElementById('cs_rep'+i).value.trim(), fct:document.getElementById('cs_fct'+i).value.trim() }));
+    try{
+      await db.collection('config').doc('custodie').set({ serie:document.getElementById('cs_serie').value.trim()||'CUS',
+        next:Math.max(1, +document.getElementById('cs_next').value||1), firme, logo }, { merge:true });
+      alert('Setările au fost salvate.'); CU.view = 'list'; await loadAll();
+    }catch(e){ console.error(e); alert('Setările nu s-au putut salva.'); }
+  };
+}
+
+/* ---------- vederea partenerului: tab-ul „Custodie” ---------- */
+async function loadPartCustodie(){
+  const el = document.getElementById('partCustodieContent'); if(!el) return;
+  let list = [];
+  try{
+    const [snap, cfg] = await Promise.all([ db.collection('custodii').where('dealerUid','==',currentUser.uid).get(), safeGet('config','custodie') ]);
+    list = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(c => c.status!=='ciorna');
+    if(typeof CACHE!=='undefined') CACHE.custodieCfg = cfg || {};
+  }catch(e){ console.error(e); showDebugError('custodii', e); }
+  list.sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  if(!list.length){ el.innerHTML = '<div class="card"><div class="empty">Nu ai contracte de custodie. Când Flamart îți lasă produse spre expunere, contractul apare aici.</div></div>'; return; }
+  el.innerHTML = list.map(c => { const s = cuState(c), zv = c.zileVanz??60, ns = cuDays(cuLastBase(c)), exp = cuExpuse(c);
+    return `<div class="card">
+      <div class="cu-top"><h2 style="margin:0">Contract ${cuEsc(c.nr)}</h2><span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></div>
+      ${c.status==='trimis' ? `<div class="cu-linkbox"><b>Contractul așteaptă semnătura ta.</b>
+        <div class="cu-acts" style="margin-bottom:0"><a class="btn btn-primary" href="${CU_SIGN_BASE+c.token}" target="_blank" rel="noopener" style="text-decoration:none">Citește și semnează</a></div></div>` : ''}
+      <p style="font-size:13px;margin:0 0 10px">Showroom: <b>${cuEsc(c.dz.show)}</b> · valabil până la <b>${cuDRo(cuEnd(c))}</b>
+        ${c.status==='activ' && exp.length ? ` · ${ns} ${ns===1?'zi':'zile'} fără vânzare din ${zv}` : ''}</p>
+      <div style="overflow-x:auto"><table><thead><tr><th>Produs</th><th>Serie</th><th>Preț listă</th><th>Stare</th></tr></thead><tbody>
+        ${(c.prods||[]).map(p => { const st = p.stare||'expus'; return `<tr><td>${cuEsc(p.m)}</td><td>${cuEsc(p.s)}</td><td>${cuFmt(p.p)} ${cuMon(c)}</td>
+          <td><span class="cu-pill ${st==='expus'?'ok':st==='vandut'?'info':''}">${st==='expus'?'În showroom':st==='vandut'?'Vândut':'Retras'}</span></td></tr>`; }).join('')}
+      </tbody></table></div>
+      <p style="font-size:12px;color:var(--stone);margin:10px 0 0">Ai vândut un produs? Înregistrează garanția cu seria de șasiu (tab-ul „Înregistrează garanție”) și anunță Flamart în ${cuEsc(c.anunt)} zile, pentru factură (preț de listă minus ${cuEsc(c.disc)}%).</p>
+      <div class="cu-acts"><button class="btn btn-secondary" data-pview="${c.id}" type="button">Vezi contractul</button>
+        ${c.status!=='trimis' ? `<button class="btn btn-secondary" data-ppdf="${c.id}" type="button">PDF</button>` : ''}</div>
+      <div class="cu-docwrap" id="pdoc-${c.id}" hidden><article class="cdoc">${cuBuildDoc(c)}</article></div>
+    </div>`; }).join('');
+  el.querySelectorAll('[data-pview]').forEach(b => b.onclick = () => { const d = document.getElementById('pdoc-'+b.dataset.pview); d.hidden = !d.hidden; b.textContent = d.hidden ? 'Vezi contractul' : 'Ascunde contractul'; });
+  el.querySelectorAll('[data-ppdf]').forEach(b => b.onclick = () => cuMakePdf(list.find(c => c.id===b.dataset.ppdf)));
+}
+
 
 /* ---------------- ACCES / ROLURI ----------------
    Fiecare persoană are un cont Firebase (e-mail + parolă), verificat de server.
