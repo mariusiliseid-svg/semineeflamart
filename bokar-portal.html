@@ -112,22 +112,12 @@
 <div id="authGate">
   <form id="authForm">
     <h2 style="font-size:18px;margin-bottom:6px;">BOKAR — Portal</h2>
-    <p>Alege tipul de cont și autentifică-te.</p>
-    <div class="role-tabs">
-      <button type="button" class="role-tab active" data-role="partener">Partener</button>
-      <button type="button" class="role-tab" data-role="admin">Admin</button>
-    </div>
-
-    <div id="loginPartener" class="login-block">
-      <input type="text" id="partenerName" placeholder="Numele tău">
-      <input type="password" id="partenerPass" placeholder="Parola ta">
-    </div>
-    <div id="loginAdmin" class="login-block" style="display:none;">
-      <input type="password" id="adminPass" placeholder="Cod admin">
-    </div>
-
-    <button type="submit">Intră</button>
+    <p id="authIntro">Intră cu e-mailul și parola contului tău.</p>
+    <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="loginPass" placeholder="Parola" autocomplete="current-password">
+    <button type="submit" id="loginBtn">Intră</button>
     <div id="authError" style="display:none;color:var(--red);font-size:12.5px;font-weight:600;margin-top:10px;">Date incorecte. Încearcă din nou.</div>
+    <a id="forgotLink" style="display:block;margin-top:14px;font-size:12px;color:var(--stone);cursor:pointer;text-decoration:underline;">Am uitat parola</a>
   </form>
 </div>
 
@@ -137,6 +127,7 @@
 </div>
 <div class="toolbar" id="sessionBar" style="display:none;background:#333;padding:8px 20px;">
   <span id="sessionLabel" style="font-size:12.5px;color:#ccc;"></span>
+  <a id="passLink" style="color:#999;font-size:12px;cursor:pointer;margin-left:14px;">Schimbă parola</a>
   <a id="logoutLink" style="color:#999;font-size:12px;cursor:pointer;margin-left:14px;">Ieși din cont</a>
 </div>
 
@@ -213,11 +204,14 @@
         <div id="contSuccess" class="success-banner">Cont creat cu succes.</div>
         <form id="contDealerForm">
           <div class="field-row">
-            <div class="field" id="ct-nume-wrap"><label>Nume dealer</label><input type="text" id="ct-nume">
+            <div class="field" id="ct-nume-wrap"><label>Nume partener (apare pe oferte, comenzi, lead-uri)</label><input type="text" id="ct-nume">
               <div class="field-error">Completează numele</div></div>
-            <div class="field" id="ct-parola-wrap"><label>Parolă</label><input type="text" id="ct-parola">
-              <div class="field-error">Completează o parolă</div></div>
+            <div class="field" id="ct-email-wrap"><label>E-mail (cu el se loghează)</label><input type="email" id="ct-email">
+              <div class="field-error">Completează un e-mail valid</div></div>
+            <div class="field" id="ct-parola-wrap"><label>Parolă inițială</label><input type="text" id="ct-parola">
+              <div class="field-error">Minimum 6 caractere</div></div>
           </div>
+          <p style="font-size:12px;color:var(--stone);margin:0 0 12px;">Parola nu se salvează în portal. Comunic-o partenerului; o poate schimba oricând din „Schimbă parola” sau „Am uitat parola”.</p>
           <button type="submit" class="btn btn-primary">Creează contul</button>
         </form>
       </div>
@@ -532,7 +526,6 @@ const RRP_FOCAR = {
   "PSG 60": { White: 4973.1, Black: 5239.3 }, "9050 P": { White: 3496.9, Black: 3823.6 },
   "4380 (Sobă)": { White: 1899.7, Black: 2105.4 }, "Forum (Sobă sticlă colț)": { White: 2601.5, Black: 2891.9 }
 };
-const ADMIN_PASSWORD = "BokarAdmin2026";
 const WARRANTY_YEARS = 5;
 const MAX_ZILE_INREGISTRARE = 60;
 const DISCOUNT_DEALER = 0.35;
@@ -550,9 +543,7 @@ try{
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   auth = firebase.auth();
-  auth.signInAnonymously()
-    .then(() => { firebaseReady = true; })
-    .catch((e) => { console.error('Autentificare anonimă eșuată', e); });
+  // firebaseReady devine true doar după logarea cu un cont care are rol (vezi ACCES / ROLURI).
 }catch(e){ console.error('Firebase nu s-a putut încărca', e); }
 
 // Seria are formatul BOKAR-AAAA-LLZZ-MODEL-SECVENȚĂ — extragem data fabricației din ea.
@@ -1502,14 +1493,51 @@ function renderConturiList(){
     el.innerHTML = '<div class="empty">Niciun cont creat încă.</div>';
     return;
   }
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const sorted = [...conturi].sort((a,b) => (a.uid?1:0)-(b.uid?1:0) || String(a.nume).localeCompare(String(b.nume)));
+  const vechi = sorted.filter(c => !c.uid).length;
   el.innerHTML = `
+    ${vechi ? `<p style="font-size:12.5px;color:var(--red);margin:0 0 10px;font-weight:600;">${vechi} ${vechi===1?'cont vechi trebuie mutat':'conturi vechi trebuie mutate'} pe sistemul nou. Apasă „Mută” și completează e-mailul partenerului.</p>` : ''}
     <table>
-      <thead><tr><th>Nume</th><th>Parolă</th></tr></thead>
+      <thead><tr><th>Nume</th><th>E-mail</th><th>Stare</th><th></th></tr></thead>
       <tbody>
-        ${conturi.map(c => `<tr><td>${c.nume}</td><td>${c.parola}</td></tr>`).join('')}
+        ${sorted.map(c => {
+          if(!c.uid) return `<tr><td>${esc(c.nume)}</td><td>—</td><td><span style="color:var(--red);font-weight:600;">De mutat</span></td>
+            <td><button type="button" class="btn btn-secondary" data-migrate="${esc(c.nume)}">Mută</button></td></tr>`;
+          const activ = c.activ !== false;
+          return `<tr><td>${esc(c.nume)}</td><td>${esc(c.email)}</td><td>${activ?'Activ':'<span style="color:var(--red);font-weight:600;">Suspendat</span>'}</td>
+            <td><button type="button" class="btn btn-secondary" data-toggle-acc="${esc(c.id)}">${activ?'Suspendă':'Reactivează'}</button></td></tr>`;
+        }).join('')}
       </tbody>
     </table>
   `;
+  el.querySelectorAll('[data-migrate]').forEach(b => b.onclick = () => {
+    document.getElementById('ct-nume').value = b.dataset.migrate;
+    document.getElementById('ct-email').value = '';
+    document.getElementById('ct-email').focus();
+    document.getElementById('contDealerForm').scrollIntoView({behavior:'smooth', block:'center'});
+  });
+  el.querySelectorAll('[data-toggle-acc]').forEach(b => b.onclick = () => toggleCont(b.dataset.toggleAcc));
+}
+
+// Suspendarea șterge rolul contului: fără rol, regulile Firestore nu mai permit nimic. Reactivarea îl pune la loc.
+async function toggleCont(id){
+  const c = (CACHE.parteneriConturi || []).find(x => x.id === id);
+  if(!c || !c.uid) return;
+  const activ = c.activ !== false;
+  if(activ && !confirm(`Suspenzi contul lui ${c.nume}? Nu se va mai putea loga până îl reactivezi.`)) return;
+  try{
+    if(activ){
+      await db.collection('roles').doc(c.uid).delete();
+    }else{
+      await db.collection('roles').doc(c.uid).set({ role:'partener', name:c.nume, updatedAt:new Date().toISOString() });
+    }
+    await db.collection('parteneriConturi').doc(id).update({ activ: !activ });
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut modifica contul. Verifică conexiunea.');
+  }
 }
 
 const LEAD_STATUS_LABEL = { nou:'Nou', preluat:'Preluat', castigat:'Câștigat', pierdut:'Pierdut' };
@@ -1696,7 +1724,7 @@ function renderLeaduri(){
                 <td>
                   <select class="lead-edit-alocat" data-id="${l.id}" style="font-size:12px;padding:3px;border-radius:4px;border:1px solid var(--line);">
                     <option value="">— nealocat —</option>
-                    ${(CACHE.parteneriConturi||[]).map(p => `<option value="${p.nume}" ${l.preluatDe===p.nume?'selected':''}>${p.nume}</option>`).join('')}
+                    ${(CACHE.parteneriConturi||[]).filter(p => p.activ !== false).map(p => `<option value="${p.nume}" ${l.preluatDe===p.nume?'selected':''}>${p.nume}</option>`).join('')}
                   </select>
                 </td>
                 <td>
@@ -1856,22 +1884,57 @@ async function loadPartLeaduri(){
   });
 }
 
+// Conturile se creează printr-o a doua instanță Firebase, ca adminul să rămână logat.
+let creareApp = null;
+function creareAuth(){
+  if(!creareApp) creareApp = firebase.initializeApp(firebaseConfig, 'creare-conturi');
+  return creareApp.auth();
+}
 document.getElementById('contDealerForm').onsubmit = async function(e){
   e.preventDefault();
   const nume = document.getElementById('ct-nume').value.trim();
+  const email = document.getElementById('ct-email').value.trim().toLowerCase();
   const parola = document.getElementById('ct-parola').value.trim();
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   markFieldValid('ct-nume-wrap', !!nume);
-  markFieldValid('ct-parola-wrap', !!parola);
-  if(!nume || !parola) return;
+  markFieldValid('ct-email-wrap', emailOk);
+  markFieldValid('ct-parola-wrap', parola.length >= 6);
+  if(!nume || !emailOk || parola.length < 6) return;
   if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
+  const existente = CACHE.parteneriConturi || [];
+  if(existente.some(c => c.uid && String(c.nume).trim().toLowerCase() === nume.toLowerCase())){
+    alert('Există deja un cont activ cu acest nume. Alege alt nume.');
+    return;
+  }
+  const btn = this.querySelector('button[type="submit"]');
+  btn.disabled = true;
   try{
-    await db.collection('parteneriConturi').add({ nume, parola });
-    document.getElementById('contSuccess').classList.add('show');
+    const a2 = creareAuth();
+    const cred = await a2.createUserWithEmailAndPassword(email, parola);
+    const uid = cred.user.uid;
+    await a2.signOut();
+    await db.collection('roles').doc(uid).set({ role:'partener', name:nume, updatedAt:new Date().toISOString() });
+    await db.collection('parteneriConturi').doc(uid).set({ nume, email, uid, activ:true, creat:new Date().toISOString() });
+    // dacă exista un cont vechi cu același nume, îl ștergem (parola veche nu mai rămâne stocată)
+    for(const v of existente.filter(c => !c.uid && String(c.nume).trim().toLowerCase() === nume.toLowerCase())){
+      await db.collection('parteneriConturi').doc(v.id).delete();
+    }
+    const ok = document.getElementById('contSuccess');
+    ok.textContent = `Cont creat pentru ${nume}. Se loghează cu ${email} și parola stabilită.`;
+    ok.classList.add('show');
     this.reset();
     loadAll();
   }catch(err){
     console.error(err);
-    alert('Nu am putut crea contul.');
+    const msg = {
+      'auth/email-already-in-use': 'Există deja un cont cu acest e-mail.',
+      'auth/invalid-email': 'E-mailul nu este valid.',
+      'auth/weak-password': 'Parola trebuie să aibă cel puțin 6 caractere.',
+      'auth/operation-not-allowed': 'Logarea cu e-mail și parolă nu este activată în Firebase (Authentication → Sign-in method).'
+    }[err.code] || 'Nu am putut crea contul. Verifică conexiunea și încearcă din nou.';
+    alert(msg);
+  }finally{
+    btn.disabled = false;
   }
 };
 
@@ -2154,87 +2217,102 @@ function renderOferteTab(){
   `;
 }
 
-/* ---------------- ACCES / ROLURI ---------------- */
-const TEAM_PASSWORD = "Bokar2026";
+/* ---------------- ACCES / ROLURI ----------------
+   Fiecare persoană are un cont Firebase (e-mail + parolă), verificat de server.
+   Rolul (admin / partener) se citește din /roles/{uid}; doar adminul poate scrie acolo. */
 let currentUser = { role: null, name: '' };
+let appEntered = false;
 
-document.querySelectorAll('.role-tab').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.role-tab').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.login-block').forEach(b=>b.style.display='none');
-    document.getElementById('login'+btn.dataset.role.charAt(0).toUpperCase()+btn.dataset.role.slice(1)).style.display='block';
-  };
-});
-
-function activeRoleTab(){
-  return document.querySelector('.role-tab.active').dataset.role;
+function authMsg(text, isError){
+  const el = document.getElementById('authError');
+  el.textContent = text;
+  el.style.color = isError === false ? 'var(--stone)' : 'var(--red)';
+  el.style.display = text ? 'block' : 'none';
 }
 
 document.getElementById('authForm').onsubmit = async function(e){
   e.preventDefault();
-  const role = activeRoleTab();
-  const errEl = document.getElementById('authError');
-  errEl.style.display = 'none';
-
-  if(role === 'admin'){
-    const pass = document.getElementById('adminPass').value;
-    if(pass === ADMIN_PASSWORD){
-      await loginAs('admin', 'Admin');
-    } else {
-      errEl.style.display = 'block';
-    }
-    return;
-  }
-
-  if(role === 'partener'){
-    const name = document.getElementById('partenerName').value.trim();
-    const pass = document.getElementById('partenerPass').value;
-    if(!name || !pass || !firebaseReady){ errEl.style.display = 'block'; return; }
-    try{
-      const snap = await db.collection('parteneriConturi').where('nume','==',name).get();
-      const match = snap.docs.find(d => d.data().parola === pass);
-      if(match){
-        await loginAs('partener', name);
-      } else {
-        errEl.style.display = 'block';
-      }
-    }catch(err){
-      console.error(err);
-      errEl.textContent = 'Eroare de conexiune — încearcă din nou.';
-      errEl.style.display = 'block';
-    }
-    return;
+  authMsg('');
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if(!email || !pass){ authMsg('Completează e-mailul și parola.'); return; }
+  if(!auth){ authMsg('Nu s-a putut conecta la baza de date. Reîncarcă pagina.'); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Se verifică…';
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+    // continuarea se face în onAuthStateChanged
+  }catch(err){
+    console.error(err);
+    const cod = err && err.code || '';
+    authMsg(cod === 'auth/too-many-requests'
+      ? 'Prea multe încercări. Așteaptă câteva minute sau resetează parola.'
+      : cod === 'auth/network-request-failed'
+        ? 'Nu există conexiune la internet.'
+        : 'E-mailul sau parola nu sunt corecte.');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Intră';
   }
 };
 
-async function loginAs(role, name){
-  currentUser = { role, name };
-  localStorage.setItem('bokarPortalUser', JSON.stringify(currentUser));
-  // Scriem un "act de identitate" în Firestore, legat de sesiunea anonimă curentă —
-  // regulile de securitate citesc de-aici cine are voie la ce. Se scrie DOAR aici,
-  // după o verificare de parolă reușită — niciodată la restaurarea sesiunii din localStorage.
-  // IMPORTANT: așteptăm să se termine scrierea înainte de a continua — altfel primele
-  // citiri de date pot ajunge înaintea scrierii rolului, iar regulile le refuză (par date
-  // "dispărute", deși nu sunt — doar accesul era respins temporar).
-  if(auth && auth.currentUser && db){
-    try{
-      await db.collection('roles').doc(auth.currentUser.uid).set({
-        role, name, updatedAt: new Date().toISOString()
-      });
-    }catch(e){
-      console.error('Nu am putut scrie rolul', e);
-      alert('Nu am putut confirma identitatea în baza de date. Încearcă din nou sau verifică conexiunea.');
-      return;
-    }
+document.getElementById('forgotLink').onclick = async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  if(!email){ authMsg('Scrie mai întâi e-mailul contului, apoi apasă „Am uitat parola”.'); return; }
+  try{
+    await auth.sendPasswordResetEmail(email);
+    authMsg('Dacă există un cont pe acest e-mail, ai primit un link de resetare a parolei.', false);
+  }catch(err){
+    console.error(err);
+    authMsg('Nu am putut trimite e-mailul de resetare. Verifică adresa.');
   }
-  enterApp();
-}
+};
 
-document.getElementById('logoutLink').onclick = () => {
-  localStorage.removeItem('bokarPortalUser');
+document.getElementById('passLink').onclick = async () => {
+  const u = auth && auth.currentUser;
+  if(!u || !u.email) return;
+  try{
+    await auth.sendPasswordResetEmail(u.email);
+    alert(`Ți-am trimis pe ${u.email} un link pentru schimbarea parolei.`);
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut trimite e-mailul. Încearcă din nou.');
+  }
+};
+
+document.getElementById('logoutLink').onclick = async () => {
+  try{ await auth.signOut(); }catch(e){}
   location.reload();
 };
+
+if(auth){
+  auth.onAuthStateChanged(async user => {
+    if(!user){
+      firebaseReady = false;
+      document.getElementById('authGate').style.display = 'flex';
+      document.body.classList.add('locked');
+      return;
+    }
+    if(user.isAnonymous){ await auth.signOut(); return; }   // sesiuni vechi, de dinainte de conturi
+    try{
+      const r = await db.collection('roles').doc(user.uid).get();
+      const data = r.exists ? r.data() : null;
+      if(!data || !['admin','partener'].includes(data.role)){
+        await auth.signOut();
+        authMsg('Contul tău nu are acces la portal sau a fost suspendat. Contactează administratorul.');
+        return;
+      }
+      currentUser = { role: data.role, name: data.name || user.email, uid: user.uid, email: user.email };
+      firebaseReady = true;
+      if(!appEntered){ appEntered = true; enterApp(); }
+    }catch(err){
+      console.error(err);
+      authMsg('Nu am putut verifica accesul. Verifică conexiunea și reîncarcă pagina.');
+    }
+  });
+}else{
+  document.body.classList.add('locked');
+}
+localStorage.removeItem('bokarPortalUser');   // sesiunea veche, salvată local, nu mai e folosită
 
 function enterApp(){
   document.getElementById('authGate').style.display = 'none';
@@ -2260,13 +2338,6 @@ function enterApp(){
   else if(currentUser.role === 'partener') loadPartenerView();
 }
 
-(function(){
-  const saved = localStorage.getItem('bokarPortalUser');
-  if(saved){
-    try{ currentUser = JSON.parse(saved); enterApp(); return; }catch(e){}
-  }
-  document.body.classList.add('locked');
-})();
 </script>
 </body>
 </html>
