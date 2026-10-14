@@ -482,6 +482,7 @@
           </div>
         </form>
       </div>
+      <div id="imListRoot"></div>
     </div>
   </div>
 
@@ -1148,19 +1149,25 @@ document.getElementById('importActionForm').onsubmit = async function(e){
   }).filter(r => r.serii.length > 0 && r.costAchizitie > 0);
 
   if(rows.length === 0){ alert('Adaugă cel puțin un produs cu cost și cel puțin o serie de șasiu.'); return; }
+  const imAll = rows.flatMap(r => r.serii.map(x => x.toUpperCase()));
+  const imDupIn = imAll.find((x,i) => imAll.indexOf(x)!==i);
+  if(imDupIn){ alert(`Seria ${imDupIn} apare de două ori în acest import.`); return; }
+  const imStoc = new Set((CACHE.unitati||[]).map(u => String(u.serie||'').toUpperCase()));
+  const imDupOut = imAll.find(x => imStoc.has(x));
+  if(imDupOut){ alert(`Seria ${imDupOut} există deja în stoc. Dacă vrei să o modifici, deschide importul ei din lista „Importuri înregistrate”.`); return; }
   if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
 
   try{
     const valoareTotalaMarfa = rows.reduce((s,r) => s + r.serii.length * r.costAchizitie, 0);
     const produseAggregat = rows.map(r => ({ model:r.model, varianta:r.varianta, cantitate:r.serii.length, costAchizitie:r.costAchizitie }));
-    await db.collection('importuri').add({ factura, data, curs, transport, comisionar, vama, produse: produseAggregat, valoareTotalaMarfa });
+    const impRef = await db.collection('importuri').add({ factura, data, curs, transport, comisionar, vama, produse: produseAggregat, valoareTotalaMarfa });
 
     // O unitate urmărită per serie de șasiu, gata pentru „Stoc".
     const batch = db.batch();
     rows.forEach(r => {
       r.serii.forEach(serie => {
         const ref = db.collection('unitati').doc();
-        batch.set(ref, { serie, model:r.model, varianta:r.varianta, dataImport:data, facturaImport:factura, status:'custodie' });
+        batch.set(ref, { serie, model:r.model, varianta:r.varianta, costAchizitie:r.costAchizitie, dataImport:data, facturaImport:factura, importId:impRef.id, status:'custodie' });
       });
     });
     await batch.commit();
@@ -1468,6 +1475,7 @@ async function loadAll(){
   renderDealeriTab();
   renderOferteTab();
   renderStoc();
+  renderImporturi();
   renderCereri();
   renderConturiList();
   renderLeaduri();
@@ -1519,7 +1527,7 @@ function renderStoc(){
     <div class="card">
       <h2>Toate unitățile</h2>
       <table>
-        <thead><tr><th>Serie</th><th>Model</th><th>Status</th><th>Unde e</th><th>Import</th><th>Vândută la</th></tr></thead>
+        <thead><tr><th>Serie</th><th>Model</th><th>Status</th><th>Unde e</th><th>Import</th><th>Vândută la</th><th></th></tr></thead>
         <tbody>
           ${[...unitati].sort((a,b)=>b.dataImport.localeCompare(a.dataImport)).map(u => `
             <tr>
@@ -1529,6 +1537,7 @@ function renderStoc(){
               <td>${u.status==='custodie' ? (u.showroom ? 'Showroom: '+u.showroom : 'Depozit') : '—'}</td>
               <td>${fmtDate(u.dataImport)}</td>
               <td>${u.dataVanzare ? fmtDate(u.dataVanzare) : '—'}</td>
+              <td><button class="btn btn-secondary cu-sm" type="button" onclick="imOpenFromStoc('${u.id}')">Editează</button></td>
             </tr>
           `).join('')}
         </tbody>
@@ -2310,6 +2319,207 @@ function renderOferteTab(){
     </div>
   `;
 }
+
+/* ================= EDITARE IMPORTURI ȘI UNITĂȚI =================
+   Un import (colecția „importuri”) are unitățile lui în „unitati”, legate prin importId
+   (sau, la importurile vechi, prin facturaImport). Costul pe bucată se ține pe fiecare unitate
+   (costAchizitie); la importurile vechi se ia din lista de produse a importului. */
+let IM = { openId:null, editUnit:null };
+const imEsc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const imFmt = n => (Number(n)||0).toLocaleString('ro-RO',{maximumFractionDigits:2});
+
+function imUnitsOf(imp){
+  return (CACHE.unitati||[]).filter(u => u.importId ? u.importId===imp.id : (u.facturaImport===imp.factura && (!u.dataImport || !imp.data || u.dataImport===imp.data)));
+}
+function imUnitCost(u, imp){
+  if(Number(u.costAchizitie) > 0) return Number(u.costAchizitie);
+  const p = ((imp && imp.produse) || []).find(p => p.model===u.model && p.varianta===u.varianta);
+  return p ? Number(p.costAchizitie)||0 : 0;
+}
+function imUnitLocked(u){
+  const g = (CACHE.garantii||[]).some(g => String(g.serie||'').trim().toUpperCase()===String(u.serie||'').trim().toUpperCase());
+  return { custodie: !!u.custodieId, garantie: g };
+}
+function imIsLatest(imp){
+  const all = [...(CACHE.importuri||[])].sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')));
+  return all.length && all[0].id===imp.id;
+}
+
+/* ---------- lista importurilor (sub formularul „Import nou”) ---------- */
+function renderImporturi(){
+  const el = document.getElementById('imListRoot'); if(!el) return;
+  if(IM.openId) return imRenderDetail(el);
+  const list = [...(CACHE.importuri||[])].sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')));
+  el.innerHTML = `<div class="card"><h2>Importuri înregistrate</h2>
+    ${list.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Factură</th><th>Data</th><th>Unități</th><th>Valoare marfă</th><th>Transport + comision + vamă</th><th></th></tr></thead><tbody>
+      ${list.map(i => { const n = imUnitsOf(i).length;
+        return `<tr><td>${imEsc(i.factura)}</td><td>${fmtDate(i.data)}</td><td>${n}</td><td>${imFmt(i.valoareTotalaMarfa)} €</td>
+          <td>${imFmt((+i.transport||0)+(+i.comisionar||0)+(+i.vama||0))} lei</td>
+          <td><button class="btn btn-secondary cu-sm" data-imopen="${imEsc(i.id)}" type="button">Deschide / modifică</button></td></tr>`; }).join('')}
+    </tbody></table></div>` : '<div class="empty">Niciun import înregistrat încă.</div>'}</div>`;
+  el.querySelectorAll('[data-imopen]').forEach(b => b.onclick = () => { IM.openId = b.dataset.imopen; renderImporturi(); el.scrollIntoView({ block:'start' }); });
+}
+
+function imRenderDetail(el){
+  const imp = (CACHE.importuri||[]).find(i => i.id===IM.openId);
+  if(!imp){ IM.openId = null; return renderImporturi(); }
+  const units = imUnitsOf(imp).sort((a,b) => String(a.model).localeCompare(String(b.model)) || String(a.serie).localeCompare(String(b.serie)));
+  const modOpts = sel => FOCAR_MODELE.map(m => `<option ${m===sel?'selected':''}>${imEsc(m)}</option>`).join('');
+  const varOpts = sel => ['White','Black'].map(v => `<option ${v===sel?'selected':''}>${v}</option>`).join('');
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="imBack" type="button">← Înapoi la importuri</button>
+      <span><b>Factura ${imEsc(imp.factura)}</b> · ${units.length} unități</span></div>
+    <div id="imErr" class="warning-banner"></div>
+    <div class="card"><h2>Date import</h2>
+      <div class="field-row">
+        <div class="field"><label>Număr factură furnizor</label><input id="ie-factura" value="${imEsc(imp.factura)}"></div>
+        <div class="field"><label>Data importului</label><input id="ie-data" type="date" value="${imEsc(imp.data)}"></div></div>
+      <div class="field-row">
+        <div class="field"><label>Curs EUR/RON</label><input id="ie-curs" type="number" step="0.0001" value="${imEsc(imp.curs)}"></div>
+        <div class="field"><label>Transport (lei)</label><input id="ie-transport" type="number" step="1" value="${imEsc(imp.transport)}"></div>
+        <div class="field"><label>Comisionar (lei)</label><input id="ie-comisionar" type="number" step="1" value="${imEsc(imp.comisionar)}"></div>
+        <div class="field"><label>Taxă vamă (lei)</label><input id="ie-vama" type="number" step="1" value="${imEsc(imp.vama)}"></div></div>
+      <p style="font-size:12px;color:var(--stone);margin:0">${imIsLatest(imp)
+        ? 'Este cel mai recent import: la salvare se actualizează și costurile din „Prețuri &amp; Marje”.'
+        : 'Nu este cel mai recent import, deci „Prețuri &amp; Marje” nu se modifică.'}</p>
+    </div>
+    <div class="card"><h2>Unitățile din import</h2>
+      ${units.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Serie de șasiu</th><th>Model</th><th>Variantă</th><th>Cost (€, fără TVA)</th><th>Status</th><th>Data vânzării</th><th></th></tr></thead><tbody>
+        ${units.map(u => { const lk = imUnitLocked(u); const lockSerie = lk.custodie || lk.garantie;
+          return `<tr data-uid="${imEsc(u.id)}">
+            <td><input class="ie-serie" value="${imEsc(u.serie)}" ${lockSerie?'disabled title="Seria e folosită într-un contract de custodie sau o garanție"':''} style="font-size:12.5px;min-width:230px"></td>
+            <td><select class="ie-model">${modOpts(u.model)}</select></td>
+            <td><select class="ie-var">${varOpts(u.varianta)}</select></td>
+            <td><input class="ie-cost" type="number" step="0.01" value="${imUnitCost(u,imp)||''}" style="width:100px"></td>
+            <td><select class="ie-status"><option value="custodie" ${u.status==='custodie'?'selected':''}>În stoc</option><option value="vandut" ${u.status==='vandut'?'selected':''}>Vândută</option></select></td>
+            <td><input class="ie-dv" type="date" value="${imEsc(u.dataVanzare||'')}"></td>
+            <td style="white-space:nowrap">${lk.custodie?'<span class="cu-pill info" title="În contract de custodie">Custodie</span> ':''}${lk.garantie?'<span class="cu-pill ok">Garanție</span> ':''}
+              ${lockSerie?'':`<button class="rm" data-iedel="${imEsc(u.id)}" type="button" title="Șterge unitatea" style="background:none;border:none;color:var(--red);font-weight:700;cursor:pointer">Șterge</button>`}</td></tr>`; }).join('')}
+      </tbody></table></div>
+      <p style="font-size:12px;color:var(--stone);margin:10px 0 0">Seria nu se poate schimba și unitatea nu se poate șterge cât timp e folosită într-un contract de custodie sau o garanție.</p>`
+      : '<div class="empty">Importul nu are încă unități.</div>'}
+    </div>
+    <div class="card"><h2>Adaugă serii la acest import</h2>
+      <div class="field-row">
+        <div class="field"><label>Model</label><select id="ia-model">${modOpts(FOCAR_MODELE[0])}</select></div>
+        <div class="field"><label>Variantă</label><select id="ia-var">${varOpts('White')}</select></div>
+        <div class="field"><label>Cost / buc. (€, fără TVA)</label><input id="ia-cost" type="number" step="0.01"></div></div>
+      <div class="field"><label>Serii de șasiu (una pe linie)</label><textarea id="ia-serii" rows="3" placeholder="BOKAR-2026-0405-7550L-01616"></textarea></div>
+      <button class="btn btn-secondary" id="iaAdd" type="button">+ Adaugă în listă</button>
+      <div id="iaPending" style="margin-top:10px"></div>
+    </div>
+    <div class="cu-acts">
+      <button class="btn btn-primary" id="ieSave" type="button">Salvează modificările</button>
+      <button class="btn btn-secondary" id="ieDelImp" type="button" style="color:var(--red)">Șterge importul</button>
+    </div>`;
+
+  const pending = []; const toDelete = new Set();
+  const showPending = () => { const p = document.getElementById('iaPending');
+    p.innerHTML = pending.length ? `<b style="font-size:13px">Se vor adăuga la salvare:</b><div class="chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+      ${pending.map((x,i) => `<span class="cu-pill ok" style="font-size:11.5px">${imEsc(x.serie)} · ${imEsc(x.model)} ${imEsc(x.varianta)} <a data-iarm="${i}" style="cursor:pointer;color:var(--red);margin-left:4px">✕</a></span>`).join('')}</div>` : '';
+    p.querySelectorAll('[data-iarm]').forEach(a => a.onclick = () => { pending.splice(+a.dataset.iarm,1); showPending(); }); };
+  const err = m => { const e = document.getElementById('imErr'); e.textContent = m; e.classList.toggle('show', !!m); if(m) e.scrollIntoView({ block:'center', behavior:'smooth' }); };
+
+  document.getElementById('imBack').onclick = () => { IM.openId = null; renderImporturi(); };
+  document.getElementById('iaAdd').onclick = () => {
+    err('');
+    const model = document.getElementById('ia-model').value, varianta = document.getElementById('ia-var').value;
+    const cost = Number(document.getElementById('ia-cost').value) || 0;
+    const serii = document.getElementById('ia-serii').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if(!serii.length || !(cost>0)){ err('Completează costul și cel puțin o serie de șasiu.'); return; }
+    serii.forEach(serie => pending.push({ serie, model, varianta, cost }));
+    document.getElementById('ia-serii').value = ''; showPending();
+  };
+  el.querySelectorAll('[data-iedel]').forEach(b => b.onclick = () => {
+    const tr = b.closest('tr'); const id = b.dataset.iedel;
+    if(toDelete.has(id)){ toDelete.delete(id); tr.style.opacity = ''; b.textContent = 'Șterge'; }
+    else { toDelete.add(id); tr.style.opacity = '.4'; b.textContent = 'Anulează'; }
+  });
+
+  document.getElementById('ieSave').onclick = async () => {
+    err('');
+    const factura = document.getElementById('ie-factura').value.trim();
+    if(!factura){ err('Completează numărul facturii.'); return; }
+    const head = { factura, data:document.getElementById('ie-data').value,
+      curs:Number(document.getElementById('ie-curs').value)||0, transport:Number(document.getElementById('ie-transport').value)||0,
+      comisionar:Number(document.getElementById('ie-comisionar').value)||0, vama:Number(document.getElementById('ie-vama').value)||0 };
+    // starea dorită a fiecărei unități existente
+    const rows = [...el.querySelectorAll('tr[data-uid]')].map(tr => ({ id:tr.dataset.uid,
+      serie:tr.querySelector('.ie-serie').value.trim(), model:tr.querySelector('.ie-model').value, varianta:tr.querySelector('.ie-var').value,
+      cost:Number(tr.querySelector('.ie-cost').value)||0, status:tr.querySelector('.ie-status').value, dataVanzare:tr.querySelector('.ie-dv').value }))
+      .filter(r => !toDelete.has(r.id));
+    // verificări: serii goale, dubluri în import și față de restul stocului
+    const all = [...rows.map(r => r.serie), ...pending.map(p => p.serie)].map(s => s.toUpperCase());
+    if(all.some(s => !s)){ err('Fiecare unitate trebuie să aibă o serie de șasiu.'); return; }
+    const dupIn = all.filter((s,i) => all.indexOf(s)!==i);
+    if(dupIn.length){ err(`Seria ${dupIn[0]} apare de două ori în acest import.`); return; }
+    const mine = new Set(units.map(u => u.id));
+    const others = new Set((CACHE.unitati||[]).filter(u => !mine.has(u.id)).map(u => String(u.serie||'').toUpperCase()));
+    const dupOut = all.find(s => others.has(s));
+    if(dupOut){ err(`Seria ${dupOut} există deja în stoc, la alt import.`); return; }
+    if([...rows, ...pending].some(r => !(Number(r.cost)>0))){ err('Fiecare unitate trebuie să aibă un cost mai mare decât zero.'); return; }
+    if(rows.some(r => r.status==='vandut' && !r.dataVanzare)){ err('Completează data vânzării pentru unitățile marcate „Vândută”.'); return; }
+
+    const btn = document.getElementById('ieSave'); btn.disabled = true; btn.textContent = 'Se salvează…';
+    try{
+      const del = firebase.firestore.FieldValue.delete();
+      const b = db.batch();
+      rows.forEach(r => {
+        const upd = { serie:r.serie, model:r.model, varianta:r.varianta, costAchizitie:r.cost, status:r.status,
+          importId:imp.id, facturaImport:head.factura, dataImport:head.data };
+        upd.dataVanzare = r.status==='vandut' ? r.dataVanzare : del;
+        b.update(db.collection('unitati').doc(r.id), upd);
+      });
+      toDelete.forEach(id => b.delete(db.collection('unitati').doc(id)));
+      pending.forEach(p => b.set(db.collection('unitati').doc(), { serie:p.serie, model:p.model, varianta:p.varianta, costAchizitie:p.cost,
+        status:'custodie', importId:imp.id, facturaImport:head.factura, dataImport:head.data }));
+      // produsele și valoarea importului, recalculate din unități
+      const grp = {};
+      [...rows.map(r => ({ model:r.model, varianta:r.varianta, cost:r.cost })), ...pending].forEach(x => {
+        const k = x.model+'|'+x.varianta+'|'+x.cost;
+        grp[k] = grp[k] || { model:x.model, varianta:x.varianta, cantitate:0, costAchizitie:Number(x.cost) };
+        grp[k].cantitate++; });
+      const produse = Object.values(grp);
+      const valoareTotalaMarfa = produse.reduce((s,p) => s + p.cantitate*p.costAchizitie, 0);
+      b.update(db.collection('importuri').doc(imp.id), { ...head, produse, valoareTotalaMarfa });
+      await b.commit();
+      // „Prețuri & Marje” se actualizează doar din cel mai recent import
+      const latest = [...(CACHE.importuri||[]).map(i => i.id===imp.id ? { ...i, data:head.data } : i)]
+        .sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')))[0];
+      if(latest && latest.id===imp.id){
+        const ms = await db.collection('config').doc('marje').get();
+        if(ms.exists){ const md = ms.data(); const pm = md.produse || [];
+          produse.forEach(p => { const m = pm.find(x => x.model===p.model && x.varianta===p.varianta); if(m){ m.costAchizitie = p.costAchizitie; m.tipCost = `REAL ${head.factura}`; } });
+          await db.collection('config').doc('marje').set({ inputs:{ ...(md.inputs||{}), curs:head.curs, transport:head.transport, comisionar:head.comisionar, vama:head.vama, valEconomica:valoareTotalaMarfa }, produse:pm }); }
+      }
+      alert('Importul a fost actualizat.');
+      await loadAll();
+    }catch(e){ console.error(e); err('Nu am putut salva. Verifică conexiunea și încearcă din nou.'); btn.disabled = false; btn.textContent = 'Salvează modificările'; }
+  };
+
+  document.getElementById('ieDelImp').onclick = async () => {
+    const blocked = units.filter(u => { const l = imUnitLocked(u); return l.custodie || l.garantie || u.status==='vandut'; });
+    if(blocked.length){ err(`Importul nu poate fi șters: ${blocked.length} ${blocked.length===1?'unitate e vândută sau folosită':'unități sunt vândute sau folosite'} într-o garanție sau un contract de custodie.`); return; }
+    if(!confirm(`Ștergi importul ${imp.factura} și cele ${units.length} unități din stoc? Nu se poate anula.`)) return;
+    try{ const b = db.batch(); units.forEach(u => b.delete(db.collection('unitati').doc(u.id))); b.delete(db.collection('importuri').doc(imp.id)); await b.commit();
+      IM.openId = null; await loadAll(); }
+    catch(e){ console.error(e); err('Nu am putut șterge importul.'); }
+  };
+}
+
+/* ---------- editare rapidă din tab-ul „Stoc” ---------- */
+function imOpenFromStoc(unitId){
+  const u = (CACHE.unitati||[]).find(x => x.id===unitId); if(!u) return;
+  const imp = (CACHE.importuri||[]).find(i => u.importId ? i.id===u.importId : i.factura===u.facturaImport);
+  if(!imp){ alert('Nu am găsit importul acestei unități. Verifică numărul facturii.'); return; }
+  IM.openId = imp.id;
+  document.querySelector('#adminNav [data-tab="actiuni"]').click();
+  document.querySelector('[data-subtab="import"]').click();
+  renderImporturi();
+  setTimeout(() => { const tr = document.querySelector(`tr[data-uid="${CSS.escape(unitId)}"]`);
+    if(tr){ tr.scrollIntoView({ block:'center', behavior:'smooth' }); tr.style.background = 'var(--amber-bg)'; setTimeout(() => tr.style.background = '', 2500); } }, 60);
+}
+
 
 /* ================= CONTRACTE DE CUSTODIE =================
    Contractele stau în colecția „custodii”. Semnarea la distanță folosește colecția „semnari”
