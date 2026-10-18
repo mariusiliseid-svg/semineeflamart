@@ -605,10 +605,74 @@ document.getElementById('ctaBtn').addEventListener('click', ()=>{
   const manopera = MODEL.manopera.map(m=>`${m.name} (${fmt(m.price)})`).join(", ");
   const grinda = MODEL.grinzi.find(g=>g.id===state.grinda).name;
   const body = `Model: ${MODEL.name}%0AMaterial masă: ${material}%0AFocar: ${focar}%0ACoș de fum: ${cos}%0AMateriale de montaj: ${montaj}%0AGrindă: ${grinda}%0AManoperă: ${manopera}%0ATotal estimat: ${fmt(computeTotal())}`;
-  window.top.location.href = `mailto:?subject=Cerere ofertă ${encodeURIComponent(MODEL.name)}&body=${body}`;
+  flOpenQuote(MODEL.name, body, fmt(computeTotal()));
 });
 
 renderAll();
 </script>
+<!-- FLAMART CERERE OFERTA -->
+<style>
+.fq-back{position:fixed;inset:0;background:rgba(20,20,20,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:2000}
+.fq-back.open{display:flex}
+.fq{background:#ffffff;width:100%;max-width:420px;border-radius:6px;padding:24px;font-family:'Manrope',system-ui,sans-serif;color:#232324;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.fq h3{margin:0 0 6px;font-size:20px;font-weight:700}
+.fq p{margin:0 0 18px;font-size:14px;color:#68686a;line-height:1.45}
+.fq label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
+.fq input{width:100%;box-sizing:border-box;height:46px;border:1px solid rgba(35,35,36,0.25);border-radius:3px;padding:0 12px;font:inherit;font-size:16px;margin-bottom:14px;color:#232324;background:#fff}
+.fq input:focus{outline:2px solid #7e2a2c;outline-offset:0;border-color:#7e2a2c}
+.fq .fq-err{color:#a1262a;font-size:13px;margin:-6px 0 12px;min-height:0}
+.fq .fq-sum{background:#f0f0f0;border-radius:3px;padding:10px 12px;font-size:13px;margin-bottom:18px}
+.fq .fq-row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.fq button{height:46px;padding:0 20px;border-radius:3px;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer}
+.fq .fq-cancel{background:#fff;border:1px solid rgba(35,35,36,0.25);color:#232324}
+.fq .fq-send{background:#7e2a2c;border:none;color:#fff}
+.fq .fq-send:hover{background:#5e1f21}
+.fq small{display:block;margin-top:14px;font-size:12px;color:#68686a;line-height:1.45}
+.fq small a{color:#7e2a2c}
+</style>
+<div class="fq-back" id="fqBack" role="dialog" aria-modal="true" aria-labelledby="fqTitle">
+  <form class="fq" id="fqForm" novalidate>
+    <h3 id="fqTitle">Cerere de ofertă</h3>
+    <p>Lasă-ne numele și telefonul. Te contactăm cu oferta pentru configurația aleasă.</p>
+    <div class="fq-sum" id="fqSum"></div>
+    <label for="fqName">Nume și prenume</label>
+    <input id="fqName" name="name" autocomplete="name" required>
+    <label for="fqPhone">Telefon</label>
+    <input id="fqPhone" name="tel" type="tel" inputmode="tel" autocomplete="tel" required>
+    <div class="fq-err" id="fqErr"></div>
+    <div class="fq-row">
+      <button type="button" class="fq-cancel" id="fqCancel">Renunță</button>
+      <button type="submit" class="fq-send">Trimite cererea</button>
+    </div>
+    <small>Se deschide aplicația ta de email cu cererea completată către contact@flamart.ro — apasă „Trimite” acolo. Preferi telefonul? Sună la <a href="tel:+40757355813">0757 355 813</a>.</small>
+  </form>
+</div>
+<script>
+(function(){
+  var back=document.getElementById('fqBack'),form=document.getElementById('fqForm'),
+      nameI=document.getElementById('fqName'),phoneI=document.getElementById('fqPhone'),
+      err=document.getElementById('fqErr'),sum=document.getElementById('fqSum'),pending=null;
+  function close(){back.classList.remove('open');pending=null;}
+  window.flOpenQuote=function(model,body,total){
+    pending={model:model,body:body};
+    sum.textContent=model+(total?' — total estimat '+total:'');
+    err.textContent='';back.classList.add('open');setTimeout(function(){nameI.focus();},50);
+  };
+  document.getElementById('fqCancel').addEventListener('click',close);
+  back.addEventListener('click',function(e){if(e.target===back)close();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&back.classList.contains('open'))close();});
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var n=nameI.value.trim(),t=phoneI.value.trim(),digits=t.replace(/\D/g,'');
+    if(n.length<2){err.textContent='Te rugăm să completezi numele.';nameI.focus();return;}
+    if(digits.length<9){err.textContent='Te rugăm să completezi un număr de telefon valid.';phoneI.focus();return;}
+    var text='Nume: '+n+'\nTelefon: '+t+'\n\n'+pending.body.replace(/%0A/g,'\n');
+    var url='mailto:contact@flamart.ro?subject='+encodeURIComponent('Cerere ofertă '+pending.model+' — '+n)+'&body='+encodeURIComponent(text);
+    try{window.top.location.href=url;}catch(x){window.location.href=url;}
+    close();
+  });
+})();
+</script>
+<!-- /FLAMART CERERE OFERTA -->
 </body>
 </html>
