@@ -58,6 +58,17 @@
   .btn{font-family:inherit;font-size:14px;font-weight:700;padding:10px 18px;border-radius:var(--radius);border:none;cursor:pointer;}
   .btn-primary{background:var(--red);color:#fff;}
   .btn-primary:hover{background:var(--red-dim);}
+  .rc-type{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .rc-t{font:inherit;font-size:13.5px;font-weight:700;padding:9px 14px;border-radius:99px;border:1.5px solid var(--line);background:#fff;cursor:pointer}
+  .rc-t.active{background:var(--red);border-color:var(--red);color:#fff}
+  .rc-info{font-size:13px;padding:9px 12px;border-radius:6px;margin:0 0 12px;background:#f4f4f4}
+  .rc-info.ok{background:#e9f7ee;color:#1e6b39}.rc-info.warn{background:#fff7e6;color:#8a5a00}.rc-info.bad{background:#fdf1f0;color:#8f2a20}
+  .rc-thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .rc-th{position:relative;width:76px;height:76px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+  .rc-th img{width:100%;height:100%;object-fit:cover}
+  .rc-th button{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;line-height:1}
+  .rc-adm td{vertical-align:top}
+  .rc-adm select,.rc-adm input:not([type=checkbox]){font:inherit;font-size:12px;padding:5px 6px;border:1px solid var(--line);border-radius:4px}
   .doc-list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .doc-row{display:flex;gap:14px;align-items:center;padding:14px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
   .doc-row:first-child{border-top:none}
@@ -236,6 +247,7 @@
   <button class="tab-btn" data-tab="stoc">Stoc</button>
   <button class="tab-btn" data-tab="garantii">Garanții</button>
   <button class="tab-btn" data-tab="leaduri">Lead-uri</button>
+  <button class="tab-btn" data-tab="reclamatii">Reclamații</button>
   <button class="tab-btn" data-tab="actiuni">Acțiuni</button>
 </div>
 <div id="partenerNav" class="tabs" style="display:none;">
@@ -246,6 +258,7 @@
   <button class="tab-btn" data-tab="partStats">Statisticile mele</button>
   <button class="tab-btn" data-tab="partLeaduri">Lead-uri</button>
   <button class="tab-btn" data-tab="partCustodie">Custodie</button>
+  <button class="tab-btn" data-tab="partReclamatii">Reclamații</button>
   <button class="tab-btn" data-tab="partDocumente">Documente</button>
 </div>
 
@@ -277,6 +290,10 @@
 
   <div id="tab-leaduri" class="tab-content" style="display:none;">
     <div id="leaduriContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-reclamatii" class="tab-content" style="display:none;">
+    <div id="reclamatiiRoot"><div class="empty">Se încarcă…</div></div>
   </div>
 
   <div id="tab-actiuni" class="tab-content" style="display:none;">
@@ -610,6 +627,10 @@
 
   <div id="tab-partCustodie" class="tab-content" style="display:none;">
     <div id="partCustodieContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-partReclamatii" class="tab-content" style="display:none;">
+    <div id="partReclamatiiContent"><div class="empty">Se încarcă…</div></div>
   </div>
 
   <div id="tab-partDocumente" class="tab-content" style="display:none;">
@@ -1440,6 +1461,7 @@ async function loadPartenerView(){
 
   loadPartLeaduri();
   loadPartCustodie();
+  loadPartReclamatii();
 }
 
 document.querySelectorAll('.subtab-btn').forEach(btn => {
@@ -1467,6 +1489,223 @@ document.querySelectorAll('.subtab-btn').forEach(btn => {
     finally{ b.disabled = false; b.textContent = 'Descarc oricum'; }
   };
 })();
+// ===================== RECLAMAȚII ȘI FEEDBACK PE SERIE DE ȘASIU =====================
+// Partenerii trimit reclamații sau feedback pe o serie; adminul le vede, le grupează în borderouri
+// (ZIP cu Excel + poze) pentru producător și urmărește răspunsul.
+// Firestore: reclamatii/{id} (date), reclamatiiFoto/{id} (o poză JPEG comprimată, legată prin reclamatieId).
+const RC_CATEGORII = ['Geam / sticlă','Garnituri','Ușă / balamale / închidere','Mecanism ghilotină','Deflector / vermiculit','Căptușeală ceramică (Ceramatex)',
+  'Vopsea / aspect','Regulator de aer','Corp / sudură / deformare','Tiraj / ardere','Livrare / ambalaj (deteriorat la transport)','Altceva'];
+const RC_CAT_EN = {'Geam / sticlă':'Glass','Garnituri':'Seals','Ușă / balamale / închidere':'Door / hinges / latch','Mecanism ghilotină':'Guillotine mechanism',
+  'Deflector / vermiculit':'Deflector / vermiculite','Căptușeală ceramică (Ceramatex)':'Ceramic lining (Ceramatex)','Vopsea / aspect':'Paint / appearance',
+  'Regulator de aer':'Air regulator','Corp / sudură / deformare':'Body / welding / deformation','Tiraj / ardere':'Draft / combustion',
+  'Livrare / ambalaj (deteriorat la transport)':'Delivery / packaging (transport damage)','Altceva':'Other'};
+const RC_STATUS = { nou:['Nou','warn'], trimis:['Trimis producătorului','info'], rezolvat:['Rezolvat','ok'], respins:['Respins',''] };
+const RC_MAX_FOTO = 4;
+const rcEsc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const rcDRo = iso => { if(!iso) return '—'; const [y,m,d] = String(iso).slice(0,10).split('-'); return `${d}.${m}.${y}`; };
+const rcToday = () => { const d = new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10); };
+const rcPill = s => { const [t,c] = RC_STATUS[s] || [s,'']; return `<span class="cu-pill ${c}">${rcEsc(t)}</span>`; };
+
+function rcLoadScript(src){ return new Promise((res, rej) => { if(document.querySelector(`script[src="${src}"]`)) return res();
+  const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.append(s); }); }
+
+// comprimă o poză în JPEG de cel mult 1280 px, ca să încapă într-un document Firestore (< 1 MB)
+function rcCompress(file){
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => { const img = new Image(); img.onload = () => {
+      let q = 0.72, max = 1280, out;
+      const draw = () => { const sc = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas');
+        c.width = Math.round(img.width*sc); c.height = Math.round(img.height*sc); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', q); };
+      out = draw(); while(out.length > 700000 && max > 600){ max -= 200; q -= 0.06; out = draw(); }
+      res(out); }; img.onerror = rej; img.src = fr.result; };
+    fr.onerror = rej; fr.readAsDataURL(file);
+  });
+}
+
+// caută modelul și data montajului după serie (garanții, apoi stoc)
+async function rcLookup(serie){
+  const S = serie.trim().toUpperCase(); if(!S) return null;
+  try{
+    const g = await db.collection('garantii').where('serie','==',S).limit(1).get();
+    if(!g.empty){ const d = g.docs[0].data(); return { model:d.model||'', varianta:d.varianta||'', dataMontaj:d.dataMontaj||'', client:d.clientNume||'', judet:d.judet||'', sursa:'garanție' }; }
+    const u = await db.collection('unitati').where('serie','==',S).limit(1).get();
+    if(!u.empty){ const d = u.docs[0].data(); return { model:d.model||'', varianta:d.varianta||'', dataMontaj:'', client:'', judet:'', sursa:'stoc' }; }
+  }catch(e){ console.error('rcLookup', e); }
+  const p = (typeof parseSerie==='function') ? parseSerie(S) : null;
+  return p ? { model:'', varianta:'', dataMontaj:'', client:'', judet:'', sursa:'format' } : null;
+}
+
+// ---------- partener ----------
+let rcFiles = [];
+function rcPartnerForm(){
+  return `<div class="card">
+    <h2 style="margin:0 0 4px">Trimite o reclamație sau un feedback</h2>
+    <p style="color:#666;font-size:13.5px;margin:0 0 16px">Pe seria de șasiu a focarului. Flamart le centralizează și le transmite producătorului.</p>
+    <div class="rc-type" role="group" aria-label="Tip">
+      <button type="button" class="rc-t active" data-rct="reclamatie">Reclamație (defect)</button>
+      <button type="button" class="rc-t" data-rct="feedback">Feedback / sugestie</button></div>
+    <div class="field-row"><div class="field" style="flex:2"><label>Seria de șasiu</label>
+      <input id="rcSerie" placeholder="BOKAR-2026-0405-7550L-01610" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;font-family:ui-monospace,Menlo,monospace"></div>
+      <div class="field"><label>Data constatării</label><input id="rcData" type="date"></div></div>
+    <div id="rcInfo" class="rc-info" hidden></div>
+    <div class="field-row"><div class="field"><label>Categorie</label><select id="rcCat">${RC_CATEGORII.map(c => `<option>${c}</option>`).join('')}</select></div>
+      <div class="field" id="rcGravWrap"><label>Gravitate</label><select id="rcGrav"><option value="mica">Mică (aspect, se poate folosi)</option><option value="medie" selected>Medie (funcționează cu probleme)</option><option value="mare">Mare (nu se poate folosi)</option></select></div></div>
+    <div class="field"><label>Descriere</label><textarea id="rcDesc" rows="4" placeholder="Ce s-a întâmplat, de când, în ce condiții. Ex.: după 3 luni de folosire, garnitura ușii s-a desprins pe latura de sus."></textarea></div>
+    <div class="field"><label>Poze (până la ${RC_MAX_FOTO})</label>
+      <input id="rcFoto" type="file" accept="image/*" multiple>
+      <div id="rcThumbs" class="rc-thumbs"></div></div>
+    <div id="rcOut"></div>
+    <button class="btn btn-primary" type="button" id="rcSend">Trimite</button>
+  </div>
+  <div id="rcMine"></div>`;
+}
+function rcBindPartner(){
+  let tip = 'reclamatie';
+  document.querySelectorAll('[data-rct]').forEach(b => b.onclick = () => { tip = b.dataset.rct;
+    document.querySelectorAll('[data-rct]').forEach(x => x.classList.toggle('active', x===b));
+    document.getElementById('rcGravWrap').style.display = tip==='reclamatie' ? '' : 'none'; });
+  document.getElementById('rcData').value = rcToday();
+  const serie = document.getElementById('rcSerie'), info = document.getElementById('rcInfo');
+  let lookup = null, t = null;
+  serie.oninput = () => { clearTimeout(t); t = setTimeout(async () => { const v = serie.value.trim(); if(v.length < 10){ info.hidden = true; lookup = null; return; }
+    lookup = await rcLookup(v); info.hidden = false;
+    if(lookup && lookup.model){ info.className = 'rc-info ok'; info.innerHTML = `Găsit: <b>BOKAR ${rcEsc(lookup.model)} ${rcEsc(lookup.varianta)}</b>${lookup.dataMontaj?` · montat ${rcDRo(lookup.dataMontaj)}`:''}${lookup.client?` · ${rcEsc(lookup.client)}`:''}`; }
+    else if(lookup){ info.className = 'rc-info warn'; info.innerHTML = 'Seria are formatul corect, dar nu apare în garanții sau în stoc. Verifică seria; dacă e corectă, trimite oricum.'; }
+    else { info.className = 'rc-info bad'; info.innerHTML = 'Seria nu are formatul BOKAR-AAAA-LLZZ-MODEL-NUMĂR.'; } }, 400); };
+  rcFiles = [];
+  const thumbs = document.getElementById('rcThumbs');
+  const drawThumbs = () => { thumbs.innerHTML = rcFiles.map((f,i) => `<div class="rc-th"><img src="${f}"><button type="button" data-rcx="${i}" aria-label="Șterge">×</button></div>`).join('');
+    thumbs.querySelectorAll('[data-rcx]').forEach(b => b.onclick = () => { rcFiles.splice(+b.dataset.rcx, 1); drawThumbs(); }); };
+  document.getElementById('rcFoto').onchange = async e => {
+    for(const f of [...e.target.files]){ if(rcFiles.length >= RC_MAX_FOTO) break; try{ rcFiles.push(await rcCompress(f)); }catch(err){ console.error(err); } }
+    e.target.value = ''; drawThumbs(); };
+  document.getElementById('rcSend').onclick = async () => {
+    const out = document.getElementById('rcOut'), btn = document.getElementById('rcSend');
+    const S = serie.value.trim().toUpperCase(), desc = document.getElementById('rcDesc').value.trim();
+    if(S.length < 10){ out.innerHTML = '<div class="rc-info bad">Scrie seria de șasiu.</div>'; return; }
+    if(desc.length < 10){ out.innerHTML = '<div class="rc-info bad">Descrie pe scurt problema sau sugestia.</div>'; return; }
+    if(tip==='reclamatie' && !rcFiles.length && !confirm('Nu ai adăugat nicio poză. Producătorul cere de obicei poze pentru reclamații. Trimiți totuși?')) return;
+    btn.disabled = true; btn.textContent = 'Se trimite…'; out.innerHTML = '';
+    try{
+      const L = lookup || await rcLookup(S) || {};
+      const now = new Date(), nr = `RC-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+      const ref = await db.collection('reclamatii').add({
+        nr, tip, serie:S, model:L.model||'', varianta:L.varianta||'', dataMontaj:L.dataMontaj||'', clientJudet:L.judet||'',
+        categorie:document.getElementById('rcCat').value, gravitate: tip==='reclamatie' ? document.getElementById('rcGrav').value : '',
+        descriere:desc.slice(0,3000), dataConstatare:document.getElementById('rcData').value || rcToday(), nrFoto:rcFiles.length,
+        status:'nou', borderou:'', dataTrimitere:'', raspuns:'',
+        partener:currentUser.name, createdBy:currentUser.uid, created:now.toISOString() });
+      for(let i=0;i<rcFiles.length;i++) await db.collection('reclamatiiFoto').add({ reclamatieId:ref.id, idx:i, data:rcFiles[i], createdBy:currentUser.uid });
+      out.innerHTML = `<div class="rc-info ok">Trimis. Numărul înregistrării: <b>${nr}</b>. Îl găsești mai jos, cu statusul la zi.</div>`;
+      serie.value = ''; document.getElementById('rcDesc').value = ''; info.hidden = true; rcFiles = []; drawThumbs(); lookup = null;
+      rcLoadMine();
+    }catch(e){ console.error(e); out.innerHTML = '<div class="rc-info bad">Nu s-a putut trimite. Verifică internetul și încearcă din nou.</div>'; if(typeof showDebugError==='function') showDebugError('reclamatii', e); }
+    finally{ btn.disabled = false; btn.textContent = 'Trimite'; }
+  };
+}
+async function rcLoadMine(){
+  const el = document.getElementById('rcMine'); if(!el) return;
+  let list = [];
+  try{ const s = await db.collection('reclamatii').where('createdBy','==',currentUser.uid).get(); list = s.docs.map(d => ({ id:d.id, ...d.data() })); }
+  catch(e){ console.error(e); }
+  list.sort((a,b) => String(b.created).localeCompare(String(a.created)));
+  el.innerHTML = `<div class="card"><h2 style="margin:0 0 12px">Reclamațiile și feedback-ul meu</h2>${!list.length ? '<div class="empty">Nu ai trimis încă nimic.</div>' :
+    `<div style="overflow-x:auto"><table><thead><tr><th>Nr.</th><th>Dată</th><th>Tip</th><th>Serie / model</th><th>Categorie</th><th>Status</th><th>Răspuns</th></tr></thead><tbody>
+    ${list.map(r => `<tr><td><b>${rcEsc(r.nr)}</b></td><td>${rcDRo(r.created)}</td><td>${r.tip==='feedback'?'Feedback':'Reclamație'}</td>
+      <td><span style="font-family:ui-monospace,monospace;font-size:11.5px">${rcEsc(r.serie)}</span><br>${rcEsc(r.model)} ${rcEsc(r.varianta)}</td><td>${rcEsc(r.categorie)}</td>
+      <td>${rcPill(r.status)}</td><td>${rcEsc(r.raspuns)||'—'}</td></tr>`).join('')}</tbody></table></div>`}</div>`;
+}
+function loadPartReclamatii(){
+  const el = document.getElementById('partReclamatiiContent'); if(!el) return;
+  el.innerHTML = rcPartnerForm(); rcBindPartner(); rcLoadMine();
+}
+
+// ---------- admin ----------
+let RC_LIST = [];
+async function renderReclamatiiAdmin(){
+  const el = document.getElementById('reclamatiiRoot'); if(!el) return;
+  try{ const s = await db.collection('reclamatii').get(); RC_LIST = s.docs.map(d => ({ id:d.id, ...d.data() })); }
+  catch(e){ console.error(e); el.innerHTML = '<div class="card"><div class="empty">Nu s-au putut încărca reclamațiile. Verifică regulile Firestore (colecția reclamatii).</div></div>'; return; }
+  RC_LIST.sort((a,b) => String(b.created).localeCompare(String(a.created)));
+  const cnt = k => RC_LIST.filter(r => r.status===k).length;
+  el.innerHTML = `<div class="card">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between;margin-bottom:14px">
+      <div><h2 style="margin:0">Reclamații și feedback</h2><p style="color:#666;font-size:13px;margin:4px 0 0">${cnt('nou')} noi · ${cnt('trimis')} trimise producătorului · ${cnt('rezolvat')} rezolvate · ${cnt('respins')} respinse</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="rcF"><option value="nou">Doar noi</option><option value="trimis">Trimise</option><option value="">Toate</option><option value="rezolvat">Rezolvate</option><option value="respins">Respinse</option></select>
+        <button class="btn btn-primary" type="button" id="rcBord">Descarcă borderou (selectate)</button></div></div>
+    <div id="rcTbl"></div>
+    <p style="color:#666;font-size:12px;margin:12px 0 0">Borderoul e o arhivă ZIP cu un Excel (coloane în română și engleză) și pozele, numite după numărul reclamației. După descărcare, reclamațiile selectate trec în „Trimis producătorului”, cu numărul borderoului.</p>
+  </div>`;
+  const draw = () => {
+    const f = document.getElementById('rcF').value, list = RC_LIST.filter(r => !f || r.status===f);
+    document.getElementById('rcTbl').innerHTML = !list.length ? '<div class="empty">Nimic de afișat.</div>' : `<div style="overflow-x:auto"><table class="rc-adm"><thead><tr>
+      <th><input type="checkbox" id="rcAll" ${f==='nou'?'checked':''} aria-label="Selectează tot"></th><th>Nr. / dată</th><th>Partener</th><th>Serie / model</th><th>Tip / categorie</th><th>Descriere</th><th>Foto</th><th>Status</th><th>Răspuns producător</th></tr></thead><tbody>
+      ${list.map(r => `<tr><td><input type="checkbox" class="rcSel" value="${r.id}" ${f==='nou'?'checked':''}></td>
+        <td><b>${rcEsc(r.nr)}</b><br>${rcDRo(r.created)}${r.borderou?`<br><span style="color:#666;font-size:11px">${rcEsc(r.borderou)}</span>`:''}</td>
+        <td>${rcEsc(r.partener)}</td>
+        <td><span style="font-family:ui-monospace,monospace;font-size:11px">${rcEsc(r.serie)}</span><br>${rcEsc(r.model)} ${rcEsc(r.varianta)}${r.dataMontaj?`<br><span style="color:#666;font-size:11px">montat ${rcDRo(r.dataMontaj)}</span>`:''}</td>
+        <td>${r.tip==='feedback'?'Feedback':'<b>Reclamație</b>'}${r.gravitate?` · ${rcEsc(r.gravitate)}`:''}<br>${rcEsc(r.categorie)}</td>
+        <td style="max-width:260px">${rcEsc(r.descriere)}</td>
+        <td>${r.nrFoto?`<button class="btn btn-secondary" type="button" data-rcfoto="${r.id}" style="padding:4px 8px;font-size:12px">${r.nrFoto} foto</button>`:'—'}</td>
+        <td><select data-rcst="${r.id}">${Object.entries(RC_STATUS).map(([k,[t]]) => `<option value="${k}" ${r.status===k?'selected':''}>${t}</option>`).join('')}</select></td>
+        <td><input data-rcr="${r.id}" value="${rcEsc(r.raspuns)}" placeholder="Răspunsul producătorului" style="min-width:160px"></td></tr>`).join('')}</tbody></table></div>`;
+    const all = document.getElementById('rcAll'); if(all) all.onchange = () => document.querySelectorAll('.rcSel').forEach(c => c.checked = all.checked);
+    document.querySelectorAll('[data-rcst]').forEach(s => s.onchange = async () => { await db.collection('reclamatii').doc(s.dataset.rcst).update({ status:s.value }); const r = RC_LIST.find(x => x.id===s.dataset.rcst); if(r) r.status = s.value; });
+    document.querySelectorAll('[data-rcr]').forEach(i => i.onchange = async () => { await db.collection('reclamatii').doc(i.dataset.rcr).update({ raspuns:i.value.slice(0,1000) }); const r = RC_LIST.find(x => x.id===i.dataset.rcr); if(r) r.raspuns = i.value; });
+    document.querySelectorAll('[data-rcfoto]').forEach(b => b.onclick = () => rcShowFoto(b.dataset.rcfoto));
+  };
+  document.getElementById('rcF').onchange = draw; draw();
+  document.getElementById('rcBord').onclick = rcBorderou;
+}
+async function rcFotos(id){ const s = await db.collection('reclamatiiFoto').where('reclamatieId','==',id).get(); return s.docs.map(d => d.data()).sort((a,b) => a.idx-b.idx); }
+async function rcShowFoto(id){
+  const m = document.createElement('div'); m.className = 'cg-modal'; m.style.display = 'flex';
+  m.innerHTML = '<div class="cg-box" style="max-width:860px"><div class="empty">Se încarcă…</div></div>'; document.body.append(m);
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  const f = await rcFotos(id);
+  m.firstChild.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">${f.map(x => `<a href="${x.data}" target="_blank"><img src="${x.data}" style="width:100%;border-radius:8px"></a>`).join('')}</div>
+    <div class="cg-acts"><button class="btn btn-secondary" type="button">Închide</button></div>`;
+  m.querySelector('button').onclick = () => m.remove();
+}
+async function rcBorderou(){
+  const ids = [...document.querySelectorAll('.rcSel:checked')].map(c => c.value);
+  const sel = RC_LIST.filter(r => ids.includes(r.id));
+  if(!sel.length){ alert('Selectează cel puțin o reclamație.'); return; }
+  const btn = document.getElementById('rcBord'); btn.disabled = true; btn.textContent = 'Se pregătește…';
+  try{
+    await rcLoadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    await rcLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    const now = new Date(), bnr = `BORDEROU-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+    const zip = new JSZip(), foto = zip.folder('foto');
+    const rows = [];
+    for(const r of sel){
+      const f = r.nrFoto ? await rcFotos(r.id) : [];
+      const names = f.map((x,i) => { const n = `${r.nr}_${i+1}.jpg`; foto.file(n, x.data.split(',')[1], { base64:true }); return n; });
+      rows.push({ 'Nr. / No.':r.nr, 'Data / Date':rcDRo(r.created), 'Tip / Type':r.tip==='feedback'?'Feedback':'Reclamație / Claim',
+        'Serie de șasiu / Serial no.':r.serie, 'Model':`${r.model||''} ${r.varianta||''}`.trim(), 'Data montajului / Installation date':rcDRo(r.dataMontaj),
+        'Data constatării / Date found':rcDRo(r.dataConstatare), 'Categorie / Category':`${r.categorie} / ${RC_CAT_EN[r.categorie]||''}`,
+        'Gravitate / Severity':({mica:'Mică / Minor',medie:'Medie / Medium',mare:'Mare / Major'})[r.gravitate]||'', 'Descriere / Description':r.descriere,
+        'Județ client / Region':r.clientJudet||'', 'Partener / Dealer':r.partener, 'Poze / Photos':names.join(', ') });
+    }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:20},{wch:11},{wch:18},{wch:30},{wch:18},{wch:14},{wch:14},{wch:38},{wch:16},{wch:60},{wch:14},{wch:22},{wch:40}];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Borderou');
+    const info = XLSX.utils.aoa_to_sheet([[`BOKAR România — ${bnr}`],[`Importator / Importer: Flamart`],[`Data / Date: ${rcDRo(rcToday())}`],[`Înregistrări / Records: ${sel.length}`]]);
+    XLSX.utils.book_append_sheet(wb, info, 'Info');
+    zip.file(`${bnr}.xlsx`, XLSX.write(wb, { bookType:'xlsx', type:'array' }));
+    const blob = await zip.generateAsync({ type:'blob' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${bnr}.zip`; document.body.append(a); a.click(); a.remove();
+    const toSend = sel.filter(r => r.status==='nou');
+    if(toSend.length && confirm(`Marchez ${toSend.length} ${toSend.length===1?'înregistrare':'înregistrări'} ca „Trimis producătorului”, cu ${bnr}?`)){
+      const b = db.batch(); toSend.forEach(r => b.update(db.collection('reclamatii').doc(r.id), { status:'trimis', borderou:bnr, dataTrimitere:rcToday() })); await b.commit();
+    }
+    renderReclamatiiAdmin();
+  }catch(e){ console.error(e); alert('Nu am putut genera borderoul.'); }
+  finally{ btn.disabled = false; btn.textContent = 'Descarcă borderou (selectate)'; }
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -1563,6 +1802,7 @@ async function loadAll(){
   backfillGarantiiPublice();
   renderLeaduri();
   renderGarantiiTab();
+  renderReclamatiiAdmin();
   if(CU.view !== 'form') renderCustodie();
   cuSyncSemnari();
   document.getElementById('dealeriDatalist').innerHTML =
