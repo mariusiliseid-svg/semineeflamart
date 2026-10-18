@@ -283,6 +283,7 @@
     </div>
 
     <div id="subtab-conturi" class="subtab-content" style="display:none;">
+      <div id="cereriPartRoot"></div>
       <div class="card">
         <h2>Creează cont nou de partener</h2>
         <div id="contSuccess" class="success-banner">Cont creat cu succes.</div>
@@ -602,7 +603,7 @@ const JUDETE = ["Alba","Arad","Argeș","Bacău","Bihor","Bistrița-Năsăud","Bo
 const FOCAR_MODELE = [
   "6050","7050","8050","9050",
   "655047 L/R","755047 L/R","855047 L/R",
-  "6050G","9050G","12050G","755047 L/R G","855047 L/R G","PSG 60","9050 P",
+  "6050G","7050G","8050G","9050G","12050G","755047 L/R G","855047 L/R G","PSG 60","9050 P",
   "4380 (Sobă)","Forum (Sobă sticlă colț)"
 ];
 const RRP_FOCAR = {
@@ -610,6 +611,7 @@ const RRP_FOCAR = {
   "8050": { White: 2049.74, Black: 2407.9 }, "9050": { White: 2369.18, Black: 2770.9 },
   "655047 L/R": { White: 2420, Black: 2582.14 }, "755047 L/R": { White: 2528.9, Black: 2807.2 },
   "855047 L/R": { White: 2879.8, Black: 3206.5 }, "6050G": { White: 3025, Black: 3375.9 },
+  "7050G": { White: 3206.5, Black: 3448.5 }, "8050G": { White: 3303.3, Black: 3690.5 },
   "9050G": { White: 3412.2, Black: 3799.4 }, "12050G": { White: 4392.3, Black: 4803.7 },
   "755047 L/R G": { White: 4271.3, Black: 4743.2 }, "855047 L/R G": { White: 4755.3, Black: 5118.3 },
   "PSG 60": { White: 4973.1, Black: 5239.3 }, "9050 P": { White: 3496.9, Black: 3823.6 },
@@ -962,7 +964,8 @@ document.getElementById('garantieActionForm').onsubmit = async function(e){
     }
     const dataExpirare = addYearsStr(dataMontaj, WARRANTY_YEARS);
     const garantieData = { serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataExpirare, inregistratDe:'Admin' };
-    await db.collection('garantii').add(garantieData);
+    const gRef = await db.collection('garantii').add({ ...garantieData, publicat:true });
+    await publicaGarantie(garantieData).catch(e => console.error('verificare publică', e));
 
     // Dacă seria a fost logată la import (colecția „unitati"), o marcăm drept vândută.
     const unitSnap = await db.collection('unitati').where('serie','==',serie).get();
@@ -1310,7 +1313,8 @@ document.getElementById('partGarantieForm').onsubmit = async function(e){
     }
     const dataExpirare = addYearsStr(dataMontaj, WARRANTY_YEARS);
     const garantieData = { serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataExpirare, inregistratDe: currentUser.name };
-    await db.collection('garantii').add(garantieData);
+    const gRef = await db.collection('garantii').add({ ...garantieData, publicat:true });
+    await publicaGarantie(garantieData).catch(e => console.error('verificare publică', e));
 
     const unitSnap = await db.collection('unitati').where('serie','==',serie).get();
     if(!unitSnap.empty){
@@ -1461,15 +1465,15 @@ function landedCostFor(model, varianta, marjeData){
 let CACHE = {};
 
 async function loadAll(){
-  const [oferte, dealeriComenziToate, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri, custodii, custodieCfg] = await Promise.all([
+  const [oferte, dealeriComenziToate, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri, custodii, custodieCfg, cereriParteneriat] = await Promise.all([
     safeGetAll('oferte'), safeGetAll('dealeriComenzi'), safeGetAll('vanzariDirecte'),
     safeGetAll('garantii'), safeGetAll('importuri'), safeGet('config','marje'), safeGetAll('unitati'), safeGetAll('parteneriConturi'), safeGetAll('leaduri'),
-    safeGetAll('custodii'), safeGet('config','custodie')
+    safeGetAll('custodii'), safeGet('config','custodie'), safeGetAll('cereriParteneriat')
   ]);
   // Comenzile fără status sunt cele vechi, introduse direct de admin — le tratăm ca aprobate.
   const dealeriComenzi = dealeriComenziToate.filter(c => (c.status||'aprobata') === 'aprobata');
   const cereriInAsteptare = dealeriComenziToate.filter(c => c.status === 'in_asteptare');
-  CACHE = { oferte, dealeriComenzi, dealeriComenziToate, cereriInAsteptare, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri, custodii, custodieCfg: custodieCfg || {} };
+  CACHE = { oferte, dealeriComenzi, dealeriComenziToate, cereriInAsteptare, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri, custodii, custodieCfg: custodieCfg || {}, cereriParteneriat };
   renderOverview();
   renderProfituri();
   renderDealeriTab();
@@ -1478,6 +1482,8 @@ async function loadAll(){
   renderImporturi();
   renderCereri();
   renderConturiList();
+  renderCereriParteneriat();
+  backfillGarantiiPublice();
   renderLeaduri();
   renderGarantiiTab();
   if(CU.view !== 'form') renderCustodie();
@@ -2318,6 +2324,44 @@ function renderOferteTab(){
       </table>
     </div>
   `;
+}
+
+
+/* ================= LEGĂTURA CU SITE-UL bokar.ro ================= */
+// Verificarea publică a garanției: doar model, variantă și date — fără datele clientului.
+function publicaGarantie(g){
+  const id = String(g.serie||'').trim().toUpperCase();
+  if(!id) return Promise.resolve();
+  return db.collection('verificareGarantie').doc(id).set({ model:g.model||'', varianta:g.varianta||'', dataMontaj:g.dataMontaj||'', dataExpirare:g.dataExpirare||'' });
+}
+let backfillDone = false;
+async function backfillGarantiiPublice(){
+  if(backfillDone || currentUser.role!=='admin') return; backfillDone = true;
+  const lipsa = (CACHE.garantii||[]).filter(g => !g.publicat && g.serie);
+  for(const g of lipsa){
+    try{ await publicaGarantie(g); await db.collection('garantii').doc(g.id).update({ publicat:true }); }
+    catch(e){ console.error('publicare garanție', g.serie, e); }
+  }
+}
+function renderCereriParteneriat(){
+  const el = document.getElementById('cereriPartRoot'); if(!el) return;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const noi = (CACHE.cereriParteneriat||[]).filter(c => c.status!=='rezolvat').sort((a,b) => String(b.data).localeCompare(String(a.data)));
+  if(!noi.length){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card"><h2>Cereri de parteneriat de pe bokar.ro (${noi.length})</h2>
+    <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Firma</th><th>Contact</th><th>Județ</th><th>Activitate</th><th>Mesaj</th><th></th></tr></thead><tbody>
+    ${noi.map(c => `<tr><td>${fmtDate(c.data)}</td><td><b>${esc(c.firma)}</b>${c.cui?`<br><span style="color:var(--stone)">CUI ${esc(c.cui)}</span>`:''}</td>
+      <td>${esc(c.nume)}<br>${esc(c.telefon)}${c.email?`<br>${esc(c.email)}`:''}</td><td>${esc(c.judet)}</td><td>${esc(c.tip)}</td>
+      <td style="max-width:260px">${esc(c.mesaj||'')}</td>
+      <td style="white-space:nowrap"><button class="btn btn-secondary cu-sm" type="button" data-cpcont="${esc(c.id)}">Creează cont</button>
+        <button class="btn btn-secondary cu-sm" type="button" data-cpok="${esc(c.id)}">Rezolvat</button></td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  el.querySelectorAll('[data-cpcont]').forEach(b => b.onclick = () => { const c = noi.find(x => x.id===b.dataset.cpcont);
+    document.getElementById('ct-nume').value = c.firma; document.getElementById('ct-email').value = c.email||'';
+    document.getElementById('ct-parola').focus(); document.getElementById('contDealerForm').scrollIntoView({ behavior:'smooth', block:'center' }); });
+  el.querySelectorAll('[data-cpok]').forEach(b => b.onclick = async () => {
+    try{ await db.collection('cereriParteneriat').doc(b.dataset.cpok).update({ status:'rezolvat' }); loadAll(); }
+    catch(e){ console.error(e); alert('Nu am putut actualiza cererea.'); } });
 }
 
 /* ================= EDITARE IMPORTURI ȘI UNITĂȚI =================
