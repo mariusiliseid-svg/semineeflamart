@@ -585,9 +585,16 @@ renderAll();
 .fq .fq-send:hover{background:#5e1f21}
 .fq small{display:block;margin-top:14px;font-size:12px;color:#68686a;line-height:1.45}
 .fq small a{color:#7e2a2c}
+.fq .fq-send[disabled]{opacity:.6;cursor:wait}
+.fq .fq-ok{display:none;text-align:center;padding:8px 0}
+.fq.done .fq-ok{display:block}
+.fq.done .fq-fields{display:none}
+.fq .fq-ok svg{margin-bottom:10px}
 </style>
 <div class="fq-back" id="fqBack" role="dialog" aria-modal="true" aria-labelledby="fqTitle">
   <form class="fq" id="fqForm" novalidate>
+    <div class="fq-ok" aria-live="polite"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#7e2a2c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><h3>Mulțumim!</h3><p>Am primit cererea ta. Te sunăm în cel mai scurt timp.</p><div class="fq-row" style="justify-content:center"><button type="button" class="fq-send" id="fqDone">Închide</button></div></div>
+    <div class="fq-fields">
     <h3 id="fqTitle">Cerere de ofertă</h3>
     <p>Lasă-ne numele și telefonul. Te contactăm cu oferta pentru configurația aleasă.</p>
     <div class="fq-sum" id="fqSum"></div>
@@ -600,7 +607,8 @@ renderAll();
       <button type="button" class="fq-cancel" id="fqCancel">Renunță</button>
       <button type="submit" class="fq-send">Trimite cererea</button>
     </div>
-    <small>Se deschide aplicația ta de email cu cererea completată către contact@flamart.ro — apasă „Trimite” acolo. Preferi telefonul? Sună la <a href="tel:+40757355813">0757 355 813</a>.</small>
+    <small>Cererea ajunge direct la echipa Flamart. Preferi telefonul? Sună la <a href="tel:+40757355813">0757 355 813</a>.</small>
+    </div>
   </form>
 </div>
 <script>
@@ -610,22 +618,29 @@ renderAll();
       err=document.getElementById('fqErr'),sum=document.getElementById('fqSum'),pending=null;
   function close(){back.classList.remove('open');pending=null;}
   window.flOpenQuote=function(model,body,total){
-    pending={model:model,body:body};
+    pending={model:model,body:body,total:total};form.classList.remove('done');
     sum.textContent=model+(total?' — total estimat '+total:'');
     err.textContent='';back.classList.add('open');setTimeout(function(){nameI.focus();},50);
   };
   document.getElementById('fqCancel').addEventListener('click',close);
   back.addEventListener('click',function(e){if(e.target===back)close();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&back.classList.contains('open'))close();});
+  document.getElementById('fqDone').addEventListener('click',close);
   form.addEventListener('submit',function(e){
     e.preventDefault();
+    if(!pending)return;
     var n=nameI.value.trim(),t=phoneI.value.trim(),digits=t.replace(/\D/g,'');
     if(n.length<2){err.textContent='Te rugăm să completezi numele.';nameI.focus();return;}
     if(digits.length<9){err.textContent='Te rugăm să completezi un număr de telefon valid.';phoneI.focus();return;}
-    var text='Nume: '+n+'\nTelefon: '+t+'\n\n'+pending.body.replace(/%0A/g,'\n');
-    var url='mailto:contact@flamart.ro?subject='+encodeURIComponent('Cerere ofertă '+pending.model+' — '+n)+'&body='+encodeURIComponent(text);
-    try{window.top.location.href=url;}catch(x){window.location.href=url;}
-    close();
+    var cfg=pending.body.replace(/%0A/g,'\n');
+    var btn=form.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Se trimite…';err.textContent='';
+    fetch('https://formsubmit.co/ajax/contact@flamart.ro',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({_subject:'Cerere ofertă '+pending.model+' — '+n,_template:'table',_captcha:'false',
+        Nume:n,Telefon:t,Model:pending.model,'Total estimat':pending.total||'',Configurație:cfg,Pagina:location.href})})
+    .then(function(r){return r.json().then(function(j){if(!r.ok||String(j.success)!=='true')throw new Error(j.message||'fail');});})
+    .then(function(){form.classList.add('done');form.reset();})
+    .catch(function(){err.innerHTML='Cererea nu a putut fi trimisă. Încearcă din nou sau sună la <a href="tel:+40757355813">0757 355 813</a>.';})
+    .then(function(){btn.disabled=false;btn.textContent='Trimite cererea';});
   });
 })();
 </script>
