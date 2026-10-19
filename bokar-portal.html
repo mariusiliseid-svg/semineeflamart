@@ -341,6 +341,11 @@
         <h2>Conturi existente</h2>
         <div id="conturiListContent"><div class="empty">Se încarcă…</div></div>
       </div>
+      <div class="card">
+        <h2>Mută istoricul vechi pe un cont</h2>
+        <p style="font-size:13px;color:var(--muted,#666);margin:0 0 12px;">Istoricul (comenzi, oferte, garanții, leaduri, reclamații) e legat de partener prin nume. Alege numele vechi din istoric și contul nou pe care îl muți.</p>
+        <div id="mutaIstoricContent"><div class="empty">Se încarcă…</div></div>
+      </div>
     </div>
 
     <div id="subtab-oferta" class="subtab-content">
@@ -1803,6 +1808,7 @@ async function loadAll(){
   renderImporturi();
   renderCereri();
   renderConturiList();
+  renderMutaIstoric();
   renderCereriParteneriat();
   backfillGarantiiPublice();
   renderLeaduri();
@@ -1949,6 +1955,72 @@ function renderConturiList(){
     document.getElementById('contDealerForm').scrollIntoView({behavior:'smooth', block:'center'});
   });
   el.querySelectorAll('[data-toggle-acc]').forEach(b => b.onclick = () => toggleCont(b.dataset.toggleAcc));
+}
+
+// Istoricul e legat de partener prin nume (dealer/coleg/inregistratDe/preluatDe/partener).
+// Aici rescriem numele vechi cu numele contului nou, ca partenerul să-și vadă istoricul.
+const ISTORIC_CAMPURI = [
+  ['dealeriComenzi','dealer'], ['oferte','coleg'], ['garantii','inregistratDe'], ['leaduri','preluatDe'], ['reclamatii','partener']
+];
+async function colecteazaNumeIstoric(){
+  const out = {};
+  for(const [col, camp] of ISTORIC_CAMPURI){
+    const docs = await safeGetAll(col);
+    docs.forEach(d => { const n = d[camp]; if(n){ (out[n] = out[n] || { total:0, det:{} }); out[n].total++; out[n].det[col] = (out[n].det[col]||0)+1; } });
+  }
+  return out;
+}
+async function renderMutaIstoric(){
+  const el = document.getElementById('mutaIstoricContent');
+  if(!el) return;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const conturi = (CACHE.parteneriConturi || []).filter(c => c.uid).sort((a,b)=>String(a.nume).localeCompare(String(b.nume)));
+  const numeIst = await colecteazaNumeIstoric();
+  const numeConturi = new Set(conturi.map(c => c.nume));
+  const nume = Object.keys(numeIst).sort((a,b) => (numeConturi.has(a)?1:0)-(numeConturi.has(b)?1:0) || a.localeCompare(b));
+  if(!conturi.length || !nume.length){ el.innerHTML = '<div class="empty">Nu există conturi noi sau istoric de mutat.</div>'; return; }
+  const neLegate = nume.filter(n => !numeConturi.has(n));
+  el.innerHTML = `
+    ${neLegate.length ? `<p style="font-size:12.5px;color:var(--red);margin:0 0 10px;font-weight:600;">${neLegate.length} ${neLegate.length===1?'nume din istoric nu are':'nume din istoric nu au'} cont cu același nume.</p>` : '<p style="font-size:12.5px;margin:0 0 10px;">Toate numele din istoric au deja un cont cu același nume.</p>'}
+    <div class="field"><label>Nume vechi (din istoric)</label>
+      <select id="mi-vechi">${nume.map(n => `<option value="${esc(n)}">${esc(n)} — ${numeIst[n].total} înreg.${numeConturi.has(n)?' (legat)':''}</option>`).join('')}</select></div>
+    <div class="field"><label>Cont nou</label>
+      <select id="mi-nou">${conturi.map(c => `<option value="${esc(c.id)}">${esc(c.nume)} · ${esc(c.email)}</option>`).join('')}</select></div>
+    <button type="button" class="btn" id="mi-btn">Mută istoricul</button>
+    <div id="mi-ok" class="success-banner" style="margin-top:12px;"></div>
+  `;
+  document.getElementById('mi-btn').onclick = async () => {
+    const vechi = document.getElementById('mi-vechi').value;
+    const cont = conturi.find(c => c.id === document.getElementById('mi-nou').value);
+    if(!cont) return;
+    if(vechi === cont.nume){ alert('Istoricul este deja pe acest cont.'); return; }
+    const info = numeIst[vechi];
+    const det = Object.entries(info.det).map(([k,v]) => `${k}: ${v}`).join(', ');
+    if(!confirm(`Muți ${info.total} înregistrări (${det}) de la „${vechi}” pe contul „${cont.nume}”?`)) return;
+    const btn = document.getElementById('mi-btn'); btn.disabled = true;
+    try{
+      let n = 0;
+      for(const [col, camp] of ISTORIC_CAMPURI){
+        const snap = await db.collection(col).where(camp,'==',vechi).get();
+        let batch = db.batch(), inBatch = 0;
+        for(const d of snap.docs){
+          const upd = { [camp]: cont.nume, numeVechi: vechi };
+          if(col === 'dealeriComenzi') upd.dealerUid = cont.uid;
+          batch.update(d.ref, upd); inBatch++; n++;
+          if(inBatch === 450){ await batch.commit(); batch = db.batch(); inBatch = 0; }
+        }
+        if(inBatch) await batch.commit();
+      }
+      const ok = document.getElementById('mi-ok');
+      ok.textContent = `Am mutat ${n} înregistrări pe contul ${cont.nume}.`;
+      ok.classList.add('show');
+      loadAll();
+    }catch(err){
+      console.error(err);
+      alert('Nu am putut muta istoricul. Verifică conexiunea și drepturile de admin.');
+      btn.disabled = false;
+    }
+  };
 }
 
 // Suspendarea șterge rolul contului: fără rol, regulile Firestore nu mai permit nimic. Reactivarea îl pune la loc.
