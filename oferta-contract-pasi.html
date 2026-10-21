@@ -171,6 +171,44 @@
   .sheet-footer img{width:38mm;height:auto;}
   .discount-note{font-size:9px;color:var(--stone);max-width:80mm;text-align:right;}
 
+
+  /* ===== OFERTĂ — design v2 (doar #offerSheet) ===== */
+  #offerSheet{position:relative;padding:15mm 15mm 10mm;}
+  #offerSheet::before{content:"";position:absolute;left:0;right:0;top:0;height:5mm;background:var(--ember);}
+  #offerSheet::after{content:"";position:absolute;left:0;right:0;top:5mm;height:0.8mm;background:var(--ember-dim);opacity:.35;}
+  #offerSheet .sheet-header{padding-bottom:4mm;margin-bottom:5mm;border-bottom:0.3mm solid var(--line);}
+  #offerSheet .sheet-header .brand img{width:24mm;}
+  #offerSheet .sheet-header .brand .company-name{font-size:14px;letter-spacing:.2px;}
+  #offerSheet .sheet-header .propunere h2{font-size:25px;font-weight:800;letter-spacing:3px;color:var(--ember);line-height:1;}
+  #offerSheet .sheet-header .propunere .sub{font-size:9.5px;font-weight:700;letter-spacing:2.2px;margin:1.5mm 0 4mm;}
+  #offerSheet .sheet-header .meta{display:inline-block;text-align:left;background:#faf3f3;border-left:1.2mm solid var(--ember);padding:2mm 4mm 2mm 3mm;border-radius:0 2mm 2mm 0;}
+  #offerSheet .sheet-header .meta b{width:14mm;font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;}
+  #offerSheet .sheet-header .valabil{margin-top:2.5mm;font-style:italic;}
+  #offerSheet .parties{gap:5mm;margin-bottom:6mm;}
+  #offerSheet .party{border:none;background:#faf6f6;border-left:1.2mm solid var(--ember);border-radius:0 2mm 2mm 0;}
+  #offerSheet .party .party-head{background:none;color:var(--ember);font-size:8.5px;letter-spacing:1.4px;padding:3mm 4mm 0;}
+  #offerSheet .party .party-body{padding:1.2mm 4mm 3.5mm;font-size:13.5px;font-weight:700;}
+  #offerSheet table.items{margin-bottom:4mm;}
+  #offerSheet table.items thead th{background:none;color:var(--stone);font-size:8.5px;letter-spacing:1px;padding:0 3mm 2mm;border-bottom:0.4mm solid var(--ink);}
+  #offerSheet table.items .cat-spacer td{height:3.5mm;}
+  #offerSheet table.items .cat-row td{background:#f6ecec;color:var(--ember);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;padding:2.2mm 3mm;border-radius:0;border-left:1.2mm solid var(--ember);}
+  #offerSheet table.items .cat-row td.cat-sub{text-align:right;letter-spacing:.3px;text-transform:none;font-variant-numeric:tabular-nums;border-left:none;}
+  #offerSheet table.items .prod-row td{border-left:none;border-right:none;border-bottom:0.2mm solid rgba(35,35,36,.1);padding:1.6mm 3mm;}
+  #offerSheet table.items .prod-row td:first-child{padding-left:4.2mm;font-weight:500;}
+  #offerSheet table.items .prod-row.tint td{background:none;}
+  #offerSheet table.items .prod-row.last-in-group td{border-bottom:0.2mm solid rgba(35,35,36,.1);border-radius:0;}
+  #offerSheet table.items td.num{color:#444;}
+  #offerSheet .totals-row{margin-bottom:4mm;}
+  #offerSheet .totals-box{width:82mm;}
+  #offerSheet .totals-box .t-row{padding:2.4mm 4mm;font-size:12px;border-bottom:0.2mm solid var(--line);}
+  #offerSheet .totals-box .t-total{background:none;color:var(--ink);font-weight:700;}
+  #offerSheet .totals-box .t-discount{background:none;color:var(--stone);}
+  #offerSheet .totals-box .t-final{background:var(--ember);color:#fff;font-size:15px;font-weight:800;border:none;border-radius:2mm;margin-top:2mm;padding:3.4mm 4mm;letter-spacing:.3px;}
+  #offerSheet .sheet-footer{margin-top:3mm;}
+  #offerSheet .sheet-footer img{width:30mm;}
+  #offerSheet .thanks{margin-top:5mm;padding-top:4mm;border-top:0.3mm solid var(--line);display:flex;justify-content:space-between;font-size:9.5px;color:var(--stone);}
+  #offerSheet .thanks b{color:var(--ember);}
+
   /* ===== CONTRACT-SPECIFIC ===== */
   .c-header{border-bottom:1px solid var(--line);padding-bottom:6mm;margin-bottom:8mm;}
   .c-header .brand-row{display:flex;gap:4mm;align-items:center;margin-bottom:6mm;}
@@ -561,7 +599,7 @@ function renderOfferSheet(){
   const prest = getPrestator();
   const rowsHtml = activeCats().map((cat, idx) => `
     ${idx > 0 ? `<tr class="cat-spacer"><td colspan="5"></td></tr>` : ""}
-    <tr class="cat-row"><td colspan="5">${cat.titlu || ""}</td></tr>
+    <tr class="cat-row"><td colspan="4">${cat.titlu || ""}</td><td class="cat-sub">${fmtNum(activeProds(cat).reduce((s,p)=>s+rowTotal(p),0))} RON</td></tr>
     ${activeProds(cat).map((p, i) => {
       const isLast = i === activeProds(cat).length - 1;
       const cls = ["prod-row", idx % 2 ? "tint" : "", isLast ? "last-in-group" : ""].filter(Boolean).join(" ");
@@ -627,6 +665,7 @@ function renderOfferSheet(){
       ${data.certificatSpartherm ? `<img src="${SPARTHERM_URI}" alt="Spartherm Montator Certificat">` : `<div></div>`}
       <div class="discount-note">${data.discountNota || ""}</div>
     </div>
+    <div class="thanks"><span><b>Vă mulțumim pentru încredere!</b></span><span>${prest.denumire} · ${prest.contact}</span></div>
   `;
 }
 
