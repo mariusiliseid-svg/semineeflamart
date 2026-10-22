@@ -2787,10 +2787,20 @@ async function backfillGarantiiPublice(){
   }
 }
 let cpSursa = null;   // cererea bokar.ro din care se creează contul
+/* Dacă regulile Firestore n-au acceptat câmpurile noi, bokar.ro trimite datele firmei în „mesaj”. Le citim de acolo. */
+function cpNorm(c){
+  if(!c || c.rc || !/Reg\. Com\.:/.test(c.mesaj||'')) return c;
+  const m = String(c.mesaj), get = k => { const r = m.match(new RegExp('^'+k+':\\s*(.*)$','m')); return r ? r[1].trim() : ''; };
+  const [rep, fct] = get('Reprezentant').split(/,\s*/);
+  const ib = get('IBAN').split(/\s+/);
+  const rest = m.split(/\n\n/).slice(1).join('\n\n');
+  return Object.assign({}, c, { rc:get('Reg\\. Com\\.'), sediu:get('Sediu'), rep:rep||'', fct:fct||'', iban:ib[0]||'', banca:ib.slice(1).join(' '),
+    tva:/^plătitor/.test(get('TVA')) ? 'da' : 'nu', mesaj:rest });
+}
 function renderCereriParteneriat(){
   const el = document.getElementById('cereriPartRoot'); if(!el) return;
   const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-  const noi = (CACHE.cereriParteneriat||[]).filter(c => c.status!=='rezolvat').sort((a,b) => String(b.data).localeCompare(String(a.data)));
+  const noi = (CACHE.cereriParteneriat||[]).map(cpNorm).filter(c => c.status!=='rezolvat').sort((a,b) => String(b.data).localeCompare(String(a.data)));
   if(!noi.length){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="card"><h2>Cereri de parteneriat de pe bokar.ro (${noi.length})</h2>
     <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Firma</th><th>Contact</th><th>Județ</th><th>Activitate</th><th>Mesaj</th><th></th></tr></thead><tbody>
@@ -3037,7 +3047,7 @@ function partnerCompanyData(p){
   if(!p) return {};
   const fd = p.firmaDate || {};
   const em = String(p.email||'').trim().toLowerCase();
-  const cr = (CACHE.cereriParteneriat||[]).filter(x => em && String(x.email||'').trim().toLowerCase()===em)
+  const cr = (CACHE.cereriParteneriat||[]).map(cpNorm).filter(x => em && String(x.email||'').trim().toLowerCase()===em)
     .sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')))[0] || {};
   const pick = (...v) => v.find(x => x!=null && String(x).trim()!=='') || '';
   return { firma:pick(fd.firma, cr.firma, p.nume), cui:pick(fd.cui, cr.cui), rc:pick(fd.rc, cr.rc), sediu:pick(fd.sediu, cr.sediu),
