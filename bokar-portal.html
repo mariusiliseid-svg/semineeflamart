@@ -340,7 +340,7 @@
               <div class="field-error">Minimum 6 caractere</div></div>
           </div>
           <h3 style="font-size:14px;margin:6px 0 4px">Datele firmei</h3>
-          <p style="font-size:12px;color:var(--stone);margin:0 0 8px;">Se folosesc la contractele de comision și custodie, ca să nu le mai completezi de fiecare dată.</p>
+          <p style="font-size:12px;color:var(--stone);margin:0 0 8px;">Se precompletează din cererea de pe bokar.ro. Ce lipsește poți completa și mai târziu, din „Date firmă”.</p>
           <div id="ctFirma"></div>
           <p style="font-size:12px;color:var(--stone);margin:0 0 12px;">Parola nu se salvează în portal. Comunic-o partenerului; o poate schimba oricând din „Schimbă parola” sau „Am uitat parola”.</p>
           <button type="submit" class="btn btn-primary">Creează contul</button>
@@ -2448,8 +2448,8 @@ document.getElementById('contDealerForm').onsubmit = async function(e){
   markFieldValid('ct-nume-wrap', !!nume);
   markFieldValid('ct-email-wrap', emailOk);
   markFieldValid('ct-parola-wrap', parola.length >= 6);
-  const firmaDate = fdRead('ctf', true);
-  if(!nume || !emailOk || parola.length < 6 || !firmaDate) return;
+  const firmaDate = fdRead('ctf', false);   // la aprobare nu blocăm: ce lipsește se completează ulterior („Date firmă” ⚠)
+  if(!nume || !emailOk || parola.length < 6) return;
   if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
   const existente = CACHE.parteneriConturi || [];
   if(existente.some(c => c.uid && String(c.nume).trim().toLowerCase() === nume.toLowerCase())){
