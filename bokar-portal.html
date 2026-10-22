@@ -258,6 +258,7 @@
   <button class="tab-btn" data-tab="partStats">Statisticile mele</button>
   <button class="tab-btn" data-tab="partLeaduri">Lead-uri</button>
   <button class="tab-btn" data-tab="partCustodie">Custodie</button>
+  <button class="tab-btn" data-tab="partComision">Comision</button>
   <button class="tab-btn" data-tab="partReclamatii">Reclamații</button>
   <button class="tab-btn" data-tab="partDocumente">Documente</button>
 </div>
@@ -305,6 +306,7 @@
       <button class="subtab-btn" data-subtab="import">Import nou</button>
       <button class="subtab-btn" data-subtab="cereri">Cereri dealeri</button>
       <button class="subtab-btn" data-subtab="custodie">Contracte custodie</button>
+      <button class="subtab-btn" data-subtab="comision">Contracte comision</button>
       <button class="subtab-btn" data-subtab="conturi">Conturi parteneri</button>
     </div>
 
@@ -317,6 +319,10 @@
 
     <div id="subtab-custodie" class="subtab-content" style="display:none;">
       <div id="cuRoot"><div class="empty">Se încarcă…</div></div>
+    </div>
+
+    <div id="subtab-comision" class="subtab-content" style="display:none;">
+      <div id="cmRoot"><div class="empty">Se încarcă…</div></div>
     </div>
 
     <div id="subtab-conturi" class="subtab-content" style="display:none;">
@@ -632,6 +638,10 @@
 
   <div id="tab-partCustodie" class="tab-content" style="display:none;">
     <div id="partCustodieContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-partComision" class="tab-content" style="display:none;">
+    <div id="partComisionContent"><div class="empty">Se încarcă…</div></div>
   </div>
 
   <div id="tab-partReclamatii" class="tab-content" style="display:none;">
@@ -1471,6 +1481,7 @@ async function loadPartenerView(){
 
   loadPartLeaduri();
   loadPartCustodie();
+  loadPartComision();
   loadPartReclamatii();
 }
 
@@ -1815,6 +1826,7 @@ async function loadAll(){
   renderGarantiiTab();
   renderReclamatiiAdmin();
   if(CU.view !== 'form') renderCustodie();
+  if(CM.view !== 'form') renderComision();
   cuSyncSemnari();
   document.getElementById('dealeriDatalist').innerHTML =
     [...new Set(dealeriComenzi.map(d=>d.dealer))].map(d=>`<option value="${d}">`).join('');
@@ -3123,8 +3135,8 @@ async function cuMakePdf(c){
   if(!window.jspdf || !window.html2canvas){ alert('Generatorul PDF nu s-a încărcat. Verifică internetul și reîncarcă pagina.'); return; }
   cuOverlay('Se generează PDF-ul…');
   const host = document.createElement('div'); host.style.cssText = `position:fixed;left:-10000px;top:0;width:${CU_PDF_W}px`;
-  const src = document.createElement('article'); src.className = 'cdoc pdf'; src.innerHTML = cuBuildDoc(c); host.appendChild(src); document.body.appendChild(host);
-  const name = `Contract-custodie-${c.nr||'ciorna'}-${(c.dz.firma||'').replace(/[^\p{L}\p{N}]+/gu,'-')}.pdf`;
+  const src = document.createElement('article'); src.className = 'cdoc pdf'; const isCm = c.tip==='comision'; src.innerHTML = isCm ? cmBuildDoc(c) : cuBuildDoc(c); host.appendChild(src); document.body.appendChild(host);
+  const name = `${isCm?'Contract-cadru':'Contract-custodie'}-${c.nr||'ciorna'}-${(c.dz.firma||'').replace(/[^\p{L}\p{N}]+/gu,'-')}.pdf`;
   try{
     try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
     await Promise.all([...src.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
@@ -3153,7 +3165,7 @@ async function cuMakePdf(c){
       box.remove(); cv.width = cv.height = 0;
     }
     const N = pdf.internal.getNumberOfPages(); pdf.setFontSize(8); pdf.setTextColor(120,134,152);
-    for(let i=1;i<=N;i++){ pdf.setPage(i); pdf.text(`Contract de custodie ${c.nr||''}  -  pagina ${i} din ${N}`, 105, 291, { align:'center' }); }
+    for(let i=1;i<=N;i++){ pdf.setPage(i); pdf.text(`${isCm?'Contract-cadru':'Contract de custodie'} ${c.nr||''}  -  pagina ${i} din ${N}`, 105, 291, { align:'center' }); }
     cuPdfReady(pdf.output('blob'), name);
   }catch(e){ console.error(e); cuOverlayClose(); alert('PDF-ul nu a putut fi generat. Încearcă din nou.'); }
   finally{ host.remove(); }
@@ -3198,7 +3210,7 @@ function renderCustodie(){
 function cuGo(view, opts){ Object.assign(CU, { view }, opts||{}); renderCustodie(); const el = document.getElementById('cuRoot'); if(el) el.scrollIntoView({ block:'start' }); }
 
 function cuRenderList(el){
-  const all = [...(CACHE.custodii||[])].sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  const all = (CACHE.custodii||[]).filter(c => c.tip!=='comision').sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
   const active = all.filter(c => c.status==='activ');
   const expuse = active.reduce((s,c) => s+cuExpuse(c).reduce((a,p)=>a+(+p.q||0),0), 0);
   const atentie = active.filter(c => ['warn','bad'].includes(cuState(c).cls)).length;
@@ -3304,7 +3316,7 @@ function cuRenderForm(el){
   document.getElementById('cuDealer').onchange = e => {
     const uid = e.target.value; const p = partners.find(x => x.uid===uid);
     c.dealerUid = uid; c.dealerName = p ? p.nume : '';
-    if(p){ const prev = (CACHE.custodii||[]).filter(x => x.dealerUid===uid && x.id!==c.id).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')))[0];
+    if(p){ const prev = (CACHE.custodii||[]).filter(x => x.tip!=='comision' && x.dealerUid===uid && x.id!==c.id).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')))[0];
       if(prev){ c.dz = JSON.parse(JSON.stringify(prev.dz)); c.tier = prev.tier || c.tier; }
       else if(!c.dz.firma){ c.dz.firma = p.nume; c.dz.mail = c.dz.mail || p.email; } }
     cuCollect(); cuRenderForm(el);
@@ -3534,7 +3546,7 @@ async function cuSyncSemnari(force){
         n++;
       }
     }
-    for(const c of (CACHE.custodii||[]).filter(x => x.status==='activ')){
+    for(const c of (CACHE.custodii||[]).filter(x => x.status==='activ' && x.tip!=='comision')){
       let changed = false; const prods = JSON.parse(JSON.stringify(c.prods||[]));
       prods.forEach(p => { if(p.unitId && (p.stare||'expus')==='expus'){ const u = (CACHE.unitati||[]).find(u => u.id===p.unitId);
         if(u && u.status==='vandut'){ p.stare = 'vandut'; p.dataStare = u.dataVanzare || cuToday(); changed = true; } } });
@@ -3591,7 +3603,7 @@ async function loadPartCustodie(){
   let list = [];
   try{
     const [snap, cfg] = await Promise.all([ db.collection('custodii').where('dealerUid','==',currentUser.uid).get(), safeGet('config','custodie') ]);
-    list = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(c => c.status!=='ciorna');
+    list = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(c => c.status!=='ciorna' && c.tip!=='comision');
     if(typeof CACHE!=='undefined') CACHE.custodieCfg = cfg || {};
   }catch(e){ console.error(e); showDebugError('custodii', e); }
   list.sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
@@ -3614,6 +3626,446 @@ async function loadPartCustodie(){
     </div>`; }).join('');
   el.querySelectorAll('[data-pview]').forEach(b => b.onclick = () => { const d = document.getElementById('pdoc-'+b.dataset.pview); d.hidden = !d.hidden; b.textContent = d.hidden ? 'Vezi contractul' : 'Ascunde contractul'; });
   el.querySelectorAll('[data-ppdf]').forEach(b => b.onclick = () => cuMakePdf(list.find(c => c.id===b.dataset.ppdf)));
+}
+
+
+
+/* ================= CONTRACTE CADRU DE INTERMEDIERE ȘI REVÂNZARE (COMISION) =================
+   Stau tot în colecția „custodii”, cu tip:'comision' (aceleași reguli de acces: adminul scrie,
+   partenerul își vede contractele după dealerUid). Semnarea la distanță folosește colecția „semnari”
+   ca la custodie; sincronizarea semnăturii o face cuSyncSemnari. Numerotarea: config/custodie, câmpurile comSerie / comNext. */
+const CM_SIGN_BASE = 'https://configurator.flamart.ro/semnare.html?s=';
+const CM_RATE_ROWS = [
+  { k:'bOf',   t:'Focare BOKAR — Revânzătorul ofertează și montează' },
+  { k:'bFl',   t:'Focare BOKAR — Furnizorul ofertează, Revânzătorul montează' },
+  { k:'bFF',   t:'Focare BOKAR — Furnizorul ofertează și montează' },
+  { k:'grile', t:'Grile de ventilație BOKAR (Luft)' },
+  { k:'alte',  t:'Focare Spartherm și produsele altor mărci' }
+];
+let CM = { view:'list', cur:null, openId:null, pads:{} };
+const cmIsCm = c => c && c.tip==='comision';
+const cmPct = v => `${(+v||0).toLocaleString('ro-RO')}%`;
+
+function cmBlank(){
+  const f = cuFirm(0);
+  return { tip:'comision', status:'ciorna', dep:0, depRep:f.rep, depFct:f.fct, data:cuToday(), loc:'Bacău', dealerUid:'', dealerName:'',
+    dz:{ firma:'', forma:'SRL', cui:'', rc:'', sediu:'', rep:'', fct:'Administrator', tel:'', mail:'', iban:'', banca:'', tva:'nu', zona:'' }, tier:'START',
+    r:{ bOf:35, bFl:10, bFF:0, grile:30, alte:32 }, plataCom:10, raportare:5, preaviz:30, extra:'', sig:{ dep:'', dz:'' }, mode:'link' };
+}
+function cmState(c){
+  if(c.status==='ciorna') return { t:'Ciornă', cls:'' };
+  if(c.status==='trimis') return { t:'La semnat', cls:'info' };
+  if(c.status==='incheiat') return { t:'Încetat', cls:'' };
+  return { t:'Activ', cls:'ok' };
+}
+
+/* ---------- documentul ---------- */
+function cmBuildDoc(c, opt){
+  opt = opt || {};
+  const F = c.depFirma || cuFirm(c.dep);
+  const B = (v,ph='…………………') => v!=='' && v!=null ? cuEsc(v) : `<span class="blank">${ph}</span>`;
+  const sig = c.sig || {}, r = c.r || {}, dz = c.dz || {};
+  const platitor = dz.tva==='da';
+  let n=0, k=0;
+  const H = t => { n++; k=0; return `<h3>Art. ${n}. ${t}</h3>`; };
+  const A = () => `<span class="a">${n}.${++k}</span>`;
+  const logoSrc = c.logo || cuCfg().logo;
+  const logo = logoSrc ? `<img src="${logoSrc}" alt="Logo">` : `<div class="wm">FLAMART<small>DISTRIBUITOR BOKAR</small></div>`;
+  const depTxt = sig.dep ? `Semnat electronic la ${cuDt(c.sigDepAt||c.signedAt)}` : 'Nesemnat';
+  const dzTxt = sig.dz && c.signedAt ? (c.remote ? `Semnat de ${cuEsc(c.semnatar)} la ${cuDt(c.signedAt)}, prin link unic de semnare` : `Semnat electronic la ${cuDt(c.signedAt)}`) : 'Nesemnat';
+  const dzImg = opt.forLink ? '<!--SIGDZ-->' : (sig.dz ? `<img src="${sig.dz}" alt="Semnătura revânzătorului">` : '');
+  const dzWhen = opt.forLink ? '<!--SIGDZTXT-->Nesemnat<!--/SIGDZTXT-->' : dzTxt;
+  const tvaTxt = platitor ? 'plătitor de TVA' : 'neplătitor de TVA';
+  return `
+<div class="dh"><div class="logo">${logo}</div>
+ <div class="firm"><b>${cuEsc(F.n)}</b><br>CUI ${cuEsc(F.cui)}${c.depRc?` · ${cuEsc(c.depRc)}`:''}<br>${cuEsc(F.adr)}</div></div>
+<div class="dtitle"><h2>CONTRACT-CADRU</h2><p>de intermediere și revânzare a produselor BOKAR, Spartherm și a altor mărci</p></div>
+<div class="dmeta"><span>Nr. ${cuEsc(c.nr||'ciornă')}</span><span>Data ${cuDRo(c.data)}</span></div>
+<div class="keys">
+ <div><span>Comision BOKAR</span><b>${cmPct(r.bOf)} / ${cmPct(r.bFl)} / ${cmPct(r.bFF)}</b></div>
+ <div><span>Grile BOKAR</span><b>${cmPct(r.grile)}</b></div>
+ <div><span>Spartherm și alte mărci</span><b>${cmPct(r.alte)}</b></div>
+ <div><span>Revânzător</span><b>${platitor?'Plătitor TVA':'Neplătitor TVA'}</b></div>
+</div>
+${H('Părțile contractante')}
+<div class="parties">
+ <div class="party"><h4>Furnizor</h4><div class="n">${cuEsc(F.n)}</div>
+  Sediul: ${cuEsc(F.adr)}<br>CUI ${cuEsc(F.cui)} · Reg. Com. ${B(c.depRc)}<br>Reprezentant: ${B(c.depRep)}, ${B(c.depFct)}</div>
+ <div class="party"><h4>Revânzător · partener ${cuEsc(c.tier)}</h4><div class="n">${B(dz.firma)}</div>
+  Sediul: ${B(dz.sediu)}<br>CUI ${B(dz.cui)} · Reg. Com. ${B(dz.rc)} · ${tvaTxt}<br>Cont: ${B(dz.iban)}${dz.banca?`, ${cuEsc(dz.banca)}`:''}<br>Reprezentant: ${B(dz.rep)}, ${B(dz.fct)}<br>Tel. ${B(dz.tel)} · ${B(dz.mail)}</div>
+</div>
+<p>Părțile au convenit încheierea prezentului contract-cadru, în temeiul art. 2096 și următoarele din Codul civil (contractul de intermediere) și al art. 1650 și următoarele din Codul civil (contractul de vânzare), în condițiile de mai jos.</p>
+
+${H('Obiectul contractului')}
+<p>${A()} Contractul stabilește regulile după care Revânzătorul vinde produsele comercializate de Furnizor (focare BOKAR, grile de ventilație BOKAR, focare Spartherm și produsele altor mărci din oferta Furnizorului), în una dintre următoarele două forme:</p>
+<p><b>a) Intermediere.</b> Revânzătorul aduce clientul, îl consiliază și pune părțile în legătură; vânzarea se încheie direct între Furnizor și clientul final, Furnizorul emite factura către client și încasează prețul, iar Revânzătorul primește un comision, potrivit art. 4.</p>
+<p><b>b) Revânzare.</b> Revânzătorul cumpără produsele de la Furnizor, în nume și pe cont propriu, cu discountul prevăzut la art. 5, și le revinde clientului final pe factura proprie.</p>
+<p>${A()} Forma se stabilește pentru fiecare vânzare și se consemnează în Portalul de parteneri BOKAR (denumit în continuare „Portalul”). Dacă factura către clientul final este emisă de Furnizor, vânzarea se consideră intermediere; dacă este emisă de Revânzător, se consideră revânzare.</p>
+<p>${A()} Contractul nu creează între părți un raport de muncă, de mandat cu reprezentare, de asociere sau de exclusivitate, cu excepția zonei exclusive, dacă aceasta este prevăzută la art. 8.5. Fiecare parte își desfășoară activitatea pe cont și risc propriu.</p>
+
+${H('Înregistrarea ofertelor și protecția clientului')}
+<p>${A()} Revânzătorul înregistrează în Portal fiecare ofertă emisă, cel târziu în ziua emiterii: județul, ultimele 5 cifre ale telefonului clientului, modelul ofertat și data.</p>
+<p>${A()} Datele din Portal stabilesc cine a ofertat și cine montează la fiecare vânzare, deci procentul de comision sau de discount aplicabil. O vânzare neînregistrată în Portal nu dă dreptul la comision.</p>
+<p>${A()} Dacă un client a fost deja ofertat de un alt partener, Portalul semnalează acest lucru. În acest caz, Revânzătorul nu ofertează clientul respectiv fără acordul Furnizorului, pentru a nu concura oferta deja emisă de alt partener.</p>
+
+${H('Intermedierea — comisionul')}
+<p>${A()} Pentru vânzările încheiate prin intermediere, Revânzătorul are dreptul la un comision calculat ca procent din valoarea fără TVA a produselor facturate de Furnizor clientului final, după scăderea reducerilor acordate clientului:</p>
+<table><thead><tr><th>Categorie / situație</th><th class="r">Comision</th></tr></thead>
+<tbody>${CM_RATE_ROWS.map(x => `<tr><td>${x.t}</td><td class="r">${cmPct(r[x.k])}</td></tr>`).join('')}</tbody></table>
+<p>${A()} Pentru grilele BOKAR, focarele Spartherm și produsele altor mărci, procentul se aplică vânzărilor la care Revânzătorul a adus clientul și a emis oferta. Pentru aceste categorii, când oferta este emisă de Furnizor, procentul se stabilește în scris pentru fiecare caz, iar când Furnizorul ofertează și montează, nu se datorează comision.</p>
+<p>${A()} Baza de calcul nu include TVA, transportul, montajul, coșul de fum și alte lucrări sau servicii prestate de Furnizor, cu excepția cazului în care părțile convin altfel în scris.</p>
+<p>${A()} Dreptul la comision se naște numai după încasarea integrală a prețului de la clientul final. La încasări parțiale, comisionul se calculează proporțional cu suma încasată.</p>
+<p>${A()} În ${B(c.raportare)} zile lucrătoare de la încasarea integrală, Furnizorul comunică Revânzătorului, prin Portal sau prin e-mail, valoarea comisionului. Pe baza acesteia, Revânzătorul emite factura de comision prin sistemul național RO e-Factura${platitor ? ', cu TVA în cota legală' : ', fără TVA, cu mențiunea legală privind neînregistrarea în scopuri de TVA'}.</p>
+<p>${A()} Furnizorul plătește comisionul în ${B(c.plataCom)} zile de la primirea facturii, prin transfer bancar în contul Revânzătorului de la art. 1.</p>
+<p>${A()} Dacă vânzarea este anulată, produsul este returnat sau prețul este restituit clientului, în tot sau în parte, comisionul aferent nu se mai datorează, iar comisionul deja plătit se restituie sau se compensează cu sumele datorate ulterior Revânzătorului.</p>
+<p>${A()} Revânzătorul nu încasează sume de la client în numele Furnizorului și nu semnează contracte sau documente în numele acestuia fără o împuternicire scrisă. Clientul plătește direct în contul Furnizorului.</p>
+<p>${A()} Comisionul reprezintă singura remunerație a Revânzătorului pentru intermediere. Cheltuielile proprii (deplasări, promovare, timp alocat) și obligațiile fiscale aferente veniturilor sale îi revin exclusiv.</p>
+
+${H('Revânzarea — discountul')}
+<p>${A()} Pentru vânzările în nume propriu, Revânzătorul cumpără produsele de la Furnizor la prețul de listă comunicat de Furnizor, minus un discount egal cu procentul din tabelul de la art. 4.1 pentru situația în care Revânzătorul ofertează și montează, respectiv pentru categoria de produs, plus TVA.</p>
+<p>${A()} Termenele de plată, eventualele reduceri ale discountului pentru plata la termen și condițiile de livrare sunt cele din Politica de parteneriat BOKAR România în vigoare, potrivit nivelului partenerului.</p>
+<p>${A()} Proprietatea asupra produselor trece la Revânzător numai după plata integrală a facturii, iar riscul trece la Revânzător de la predare.</p>
+<p>${A()} Revânzătorul stabilește liber prețurile de vânzare către clienții săi. Furnizorul poate comunica prețuri de vânzare recomandate, care nu sunt obligatorii.</p>
+
+${H('Montajul și garanția')}
+<p>${A()} Când montează, Revânzătorul execută lucrarea cu personal calificat, cu respectarea normelor tehnice și de securitate la incendiu în vigoare și a instrucțiunilor din manualul producătorului.</p>
+<p>${A()} Revânzătorul înregistrează garanția fiecărui focar în Portal, cu seria de șasiu și datele clientului, în cel mult 5 zile de la montaj. Garanția BOKAR de 5 ani se acordă pe baza acestei înregistrări.</p>
+<p>${A()} În perioada de garanție, Revânzătorul intervine la clienții săi; costul intervenției este suportat de Furnizor când defecțiunea se datorează produsului, iar de Revânzător când se datorează montajului.</p>
+
+${H('Obligațiile Furnizorului')}
+<p>${A()} Să pună la dispoziția Revânzătorului listele de prețuri, informațiile tehnice, materialele de prezentare și accesul la Portal, și să comunice în scris orice modificare a prețurilor sau a procentelor.</p>
+<p>${A()} Să ofere instruire despre produse și sprijin tehnic la ofertare și montaj.</p>
+<p>${A()} Să plătească la termen comisioanele datorate și să țină evidența vânzărilor în Portal, unde Revânzătorul își poate vedea propriile oferte și vânzări.</p>
+
+${H('Conduita, confidențialitatea și datele personale')}
+<p>${A()} Revânzătorul prezintă corect produsele și nu face promisiuni privind performanțe, garanții sau termene în afara celor comunicate de Furnizor și de producător.</p>
+<p>${A()} Părțile păstrează confidențialitatea prețurilor de achiziție, a discounturilor, a procentelor de comision și a datelor despre clienți, pe durata contractului și 2 ani după încetarea lui.</p>
+<p>${A()} Fiecare parte prelucrează datele clienților ca operator independent, potrivit Regulamentului (UE) 2016/679, numai în scopul ofertării, vânzării, montajului și garanției.</p>
+<p>${A()} Practicile neloiale față de alți parteneri, montajul neconform sau nerespectarea repetată a contractului pot duce la pierderea statutului de partener și la rezilierea contractului.</p>
+<p>${A()} Nivelul partenerului (${cuEsc(c.tier)}) se stabilește și se actualizează potrivit Politicii de parteneriat.${dz.zona ? ` Revânzătorul beneficiază de zonă exclusivă în ${cuEsc(dz.zona)}, în condițiile Politicii de parteneriat.` : ''}</p>
+
+${H('Durata și încetarea contractului')}
+<p>${A()} Contractul se încheie pe durată nedeterminată, de la data semnării de către ambele părți.</p>
+<p>${A()} Oricare parte poate denunța contractul printr-o notificare scrisă de ${B(c.preaviz)} zile, fără a fi necesară vreo justificare.</p>
+<p>${A()} Contractul poate fi reziliat de drept, fără punere în întârziere și fără intervenția instanței, dacă una dintre părți încalcă grav obligațiile de la art. 3, 4, 6 sau 8 și nu remediază încălcarea în 10 zile de la notificare.</p>
+<p>${A()} Comisioanele aferente vânzărilor încheiate înainte de încetare rămân datorate, în condițiile art. 4.</p>
+
+${H('Forța majoră și litigii')}
+<p>${A()} Forța majoră, dovedită potrivit legii, exonerează de răspundere partea care o invocă și o notifică în 5 zile.</p>
+<p>${A()} Litigiile se rezolvă pe cale amiabilă, iar în caz contrar de instanțele competente de la sediul Furnizorului.</p>
+${c.extra?`${H('Clauze suplimentare')}<p>${cuEsc(c.extra).replace(/\n/g,'<br>')}</p>`:''}
+${H('Dispoziții finale')}
+<p>${A()} Politica de parteneriat BOKAR România în vigoare completează prezentul contract; în caz de neconcordanță, prevalează contractul. Procentele de comision și de discount se pot modifica numai prin act adițional semnat de ambele părți.</p>
+<p>${A()} Notificările se fac în scris, prin e-mail la adresele de la art. 1 sau prin scrisoare recomandată.</p>
+<p>${A()} Contractul a fost încheiat la ${B(c.loc)}, la data de ${cuDRo(c.data)}, și semnat electronic de ambele părți. Fiecare parte primește documentul în format PDF.</p>
+
+<div class="signs">
+ <div class="sig"><h4>Furnizor</h4><b>${cuEsc(F.n)}</b>prin ${B(c.depRep)}, ${cuEsc(c.depFct||'')}
+  <div class="im">${sig.dep?`<img src="${sig.dep}" alt="Semnătura furnizorului">`:''}</div><span class="when">${depTxt}</span></div>
+ <div class="sig"><h4>Revânzător</h4><b>${B(dz.firma)}</b>prin ${B(dz.rep)}, ${cuEsc(dz.fct||'')}
+  <div class="im">${dzImg}</div><span class="when">${dzWhen}</span></div>
+</div>
+${c.status==='incheiat'?`<p style="margin-top:14px;font-size:11px;color:#173f7a"><b>Contract încetat</b> la ${cuDRo(c.closedAt)}</p>`:''}
+<div class="dfoot">${cuEsc(F.n)} · Contract-cadru ${cuEsc(c.nr||'')} · document generat electronic${c.token?` · ID semnare ${cuEsc(c.token.slice(0,10))}`:''}</div>`;
+}
+
+/* ---------- semnături ---------- */
+function cmMakePad(canvas, key){
+  const ctx = canvas.getContext('2d'); let down = false, last = null;
+  const P = { dirty:false, canvas,
+    size(){ const rc = canvas.getBoundingClientRect(); if(!rc.width) return; const dpr = window.devicePixelRatio||1;
+      canvas.width = rc.width*dpr; canvas.height = rc.height*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.lineWidth = 2.3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f2a55';
+      const src = CM.cur && CM.cur.sig[key];
+      if(src){ const im = new Image(); im.onload = () => ctx.drawImage(im,0,0,rc.width,rc.height); im.src = src; P.dirty = true; } },
+    clear(){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); P.dirty = false; if(CM.cur) CM.cur.sig[key] = ''; P.size(); } };
+  const pt = e => { const rc = canvas.getBoundingClientRect(); return { x:e.clientX-rc.left, y:e.clientY-rc.top }; };
+  canvas.onpointerdown = e => { down = true; last = pt(e); canvas.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.arc(last.x,last.y,1.1,0,7); ctx.fillStyle = '#0f2a55'; ctx.fill(); P.dirty = true; };
+  canvas.onpointermove = e => { if(!down) return; const p = pt(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last = p; };
+  canvas.onpointerup = canvas.onpointercancel = () => { down = false; if(P.dirty && CM.cur) CM.cur.sig[key] = canvas.toDataURL('image/png'); };
+  return P;
+}
+
+/* ---------- ecranele admin ---------- */
+function renderComision(){
+  const el = document.getElementById('cmRoot'); if(!el) return;
+  if(CM.view==='form') return cmRenderForm(el);
+  if(CM.view==='detail') return cmRenderDetail(el);
+  if(CM.view==='setari') return cmRenderSetari(el);
+  cmRenderList(el);
+}
+function cmGo(view, opts){ Object.assign(CM, { view }, opts||{}); renderComision(); const el = document.getElementById('cmRoot'); if(el) el.scrollIntoView({ block:'start' }); }
+
+function cmRenderList(el){
+  const all = (CACHE.custodii||[]).filter(cmIsCm).sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  const active = all.filter(c => c.status==='activ').length, laSemnat = all.filter(c => c.status==='trimis').length;
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="n">${active}</div><div class="l">Contracte active</div></div>
+      <div class="stat-card"><div class="n">${laSemnat}</div><div class="l">Așteaptă semnătura</div></div>
+    </div>
+    <div class="card">
+      <div class="cu-top"><h2 style="margin:0">Contracte de comision cu revânzătorii</h2>
+        <div class="cu-acts" style="margin:0"><button class="btn btn-secondary" id="cmSet" type="button">Numerotare</button>
+        <button class="btn btn-primary" id="cmNew" type="button">+ Contract nou</button></div></div>
+      <p style="font-size:12.5px;color:var(--stone);margin:0 0 12px">Contract-cadru pentru intermediere (Flamart facturează clientul, revânzătorul facturează comisionul) și revânzare (revânzătorul cumpără cu discount). Datele firmelor emitente și logo-ul sunt cele din setările contractelor de custodie.</p>
+      ${all.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Nr.</th><th>Revânzător</th><th>TVA</th><th>Nivel</th><th>Data</th><th>Stare</th></tr></thead><tbody>
+        ${all.map(c => { const s = cmState(c);
+          return `<tr class="cu-rowlink" data-cm="${c.id}"><td>${cuEsc(c.nr||'—')}</td><td>${cuEsc(c.dz&&c.dz.firma||c.dealerName||'—')}</td>
+            <td>${c.dz&&c.dz.tva==='da'?'Plătitor':'Neplătitor'}</td><td>${cuEsc(c.tier||'')}</td><td>${cuDRo(c.data)}</td><td><span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></td></tr>`; }).join('')}
+      </tbody></table></div>` : '<div class="empty">Niciun contract de comision încă. Apasă „+ Contract nou”.</div>'}
+    </div>`;
+  document.getElementById('cmNew').onclick = () => cmGo('form', { cur:cmBlank() });
+  document.getElementById('cmSet').onclick = () => cmGo('setari');
+  el.querySelectorAll('[data-cm]').forEach(row => row.onclick = () => {
+    const c = all.find(x => x.id===row.dataset.cm);
+    if(c.status==='ciorna') cmGo('form', { cur:JSON.parse(JSON.stringify(c)) });
+    else cmGo('detail', { openId:c.id });
+  });
+}
+
+function cmRenderForm(el){
+  const c = CM.cur;
+  const partners = (CACHE.parteneriConturi||[]).filter(p => p.uid && p.activ!==false);
+  const inp = (f, type, extra) => `<input data-f="${f}" ${type?`type="${type}"`:''} ${extra||''}>`;
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="cmBack" type="button">← Înapoi la listă</button>
+      <span class="cu-pill">${c.nr?cuEsc(c.nr):'Contract nou · ciornă'}</span></div>
+    <div id="cmErr" class="warning-banner"></div>
+    <div class="card"><h2>1. Furnizor</h2>
+      <div class="field"><label>Firma care încheie contractul</label>
+        <div class="cu-seg" id="cmDep">${CU_FIRME.map((f,i)=>`<button type="button" data-dep="${i}" aria-pressed="${c.dep===i}">${cuEsc(f.s)}<small>CUI ${cuEsc(cuFirm(i).cui)}</small></button>`).join('')}</div></div>
+      <div class="field-row"><div class="field"><label>Reprezentant</label>${inp('depRep')}</div><div class="field"><label>Funcția</label>${inp('depFct')}</div></div>
+      <div class="field-row"><div class="field"><label>Data</label>${inp('data','date')}</div><div class="field"><label>Localitatea</label>${inp('loc')}</div></div>
+    </div>
+    <div class="card"><h2>2. Revânzătorul (firmă sau PFA)</h2>
+      <div class="field"><label>Cont partener în portal</label>
+        <select id="cmDealer"><option value="">— Revânzător fără cont în portal —</option>
+          ${partners.map(p=>`<option value="${cuEsc(p.uid)}" ${c.dealerUid===p.uid?'selected':''}>${cuEsc(p.nume)} (${cuEsc(p.email)})</option>`).join('')}</select>
+        <div style="font-size:12px;color:var(--stone);margin-top:5px">Dacă alegi un cont, partenerul vede contractul în portal, la tab-ul „Comision”. Datele firmei se completează din contractele lui anterioare.</div></div>
+      <div class="field"><label>Denumire (SRL, PFA, II)</label>${inp('dz.firma','','data-req')}</div>
+      <div class="field-row"><div class="field"><label>CUI / CIF</label>${inp('dz.cui','','data-req')}</div><div class="field"><label>Nr. Reg. Com.</label>${inp('dz.rc')}</div></div>
+      <div class="field"><label>Înregistrare în scopuri de TVA</label><div class="cu-seg" id="cmTva">
+        <button type="button" data-tva="nu" aria-pressed="${c.dz.tva!=='da'}">Neplătitor de TVA<small>Facturează comisionul fără TVA</small></button>
+        <button type="button" data-tva="da" aria-pressed="${c.dz.tva==='da'}">Plătitor de TVA<small>Adaugă TVA la comision</small></button></div></div>
+      <div class="field"><label>Sediul</label>${inp('dz.sediu','','data-req')}</div>
+      <div class="field-row"><div class="field"><label>IBAN (pentru plata comisionului)</label>${inp('dz.iban','','data-req')}</div><div class="field"><label>Banca</label>${inp('dz.banca')}</div></div>
+      <div class="field-row"><div class="field"><label>Reprezentant</label>${inp('dz.rep','','data-req')}</div><div class="field"><label>Funcția</label>${inp('dz.fct')}</div></div>
+      <div class="field-row"><div class="field"><label>Telefon</label>${inp('dz.tel','tel')}</div><div class="field"><label>E-mail</label>${inp('dz.mail','email')}</div></div>
+      <div class="field"><label>Nivel partener</label><div class="cu-seg" id="cmTier">${CU_TIERS.map(t=>`<button type="button" data-tier="${t}" aria-pressed="${c.tier===t}">${t}</button>`).join('')}</div></div>
+      <div class="field"><label>Zonă exclusivă (opțional, doar STUDIO — ex. județul Neamț)</label>${inp('dz.zona')}</div>
+    </div>
+    <div class="card"><h2>3. Procente de comision / discount</h2>
+      ${CM_RATE_ROWS.map(x => `<div class="field-row" style="align-items:center"><div class="field" style="flex:3"><label style="text-transform:none;letter-spacing:0">${x.t}</label></div>
+        <div class="field" style="flex:1"><input type="number" min="0" max="100" step="0.5" data-f="r.${x.k}"></div></div>`).join('')}
+      <div class="field-row"><div class="field"><label>Comunicare comision după încasare (zile lucr.)</label>${inp('raportare','number','min="0"')}</div>
+        <div class="field"><label>Plata comisionului (zile de la factură)</label>${inp('plataCom','number','min="0"')}</div>
+        <div class="field"><label>Preaviz denunțare (zile)</label>${inp('preaviz','number','min="1"')}</div></div>
+      <div class="field"><label>Clauze suplimentare (opțional)</label><textarea data-f="extra" rows="3"></textarea></div>
+    </div>
+    <div class="card"><h2>4. Semnături</h2>
+      <div class="cu-seg" id="cmMode">
+        <button type="button" data-mode="link" aria-pressed="${c.mode!=='loc'}">Trimit link<small>Revânzătorul semnează de pe telefonul lui</small></button>
+        <button type="button" data-mode="loc" aria-pressed="${c.mode==='loc'}">Pe loc<small>Semnați amândoi pe acest ecran</small></button></div>
+      <div class="field" style="margin-top:14px" ${c.mode!=='loc'?'hidden':''}><label>Revânzător · <a class="cu-clr" data-clear="dz">șterge</a></label><canvas class="cu-pad" id="cmPadDz"></canvas></div>
+      <div class="field" style="margin-top:14px"><label>Furnizor · <a class="cu-clr" data-clear="dep">șterge</a></label><canvas class="cu-pad" id="cmPadDep"></canvas></div>
+      <p style="font-size:12px;color:var(--stone);margin:6px 0 0">${c.mode!=='loc'
+        ? `După ce semnezi, primești un link valabil ${CU_LINK_ZILE} zile, pe care îl trimiți revânzătorului pe WhatsApp sau e-mail.`
+        : 'Fiecare parte primește PDF-ul semnat.'}</p>
+    </div>
+    <div class="cu-acts"><button class="btn btn-secondary" id="cmPrev" type="button">Previzualizează</button>
+      <button class="btn btn-secondary" id="cmDraft" type="button">Salvează ciorna</button>
+      <button class="btn btn-primary" id="cmFinal" type="button">${c.mode!=='loc'?'Semnează și creează linkul':'Finalizează contractul'}</button></div>
+    <div class="cu-docwrap" id="cmPrevBox" hidden></div>`;
+
+  el.querySelectorAll('[data-f]').forEach(x => {
+    const v = cuGet(c, x.dataset.f); x.value = v ?? '';
+    x.addEventListener('input', () => { cuSetP(c, x.dataset.f, x.type==='number' ? (x.value===''?'':+x.value) : x.value); x.closest('.field')?.classList.remove('invalid'); });
+  });
+  const rerender = fn => b => b.onclick = () => { cmCollect(); fn(b); cmRenderForm(el); };
+  el.querySelectorAll('#cmDep [data-dep]').forEach(rerender(b => { const i = +b.dataset.dep, f = cuFirm(i); c.dep = i; c.depRep = f.rep || c.depRep; c.depFct = f.fct || c.depFct; }));
+  el.querySelectorAll('#cmTier [data-tier]').forEach(rerender(b => { c.tier = b.dataset.tier; }));
+  el.querySelectorAll('#cmTva [data-tva]').forEach(rerender(b => { c.dz.tva = b.dataset.tva; }));
+  el.querySelectorAll('#cmMode [data-mode]').forEach(rerender(b => { c.mode = b.dataset.mode; }));
+  document.getElementById('cmDealer').onchange = e => {
+    const uid = e.target.value, p = partners.find(x => x.uid===uid);
+    c.dealerUid = uid; c.dealerName = p ? p.nume : '';
+    if(p){ const prev = (CACHE.custodii||[]).filter(x => x.dealerUid===uid && x.id!==c.id && x.dz).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')))[0];
+      if(prev){ ['firma','cui','rc','sediu','rep','fct','tel','mail'].forEach(k => { if(prev.dz[k]) c.dz[k] = prev.dz[k]; });
+        ['iban','banca','tva','forma','zona'].forEach(k => { if(prev.dz[k]!=null && cmIsCm(prev)) c.dz[k] = prev.dz[k]; }); c.tier = prev.tier || c.tier; }
+      else if(!c.dz.firma){ c.dz.firma = p.nume; c.dz.mail = c.dz.mail || p.email; } }
+    cmCollect(); cmRenderForm(el);
+  };
+  document.getElementById('cmBack').onclick = () => cmGo('list', { cur:null });
+  document.getElementById('cmDraft').onclick = () => cmSaveDraft();
+  document.getElementById('cmFinal').onclick = () => cmFinalize();
+  document.getElementById('cmPrev').onclick = () => { cmCollect(); const bx = document.getElementById('cmPrevBox');
+    bx.innerHTML = `<article class="cdoc">${cmBuildDoc(c)}</article>`; bx.hidden = false; bx.scrollIntoView({ block:'start', behavior:'smooth' }); };
+  el.querySelectorAll('[data-clear]').forEach(a => a.onclick = () => { const p = CM.pads[a.dataset.clear]; if(p) p.clear(); });
+  setTimeout(() => { CM.pads = { dz:cmMakePad(document.getElementById('cmPadDz'),'dz'), dep:cmMakePad(document.getElementById('cmPadDep'),'dep') };
+    CM.pads.dz.size(); CM.pads.dep.size(); }, 30);
+}
+function cmCollect(){ const c = CM.cur; if(!c) return; ['dz','dep'].forEach(k => { const p = CM.pads[k]; if(p && p.dirty) c.sig[k] = p.canvas.toDataURL('image/png'); }); }
+function cmErr(msg){ const e = document.getElementById('cmErr'); if(!e){ if(msg) alert(msg); return; } e.textContent = msg; e.classList.toggle('show', !!msg); if(msg) e.scrollIntoView({ block:'center', behavior:'smooth' }); }
+function cmValidate(){
+  const c = CM.cur, root = document.getElementById('cmRoot'), bad = [];
+  root.querySelectorAll('.field.invalid').forEach(f => f.classList.remove('invalid'));
+  if(!c.data) return 'Completează data contractului.';
+  root.querySelectorAll('input[data-req]').forEach(x => { if(!x.value.trim()) bad.push(x); });
+  CM_RATE_ROWS.forEach(x => { const v = c.r[x.k]; if(v==='' || v==null || +v<0 || +v>100) bad.push(root.querySelector(`[data-f="r.${x.k}"]`)); });
+  bad.forEach(x => x && x.closest('.field')?.classList.add('invalid'));
+  if(bad.length) return 'Completează câmpurile marcate cu roșu.';
+  if(!c.sig.dep) return 'Semnează ca furnizor în chenarul „Furnizor”.';
+  if(c.mode==='loc' && !c.sig.dz) return 'Lipsește semnătura revânzătorului.';
+  return '';
+}
+async function cmNextNr(){
+  const ref = db.collection('config').doc('custodie');
+  return db.runTransaction(async t => {
+    const s = await t.get(ref); const d = s.exists ? s.data() : {};
+    const serie = d.comSerie || 'CAD', next = +d.comNext || 1;
+    t.set(ref, { comSerie:serie, comNext:next+1 }, { merge:true });
+    return `${serie}-${String(next).padStart(4,'0')}`;
+  });
+}
+async function cmSaveDraft(){
+  cmCollect(); cmErr('');
+  const c = CM.cur;
+  try{
+    const ref = c.id ? db.collection('custodii').doc(c.id) : db.collection('custodii').doc();
+    c.id = ref.id; c.tip = 'comision'; c.status = 'ciorna'; c.created = c.created || new Date().toISOString(); c.createdBy = c.createdBy || currentUser.uid;
+    await ref.set(cuPlain(c));
+    alert('Ciorna a fost salvată.');
+    CM.cur = null; CM.view = 'list'; await loadAll();
+  }catch(e){ console.error(e); cmErr('Ciorna nu s-a putut salva. Verifică conexiunea.'); }
+}
+async function cmFinalize(){
+  cmCollect();
+  const c = CM.cur, msg = cmValidate(); if(msg){ cmErr(msg); return; } cmErr('');
+  const btn = document.getElementById('cmFinal'); btn.disabled = true; btn.textContent = 'Se salvează…';
+  try{
+    const ref = c.id ? db.collection('custodii').doc(c.id) : db.collection('custodii').doc();
+    c.id = ref.id; c.tip = 'comision'; c.created = c.created || new Date().toISOString(); c.createdBy = c.createdBy || currentUser.uid;
+    if(!c.nr) c.nr = await cmNextNr();
+    c.depFirma = cuFirm(c.dep); c.depRc = c.depFirma.rc; c.logo = cuCfg().logo || '';
+    if(c.mode!=='loc'){
+      const tok = c.token || cuToken(), now = new Date();
+      c.sigDepAt = now.toISOString(); c.token = tok;
+      const snap = cuPlain(c); snap.sig = { dep:c.sig.dep, dz:'' };
+      const docHtml = cmBuildDoc(snap, { forLink:true });
+      delete snap.logo;
+      await db.collection('semnari').doc(tok).set({
+        contract:snap, docHtml, status:'trimis', sigDz:'', semnatar:'', dispozitiv:'', semnatLa:null,
+        creat:firebase.firestore.FieldValue.serverTimestamp(), expira:firebase.firestore.Timestamp.fromMillis(now.getTime()+CU_LINK_ZILE*864e5),
+        emitent:currentUser.uid, custodieId:c.id });
+      Object.assign(c, { status:'trimis', sentAt:now.toISOString(), expira:new Date(now.getTime()+CU_LINK_ZILE*864e5).toISOString() });
+    }else{
+      c.status = 'activ'; c.signedAt = new Date().toISOString(); c.sigDepAt = c.signedAt; c.remote = false;
+    }
+    await ref.set(cuPlain(c));
+    CM.cur = null; CM.view = 'detail'; CM.openId = c.id;
+    await loadAll();
+  }catch(e){ console.error(e); cmErr('Contractul nu s-a putut salva. Verifică conexiunea și încearcă din nou.'); btn.disabled = false; btn.textContent = 'Încearcă din nou'; }
+}
+
+function cmRenderDetail(el){
+  const c = (CACHE.custodii||[]).find(x => x.id===CM.openId);
+  if(!c){ CM.view = 'list'; return cmRenderList(el); }
+  const s = cmState(c);
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="cmBack" type="button">← Înapoi la listă</button>
+      <span><b>${cuEsc(c.nr)}</b> · ${cuEsc(c.dz.firma)} &nbsp;<span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></span></div>
+    ${c.status==='trimis' ? cmLinkBox(c) : ''}
+    <div class="cu-acts">
+      <button class="btn btn-primary" id="cmPdf" type="button">PDF</button>
+      ${c.status==='activ' ? '<button class="btn btn-secondary" id="cmClose" type="button">Marchează încetat</button>' : ''}
+      ${c.status!=='activ' && c.status!=='incheiat' ? '<button class="btn btn-secondary" id="cmDel" type="button" style="color:var(--red)">Șterge</button>' : ''}
+    </div>
+    <div class="cu-docwrap"><article class="cdoc">${cmBuildDoc(c)}</article></div>`;
+  document.getElementById('cmBack').onclick = () => cmGo('list');
+  document.getElementById('cmPdf').onclick = () => cuMakePdf(c);
+  const cl = document.getElementById('cmClose'); if(cl) cl.onclick = async () => {
+    if(!confirm(`Marchezi contractul ${c.nr} ca încetat? Comisioanele pentru vânzările de până acum rămân datorate.`)) return;
+    try{ await db.collection('custodii').doc(c.id).update({ status:'incheiat', closedAt:cuToday() }); await loadAll(); }
+    catch(e){ console.error(e); alert('Nu am putut salva. Verifică conexiunea.'); } };
+  const dl = document.getElementById('cmDel'); if(dl) dl.onclick = async () => {
+    if(!confirm(`Ștergi ${c.nr||'ciorna'}? Nu se poate anula.`)) return;
+    try{ if(c.token){ try{ await db.collection('semnari').doc(c.token).delete(); }catch(e){} }
+      await db.collection('custodii').doc(c.id).delete(); CM.view = 'list'; await loadAll(); }
+    catch(e){ console.error(e); alert('Nu am putut șterge. Verifică conexiunea.'); } };
+  if(c.status==='trimis') cmBindLinkBox(c);
+}
+function cmLinkBox(c){
+  const expired = c.expira && new Date(c.expira) < new Date();
+  return `<div class="cu-linkbox"><b>${expired?'Linkul a expirat':'Așteaptă semnătura revânzătorului'}</b>
+    <p style="margin:4px 0 10px;font-size:12.5px;color:var(--stone)">${expired?'Revânzătorul nu a semnat la timp. Retrage linkul și trimite-l din nou.'
+      :`Link creat la ${cuDt(c.sentAt)}, valabil până la ${cuDRo(cuLocalDate(c.expira))}. Când semnează, contractul trece automat în „Activ”.`}</p>
+    <div style="display:flex;gap:8px"><input id="cmLink" readonly value="${cuEsc(CM_SIGN_BASE + c.token)}" style="flex:1;min-width:0;font:inherit;font-size:12.5px;padding:8px 10px;border:1px solid var(--line);border-radius:6px">
+      <button class="btn btn-secondary" id="cmCopy" type="button">Copiază</button></div>
+    <div class="cu-acts" style="margin-bottom:0"><a class="btn btn-primary" id="cmWa" target="_blank" rel="noopener" style="text-decoration:none">WhatsApp</a>
+      <a class="btn btn-secondary" id="cmMail" style="text-decoration:none">E-mail</a>
+      <button class="btn btn-secondary" id="cmCheck" type="button">Verifică acum</button>
+      <button class="btn btn-secondary" id="cmRetract" type="button">Retrage linkul</button></div></div>`;
+}
+function cmBindLinkBox(c){
+  const link = CM_SIGN_BASE + c.token;
+  const msg = `Bună ziua, vă trimit spre semnare contractul-cadru ${c.nr} pentru colaborarea cu Flamart (comision și revânzare). Îl puteți citi și semna de pe telefon aici: ${link}`;
+  let ph = (c.dz.tel||'').replace(/\D/g,''); if(ph.startsWith('0')) ph = '4'+ph;
+  document.getElementById('cmWa').href = `https://wa.me/${ph}?text=${encodeURIComponent(msg)}`;
+  document.getElementById('cmMail').href = `mailto:${c.dz.mail||''}?subject=${encodeURIComponent('Contract-cadru '+c.nr)}&body=${encodeURIComponent(msg)}`;
+  document.getElementById('cmCopy').onclick = () => { const i = document.getElementById('cmLink');
+    try{ navigator.clipboard.writeText(msg).then(() => alert('Mesajul cu linkul a fost copiat.'), () => i.select()); }catch(e){ i.select(); } };
+  document.getElementById('cmCheck').onclick = async () => { const n = await cuSyncSemnari(true); if(!n) alert('Revânzătorul nu a semnat încă.'); };
+  document.getElementById('cmRetract').onclick = async () => {
+    if(!confirm('Retragi linkul? Nu va mai funcționa, iar contractul revine la ciornă.')) return;
+    try{ await db.collection('semnari').doc(c.token).delete(); }catch(e){}
+    const upd = Object.assign(JSON.parse(JSON.stringify(c)), { status:'ciorna', token:'', sentAt:'', expira:'' });
+    await db.collection('custodii').doc(c.id).set(cuPlain(upd));
+    CM.cur = upd; CM.view = 'form'; await loadAll();
+  };
+}
+function cmRenderSetari(el){
+  const s = cuCfg();
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="cmBack" type="button">← Înapoi la listă</button></div>
+    <div class="card"><h2>Numerotarea contractelor de comision</h2>
+      <div class="field-row"><div class="field"><label>Seria</label><input id="cms_serie" value="${cuEsc(s.comSerie||'CAD')}"></div>
+        <div class="field"><label>Următorul număr</label><input id="cms_next" type="number" min="1" value="${cuEsc(s.comNext||1)}"></div></div>
+      <p style="font-size:12px;color:var(--stone);margin:0">Datele firmelor (Reg. Com., reprezentant) și logo-ul se editează în „Contracte custodie” → „Setări contract”.</p></div>
+    <div class="cu-acts"><button class="btn btn-primary" id="cms_save" type="button">Salvează</button></div>`;
+  document.getElementById('cmBack').onclick = () => cmGo('list');
+  document.getElementById('cms_save').onclick = async () => {
+    try{ await db.collection('config').doc('custodie').set({ comSerie:document.getElementById('cms_serie').value.trim()||'CAD',
+        comNext:Math.max(1, +document.getElementById('cms_next').value||1) }, { merge:true });
+      alert('Salvat.'); CM.view = 'list'; await loadAll(); }
+    catch(e){ console.error(e); alert('Nu s-a putut salva.'); }
+  };
+}
+
+/* ---------- vederea partenerului: tab-ul „Comision” ---------- */
+async function loadPartComision(){
+  const el = document.getElementById('partComisionContent'); if(!el) return;
+  let list = [];
+  try{
+    const snap = await db.collection('custodii').where('dealerUid','==',currentUser.uid).get();
+    list = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(c => cmIsCm(c) && c.status!=='ciorna');
+  }catch(e){ console.error(e); showDebugError('custodii', e); }
+  list.sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  if(!list.length){ el.innerHTML = '<div class="card"><div class="empty">Nu ai încă un contract de comision. Când Flamart îți trimite contractul-cadru, îl găsești aici.</div></div>'; return; }
+  el.innerHTML = list.map(c => { const s = cmState(c), r = c.r||{};
+    return `<div class="card">
+      <div class="cu-top"><h2 style="margin:0">Contract-cadru ${cuEsc(c.nr)}</h2><span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></div>
+      ${c.status==='trimis' ? `<div class="cu-linkbox"><b>Contractul așteaptă semnătura ta.</b>
+        <div class="cu-acts" style="margin-bottom:0"><a class="btn btn-primary" href="${CM_SIGN_BASE+c.token}" target="_blank" rel="noopener" style="text-decoration:none">Citește și semnează</a></div></div>` : ''}
+      <div style="overflow-x:auto"><table><thead><tr><th>Situație</th><th>Procent</th></tr></thead><tbody>
+        ${CM_RATE_ROWS.map(x => `<tr><td>${x.t}</td><td>${cmPct(r[x.k])}</td></tr>`).join('')}</tbody></table></div>
+      <p style="font-size:12px;color:var(--stone);margin:10px 0 0">Comisionul se calculează la valoarea fără TVA facturată clientului, după ce clientul plătește integral. Flamart îți comunică suma, iar tu emiți factura prin e-Factura${c.dz&&c.dz.tva==='da'?' cu TVA':', fără TVA'}. Înregistrează fiecare ofertă în portal, altfel vânzarea nu dă drept la comision.</p>
+      <div class="cu-acts"><button class="btn btn-secondary" data-cmview="${c.id}" type="button">Vezi contractul</button>
+        ${c.status!=='trimis' ? `<button class="btn btn-secondary" data-cmpdf="${c.id}" type="button">PDF</button>` : ''}</div>
+      <div class="cu-docwrap" id="cmdoc-${c.id}" hidden><article class="cdoc">${cmBuildDoc(c)}</article></div>
+    </div>`; }).join('');
+  el.querySelectorAll('[data-cmview]').forEach(b => b.onclick = () => { const d = document.getElementById('cmdoc-'+b.dataset.cmview); d.hidden = !d.hidden; b.textContent = d.hidden ? 'Vezi contractul' : 'Ascunde contractul'; });
+  el.querySelectorAll('[data-cmpdf]').forEach(b => b.onclick = () => cuMakePdf(list.find(c => c.id===b.dataset.cmpdf)));
 }
 
 
