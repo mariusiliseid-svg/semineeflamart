@@ -564,7 +564,7 @@
             <div class="field"><label>Cantitate</label><input type="number" id="v-cantitate" value="1" min="1" step="1"></div>
           </div>
           <div class="field-row">
-            <div class="field"><label>Valoare vânzare (EUR)</label><input type="number" id="v-valoare" min="0" step="0.01"></div>
+            <div class="field"><label>Valoare vânzare (EUR, fără TVA)</label><input type="number" id="v-valoare" min="0" step="0.01"></div>
             <div class="field"><label>Data vânzării</label><input type="date" id="v-data"></div>
           </div>
           <div class="field" id="v-serie-wrap">
@@ -574,6 +574,10 @@
             <div id="v-serieInfo" style="font-size:12px;color:var(--stone);margin-top:4px"></div>
           </div>
           <div id="v-serieWarn" class="warning-banner">Această serie de șasiu apare deja la o altă vânzare sau garanție.</div>
+          <div class="field-row">
+            <div class="field"><label>Prin revânzător (comision)</label><select id="v-comPart"><option value="">— Vânzare directă, fără comision —</option></select></div>
+            <div class="field" style="max-width:160px"><label>Comision (%)</label><input type="number" id="v-comPct" min="0" max="100" step="0.5" placeholder="ex. 35"></div>
+          </div>
           <div class="field"><label>Notă opțională</label><textarea id="v-nota" rows="2"></textarea></div>
           <button type="submit" class="btn btn-primary">Salvează vânzarea</button>
         </form>
@@ -1032,6 +1036,13 @@ function fmtDate(iso){
 function daysSince(iso){ return Math.floor((new Date() - new Date(iso)) / (1000*60*60*24)); }
 
 /* vânzare directă: alegerea seriei din stoc completează modelul și varianta */
+function renderVComPart(){
+  const sel = document.getElementById('v-comPart'); if(!sel) return; const keep = sel.value;
+  const names = [...new Set((CACHE.parteneriConturi||[]).filter(p => p.activ!==false).map(p => p.nume).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = '<option value="">— Vânzare directă, fără comision —</option>' + names.map(n => `<option>${cuEsc(n)}</option>`).join('');
+  if([...sel.options].some(o => o.value===keep)) sel.value = keep;
+  sel.onchange = () => { const pc = document.getElementById('v-comPct'); if(sel.value && !pc.value) pc.value = 35; if(!sel.value) pc.value = ''; };
+}
 function renderVSerii(){
   const sel = document.getElementById('v-serieSel'); if(!sel) return;
   const keep = sel.value;
@@ -1085,7 +1096,9 @@ document.getElementById('vanzareForm').onsubmit = async function(e){
       serieDuplicata = !dupVanzari.empty || !dupGarantii.empty;
     }
 
-    await db.collection('vanzariDirecte').add({ client, judet, model, varianta, cantitate, valoare, data, nota, serie: serie || null });
+    const comisionPartener = document.getElementById('v-comPart').value;
+    const comisionPct = comisionPartener ? (Number(document.getElementById('v-comPct').value) || 0) : 0;
+    await db.collection('vanzariDirecte').add({ client, judet, model, varianta, cantitate, valoare, data, nota, serie: serie || null, comisionPartener, comisionPct });
 
     // Dacă seria a fost logată la import (colecția „unitati"), o marcăm drept vândută — chiar dacă montajul/garanția se înregistrează ulterior, separat.
     if(serie){
@@ -2033,6 +2046,7 @@ async function loadAll(){
   if(PO.view !== 'form') renderComandaBokar();
   renderVSerii();
   renderCdSerii();
+  renderVComPart();
   renderNotificari();
   cuSyncSemnari();
   document.getElementById('dealeriDatalist').innerHTML =
@@ -2814,71 +2828,82 @@ function renderOverview(){
   `;
 }
 
+/* PROFITURI — calculat pe seriile vândute:
+   cost = costul real al seriei la import + cota ei din transport, comisionar și vamă (din importul ei);
+   vânzare = din documentul care a scos seria din stoc (vânzare directă, comandă dealer, custodie), fără TVA;
+   comisionul revânzătorului se scade. Vânzările fără serie apar separat, cu costul mediu al modelului. */
+let PF = { per:'an' };
+const PF_TVA = 1.21;
+function pfData(){
+  const { unitati=[], importuri=[], vanzariDirecte=[], dealeriComenzi=[], custodii=[] } = CACHE;
+  const norm = x => String(x||'').trim().toUpperCase();
+  const coefImp = imp => { if(!imp) return 0; const log = (Number(imp.transport)||0)+(Number(imp.comisionar)||0)+(Number(imp.vama)||0);
+    return imp.curs && imp.valoareTotalaMarfa ? (log/imp.curs)/imp.valoareTotalaMarfa : 0; };
+  const impOf = u => importuri.find(i => i.id===u.importId) || importuri.find(i => i.factura===u.facturaImport);
+  const costOf = u => { const c = Number(u.costAchizitie)||0; return c * (1 + coefImp(impOf(u))); };
+  const rows = [], folosite = new Set();
+  unitati.filter(u => u.status==='vandut').forEach(u => {
+    const sr = norm(u.serie), cost = costOf(u);
+    let r = { data:u.dataVanzare||'', serie:u.serie, model:`${u.model} ${u.varianta||''}`.trim(), cost, com:0, estimat:false };
+    const vd = vanzariDirecte.find(v => v.serie && norm(v.serie)===sr);
+    const dc = dealeriComenzi.find(c => (c.serii||[]).some(x => norm(x)===sr));
+    let cp = null; custodii.forEach(c => (c.prods||[]).forEach(p => { if(norm(p.s)===sr && p.stare==='vandut') cp = { c, p }; }));
+    if(vd){ folosite.add('vd'+vd.id); const v = (Number(vd.valoare)||0)/(Number(vd.cantitate)||1);
+      Object.assign(r, { canal: vd.comisionPartener ? 'Prin revânzător' : 'Direct', cui: vd.comisionPartener ? `${vd.client} · prin ${vd.comisionPartener}` : vd.client, vanz:v, com:v*(Number(vd.comisionPct)||0)/100, data:vd.data||r.data }); }
+    else if(dc){ folosite.add('dc'+dc.id); Object.assign(r, { canal:'Partener (revânzare)', cui:dc.dealer, vanz:(Number(dc.valoare)||0)/(Number(dc.cantitate)||1)/PF_TVA, data:r.data||dc.data }); }
+    else if(cp){ const pr = (Number(cp.p.p)||0) * (1 - (Number(cp.c.disc)||0)/100);
+      Object.assign(r, { canal:'Custodie', cui:(cp.c.dz&&cp.c.dz.firma)||'', vanz: cp.c.moneda==='RON' ? pr/((CACHE.marjeData&&CACHE.marjeData.inputs&&CACHE.marjeData.inputs.curs)||5) : pr, data:cp.p.dataStare||r.data }); }
+    else { const rrp = (RRP_FOCAR[u.model]||{})[u.varianta] || 0;
+      Object.assign(r, { canal:'Fără document', cui:u.partener||'garanție înregistrată', vanz: rrp/PF_TVA*(1-DISCOUNT_DEALER), estimat:true }); }
+    r.profit = r.vanz - r.com - r.cost; rows.push(r);
+  });
+  // vânzări fără serie: cost = media costurilor reale ale modelului
+  const avgCost = (model, v) => { const us = unitati.filter(u => u.model===model && u.varianta===v && Number(u.costAchizitie)>0);
+    if(us.length) return us.reduce((a,u)=>a+costOf(u),0)/us.length;
+    const lc = typeof landedCostFor==='function' ? landedCostFor(model, v, CACHE.marjeData) : null; return lc ? lc.landedCost : null; };
+  vanzariDirecte.filter(v => !folosite.has('vd'+v.id) && !(v.serie && unitati.some(u => norm(u.serie)===norm(v.serie) && u.status==='vandut'))).forEach(v => {
+    const q = Number(v.cantitate)||1, c = avgCost(v.model, v.varianta), vanz = Number(v.valoare)||0, com = vanz*(Number(v.comisionPct)||0)/100;
+    rows.push({ data:v.data||'', serie:'', model:`${v.model} ${v.varianta||''}`.trim()+(q>1?` × ${q}`:''), canal: v.comisionPartener ? 'Prin revânzător' : 'Direct', cui:v.client,
+      vanz, com, cost: c!=null ? c*q : null, profit: c!=null ? vanz-com-c*q : null, estimat:true, faraSerie:true }); });
+  dealeriComenzi.filter(c => !folosite.has('dc'+c.id) && !(c.serii||[]).length).forEach(c => {
+    const q = Number(c.cantitate)||1, cs = avgCost(c.model, c.varianta), vanz = (Number(c.valoare)||0)/PF_TVA;
+    rows.push({ data:c.data||'', serie:'', model:`${c.model} ${c.varianta||''}`.trim()+(q>1?` × ${q}`:''), canal:'Partener (revânzare)', cui:c.dealer,
+      vanz, com:0, cost: cs!=null ? cs*q : null, profit: cs!=null ? vanz-cs*q : null, estimat:true, faraSerie:true }); });
+  return rows.sort((a,b) => String(b.data).localeCompare(String(a.data)));
+}
 function renderProfituri(){
-  const { oferte, dealeriComenzi, vanzariDirecte, marjeData } = CACHE;
-  const el = document.getElementById('profituriContent');
-
-  if(!marjeData){
-    el.innerHTML = '<div class="card"><div class="empty">Panoul „Prețuri &amp; Marje" nu are încă date salvate — deschide-l o dată ca să se inițializeze, apoi revino aici.</div></div>';
-    return;
-  }
-
-  const ofertateCastigate = oferte.filter(o => o.status === 'castigat');
-  function profitFor(model, varianta, valoare, cantitate){
-    const lc = landedCostFor(model, varianta, marjeData);
-    if(!lc || !valoare) return null;
-    const cant = cantitate || 1;
-    return valoare - cant * (lc.landedCost + lc.transportDealer);
-  }
-
-  const toate = [
-    ...dealeriComenzi.map(o=>({sursa:'Dealer', label:`${o.dealer} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,Number(o.cantitate)||1)})),
-    ...vanzariDirecte.map(o=>({sursa:'Direct', label:`${o.client} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,Number(o.cantitate)||1)})),
-    ...ofertateCastigate.map(o=>({sursa:'Coleg', label:`${o.coleg} — ${o.model} ${o.varianta||''}`, valoare:Number(o.valoare)||0, profit:profitFor(o.model,o.varianta,Number(o.valoare)||0,1)})),
-  ];
-
-  const cunoscute = toate.filter(t => t.profit !== null);
-  const totalProfit = cunoscute.reduce((s,t)=>s+t.profit,0);
-  const totalValoare = cunoscute.reduce((s,t)=>s+t.valoare,0);
-  const marjaMedie = totalValoare ? (totalProfit/totalValoare)*100 : 0;
-  const necunoscute = toate.length - cunoscute.length;
-
-  const perSursa = {};
-  cunoscute.forEach(t => { perSursa[t.sursa] = (perSursa[t.sursa]||0) + t.profit; });
-
+  const el = document.getElementById('profituriContent'); if(!el) return;
+  const all = pfData(), t = cuToday();
+  const lim = PF.per==='luna' ? t.slice(0,7) : PF.per==='an' ? t.slice(0,4) : '';
+  const rows = all.filter(r => !lim || String(r.data).startsWith(lim));
+  const ok = rows.filter(r => r.profit!=null);
+  const sum = k => ok.reduce((a,r)=>a+(Number(r[k])||0),0);
+  const P = sum('profit'), V = sum('vanz'), C = sum('com');
+  const eur = n => (Number(n)||0).toLocaleString('ro-RO',{maximumFractionDigits:0})+' €';
+  const perCanal = {}; ok.forEach(r => { perCanal[r.canal] = (perCanal[r.canal]||0) + r.profit; });
+  const maxC = Math.max(1, ...Object.values(perCanal).map(Math.abs));
+  const nEst = rows.filter(r => r.estimat).length, nFara = rows.filter(r => r.profit==null).length;
   el.innerHTML = `
+    <div class="cu-top"><div class="cu-seg" id="pfPer" style="width:100%;max-width:480px">
+      <button type="button" data-per="luna" aria-pressed="${PF.per==='luna'}">Luna aceasta</button><button type="button" data-per="an" aria-pressed="${PF.per==='an'}">Anul ${t.slice(0,4)}</button><button type="button" data-per="tot" aria-pressed="${PF.per==='tot'}">Tot</button></div></div>
     <div class="stat-grid">
-      <div class="stat-card"><div class="n">${totalProfit.toLocaleString('ro-RO',{maximumFractionDigits:0})} €</div><div class="l">Profit estimat total</div></div>
-      <div class="stat-card"><div class="n">${marjaMedie.toFixed(1)}%</div><div class="l">Marjă medie efectivă</div></div>
-      <div class="stat-card"><div class="n">${cunoscute.length}</div><div class="l">Vânzări cu profit calculat</div></div>
+      <div class="stat-card"><div class="n">${eur(P)}</div><div class="l">Profit (după comisioane)</div></div>
+      <div class="stat-card"><div class="n">${eur(V)}</div><div class="l">Vânzări fără TVA</div></div>
+      <div class="stat-card"><div class="n">${V?(P/V*100).toFixed(1):'0'}%</div><div class="l">Marjă</div></div>
+      <div class="stat-card"><div class="n">${eur(C)}</div><div class="l">Comisioane revânzători</div></div>
     </div>
-    ${necunoscute>0 ? `<div class="card"><div class="empty">${necunoscute} vânzări nu au un model recunoscut în panoul de marje — profitul lor nu e inclus mai sus.</div></div>` : ''}
-    <div class="card">
-      <h2>Profit pe canal</h2>
-      ${Object.entries(perSursa).map(([s,p]) => `
-        <div class="bar-row">
-          <div class="label">${s}</div>
-          <div class="track"><div class="fill" style="width:${totalProfit ? (p/totalProfit)*100 : 0}%"></div></div>
-          <div class="val">${p.toLocaleString('ro-RO',{maximumFractionDigits:0})}€</div>
-        </div>
-      `).join('') || '<div class="empty">Fără date încă.</div>'}
-    </div>
-    <div class="card">
-      <h2>Detaliu, per vânzare</h2>
-      <table>
-        <thead><tr><th>Sursă</th><th>Detalii</th><th>Valoare</th><th>Profit estimat</th></tr></thead>
-        <tbody>
-          ${toate.map(t => `
-            <tr>
-              <td>${t.sursa}</td><td>${t.label}</td>
-              <td>${t.valoare.toLocaleString('ro-RO')} €</td>
-              <td>${t.profit!==null ? t.profit.toLocaleString('ro-RO',{maximumFractionDigits:0})+' €' : '—'}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
+    ${rows.length ? '' : '<div class="card"><div class="empty">Nicio vânzare în perioada aleasă. Profitul apare când o serie iese din stoc (vânzare directă, comandă dealer cu serii, custodie sau garanție) sau când înregistrezi o vânzare.</div></div>'}
+    ${Object.keys(perCanal).length ? `<div class="card"><h2>Profit pe canal</h2>
+      ${Object.entries(perCanal).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<div class="bar-row"><div class="label">${cuEsc(k)}</div><div class="track"><div class="fill" style="width:${Math.abs(v)/maxC*100}%;${v<0?'background:var(--red)':''}"></div></div><div class="val">${eur(v)}</div></div>`).join('')}</div>` : ''}
+    ${rows.length ? `<div class="card"><h2>Detaliu pe vânzare</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Produs / serie</th><th>Canal</th><th>Client / partener</th><th class="r">Vânzare</th><th class="r">Comision</th><th class="r">Cost</th><th class="r">Profit</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td>${r.data?fmtDate(String(r.data).slice(0,10)):'—'}</td><td><b>${cuEsc(r.model)}</b>${r.serie?`<br><span style="color:var(--stone);font-size:11.5px">${cuEsc(r.serie)}</span>`:''}</td>
+        <td>${cuEsc(r.canal)}${r.estimat?` <span class="cu-pill warn" title="${r.faraSerie?'Fără serie: cost mediu al modelului':'Fără document de vânzare: preț dealer estimat'}">estimat</span>`:''}</td><td>${cuEsc(r.cui||'')}</td>
+        <td class="r">${eur(r.vanz)}</td><td class="r">${r.com?eur(r.com):'—'}</td><td class="r">${r.cost!=null?eur(r.cost):'—'}</td>
+        <td class="r" style="font-weight:800;color:${r.profit==null?'var(--stone)':r.profit<0?'var(--red)':'var(--green)'}">${r.profit!=null?eur(r.profit):'—'}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p style="font-size:11.5px;color:var(--stone);margin:10px 0 0">Costul = costul real al seriei la import + cota ei din transport, comisionar și vamă. Comenzile dealer sunt calculate din prețul de listă cu TVA, deci aici apar împărțite la 1,21. ${nEst?`„Estimat” (${nEst}): vânzare fără serie (cost mediu al modelului) sau serie vândută fără document (preț dealer cu 35% discount).`:''} ${nFara?`${nFara} fără cost cunoscut nu intră în total.`:''}</p></div>` : ''}`;
+  el.querySelectorAll('#pfPer [data-per]').forEach(b => b.onclick = () => { PF.per = b.dataset.per; renderProfituri(); });
 }
 
 function renderDealeriTab(){
