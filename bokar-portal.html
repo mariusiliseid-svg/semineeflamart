@@ -560,8 +560,10 @@
             <div class="field"><label>Data vânzării</label><input type="date" id="v-data"></div>
           </div>
           <div class="field" id="v-serie-wrap">
-            <label>Serie de șasiu <span style="font-weight:400;color:var(--muted);">(opțional)</span></label>
-            <input type="text" id="v-serie" placeholder="ex: BOKAR-2026-0405-7550L-01610">
+            <label>Serie de șasiu din stoc <span style="font-weight:400;color:var(--muted);">(opțional)</span></label>
+            <select id="v-serieSel"></select>
+            <input type="text" id="v-serie" placeholder="ex: BOKAR-2026-0405-7550L-01610" style="margin-top:6px" hidden>
+            <div id="v-serieInfo" style="font-size:12px;color:var(--stone);margin-top:4px"></div>
           </div>
           <div id="v-serieWarn" class="warning-banner">Această serie de șasiu apare deja la o altă vânzare sau garanție.</div>
           <div class="field"><label>Notă opțională</label><textarea id="v-nota" rows="2"></textarea></div>
@@ -1021,6 +1023,32 @@ function fmtDate(iso){
 }
 function daysSince(iso){ return Math.floor((new Date() - new Date(iso)) / (1000*60*60*24)); }
 
+/* vânzare directă: alegerea seriei din stoc completează modelul și varianta */
+function renderVSerii(){
+  const sel = document.getElementById('v-serieSel'); if(!sel) return;
+  const keep = sel.value;
+  const stoc = (CACHE.unitati||[]).filter(u => u.status==='custodie' && u.serie)
+    .sort((a,b) => String(a.model).localeCompare(String(b.model)) || String(a.varianta).localeCompare(String(b.varianta)) || String(a.serie).localeCompare(String(b.serie)));
+  const byModel = {}; stoc.forEach(u => { (byModel[u.model] = byModel[u.model] || []).push(u); });
+  sel.innerHTML = `<option value="">— Fără serie —</option>`
+    + Object.entries(byModel).map(([m, us]) => `<optgroup label="${cuEsc(m)} (${us.length})">${us.map(u => `<option value="${cuEsc(u.id)}">${cuEsc(u.serie)} · ${cuEsc(u.varianta||'')}${u.showroom?` · la ${cuEsc(u.showroom)}`:''}</option>`).join('')}</optgroup>`).join('')
+    + `<option value="__manual">Altă serie (o scriu eu)…</option>`;
+  if([...sel.options].some(o => o.value===keep)) sel.value = keep;
+  if(!stoc.length) document.getElementById('v-serieInfo').textContent = 'Nu ai serii în stoc. Le adaugi din „Import nou”.';
+}
+document.getElementById('v-serieSel').onchange = function(){
+  const inp = document.getElementById('v-serie'), info = document.getElementById('v-serieInfo');
+  inp.hidden = this.value!=='__manual'; info.textContent = '';
+  if(this.value==='__manual'){ inp.value = ''; inp.focus(); return; }
+  const u = (CACHE.unitati||[]).find(x => x.id===this.value);
+  if(!u){ inp.value = ''; return; }
+  inp.value = u.serie;
+  const ms = document.getElementById('v-model'); if(![...ms.options].some(o => o.value===u.model)) ms.insertAdjacentHTML('beforeend', `<option>${cuEsc(u.model)}</option>`);
+  ms.value = u.model; document.getElementById('v-varianta').value = u.varianta || 'Black';
+  document.getElementById('v-cantitate').value = 1;
+  info.innerHTML = `Model ${cuEsc(u.model)} ${cuEsc(u.varianta||'')} completat automat · import ${cuEsc(u.facturaImport||'')}${u.dataImport?` din ${fmtDate(u.dataImport)}`:''}${u.showroom?` · <b style="color:var(--amber)">e în custodie la ${cuEsc(u.showroom)}</b>`:''}`;
+};
+
 document.getElementById('vanzareForm').onsubmit = async function(e){
   e.preventDefault();
   document.getElementById('v-serieWarn').classList.remove('show');
@@ -1064,6 +1092,7 @@ document.getElementById('vanzareForm').onsubmit = async function(e){
       document.getElementById('v-serieWarn').classList.add('show');
     }
     this.reset();
+    document.getElementById('v-serie').hidden = true; document.getElementById('v-serieInfo').textContent = '';
     populateSelects();
     loadOverview();
   }catch(err){
@@ -1968,6 +1997,7 @@ async function loadAll(){
   if(CU.view !== 'form') renderCustodie();
   if(CM.view !== 'form') renderComision();
   if(PO.view !== 'form') renderComandaBokar();
+  renderVSerii();
   renderNotificari();
   cuSyncSemnari();
   document.getElementById('dealeriDatalist').innerHTML =
