@@ -622,6 +622,11 @@
         <button type="submit" class="btn btn-primary">Salvează garanția</button>
       </form>
     </div>
+    <div class="card">
+      <h2>Garanțiile mele</h2>
+      <div style="font-size:12.5px;color:var(--stone);margin:0 0 10px">Garanțiile înregistrate de tine. Poți descărca oricând din nou certificatul.</div>
+      <div id="partGarantiiList"><div class="empty">Se încarcă…</div></div>
+    </div>
   </div>
 
   <div id="tab-partIstoric" class="tab-content" style="display:none;">
@@ -1425,6 +1430,7 @@ document.getElementById('partGarantieForm').onsubmit = async function(e){
 
     document.getElementById('pgSuccess').classList.add('show');
     try{ await generareCertificatGarantiePDF(garantieData); }catch(pdfErr){ console.error('Eroare generare PDF', pdfErr); }
+    loadPartGarantii();
     this.reset();
     populateSelects();
   }catch(err){
@@ -1482,6 +1488,7 @@ async function loadPartenerView(){
   loadPartLeaduri();
   loadPartCustodie();
   loadPartComision();
+  loadPartGarantii();
   loadPartReclamatii();
 }
 
@@ -3630,6 +3637,27 @@ async function loadPartCustodie(){
 
 
 
+/* ---------- partener: „Garanțiile mele” ---------- */
+async function loadPartGarantii(){
+  const el = document.getElementById('partGarantiiList'); if(!el) return;
+  let list = [];
+  try{ const snap = await db.collection('garantii').where('inregistratDe','==',currentUser.name).get();
+    list = snap.docs.map(d => ({ id:d.id, ...d.data() })); }
+  catch(e){ console.error(e); el.innerHTML = '<div class="empty">Lista nu s-a putut încărca.</div>'; return; }
+  list.sort((a,b) => String(b.dataMontaj||'').localeCompare(String(a.dataMontaj||'')));
+  if(!list.length){ el.innerHTML = '<div class="empty">Nicio garanție înregistrată încă.</div>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto"><table><thead><tr><th>Serie</th><th>Model</th><th>Client</th><th>Montaj</th><th>Expiră</th><th></th></tr></thead><tbody>
+    ${list.map(g => `<tr><td>${cuEsc(g.serie)}</td><td>${cuEsc(g.model||'')} ${cuEsc(g.varianta||'')}</td><td>${cuEsc(g.clientNume||'')}</td>
+      <td>${g.dataMontaj?fmtDate(g.dataMontaj):''}</td><td>${g.dataExpirare?fmtDate(g.dataExpirare):''}</td>
+      <td><button class="btn btn-secondary cu-sm" type="button" data-pgcert="${cuEsc(g.id)}">Certificat PDF</button></td></tr>`).join('')}</tbody></table></div>`;
+  el.querySelectorAll('[data-pgcert]').forEach(b => b.onclick = async () => {
+    const g = list.find(x => x.id===b.dataset.pgcert); if(!g) return;
+    b.disabled = true; const t = b.textContent; b.textContent = 'Se generează…';
+    try{ await generareCertificatGarantiePDF(g); }catch(e){ console.error(e); alert('Nu am putut genera certificatul.'); }
+    b.disabled = false; b.textContent = t;
+  });
+}
+
 /* ================= CONTRACTE CADRU DE INTERMEDIERE ȘI REVÂNZARE (COMISION) =================
    Stau tot în colecția „custodii”, cu tip:'comision' (aceleași reguli de acces: adminul scrie,
    partenerul își vede contractele după dealerUid). Semnarea la distanță folosește colecția „semnari”
@@ -3731,7 +3759,7 @@ ${H('Revânzarea — discountul')}
 
 ${H('Montajul și garanția')}
 <p>${A()} Când montează, Revânzătorul execută lucrarea cu personal calificat, cu respectarea normelor tehnice și de securitate la incendiu în vigoare și a instrucțiunilor din manualul producătorului.</p>
-<p>${A()} Revânzătorul înregistrează el însuși garanția fiecărui focar BOKAR, prin formularul de garanție pus la dispoziție de Furnizor, în cel mult 5 zile de la montaj. Pentru activarea garanției de 5 ani se transmit numai seria de șasiu, modelul, data montajului și localitatea; datele de identificare ale clientului rămân la Revânzător și se comunică Furnizorului doar dacă clientul face o reclamație în garanție, în măsura necesară soluționării ei.</p>
+<p>${A()} Revânzătorul înregistrează el însuși garanția fiecărui focar BOKAR, prin formularul de garanție pus la dispoziție de Furnizor, în cel mult 5 zile de la montaj, și emite clientului certificatul de garanție. Pentru emiterea certificatului și evidența garanției de 5 ani se înregistrează seria de șasiu, modelul, data montajului și datele clientului necesare identificării titularului garanției (nume, adresă, factură). Furnizorul, în calitate de garant, folosește aceste date numai pentru administrarea garanției și soluționarea reclamațiilor.</p>
 <p>${A()} În perioada de garanție, Revânzătorul intervine la clienții săi; costul intervenției este suportat de Furnizor când defecțiunea se datorează produsului, iar de Revânzător când se datorează montajului.</p>
 
 ${H('Obligațiile Furnizorului')}
@@ -3742,7 +3770,7 @@ ${H('Obligațiile Furnizorului')}
 ${H('Conduita, confidențialitatea și datele personale')}
 <p>${A()} Revânzătorul prezintă corect produsele și nu face promisiuni privind performanțe, garanții sau termene în afara celor comunicate de Furnizor și de producător.</p>
 <p>${A()} Părțile păstrează confidențialitatea prețurilor de achiziție, a discounturilor, a procentelor de comision și a datelor despre clienți, pe durata contractului și 2 ani după încetarea lui.</p>
-<p>${A()} Fiecare parte prelucrează datele clienților ca operator independent, potrivit Regulamentului (UE) 2016/679, numai în scopul ofertării, vânzării, montajului și garanției. Revânzătorul transmite Furnizorului doar datele strict necesare scopului respectiv și informează clienții săi despre acest lucru.</p>
+<p>${A()} Fiecare parte prelucrează datele clienților ca operator independent, potrivit Regulamentului (UE) 2016/679, numai în scopul ofertării, vânzării, montajului și garanției. Revânzătorul transmite Furnizorului doar datele strict necesare scopului respectiv și informează clienții săi că datele din certificatul de garanție sunt comunicate garantului.</p>
 <p>${A()} Practicile neloiale față de alți parteneri, montajul neconform sau nerespectarea repetată a contractului pot duce la pierderea statutului de partener și la rezilierea contractului.</p>
 <p>${A()} Nivelul partenerului (${cuEsc(c.tier)}) se stabilește și se actualizează potrivit Politicii de parteneriat.${dz.zona ? ` Revânzătorul beneficiază de zonă exclusivă în ${cuEsc(dz.zona)}, în condițiile Politicii de parteneriat.` : ''}</p>
 
