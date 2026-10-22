@@ -140,6 +140,12 @@
   .btn:disabled{opacity:.5;cursor:default;}
   [hidden]{display:none!important;}
 
+  /* ---- Semnare în portal ---- */
+  .ps-modal{position:fixed;inset:0;z-index:9000;background:rgba(20,20,20,.55);overflow-y:auto;padding:16px;}
+  .ps-box{background:var(--bg-soft);max-width:820px;margin:0 auto;border-radius:12px;padding:14px;}
+  .ps-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+  .ps-pad{width:100%;height:180px;border:1.5px dashed var(--blue);border-radius:8px;background:#fff;touch-action:none;display:block;}
+
   /* ---- Notificări ---- */
   .nt-badge{display:inline-block;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;line-height:18px;text-align:center;vertical-align:1px;}
   .nt-list{display:flex;flex-direction:column;}
@@ -3733,12 +3739,13 @@ async function loadPartCustodie(){
     if(typeof CACHE!=='undefined') CACHE.custodieCfg = cfg || {};
   }catch(e){ console.error(e); showDebugError('custodii', e); }
   list.sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  await psMarkSigned(list);
   if(!list.length){ el.innerHTML = '<div class="card"><div class="empty">Nu ai contracte de custodie. Când Flamart îți lasă produse spre expunere, contractul apare aici.</div></div>'; return; }
   el.innerHTML = list.map(c => { const s = cuState(c), zv = c.zileVanz??60, ns = cuDays(cuLastBase(c)), exp = cuExpuse(c);
     return `<div class="card">
       <div class="cu-top"><h2 style="margin:0">Contract ${cuEsc(c.nr)}</h2><span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></div>
-      ${c.status==='trimis' ? `<div class="cu-linkbox"><b>Contractul așteaptă semnătura ta.</b>
-        <div class="cu-acts" style="margin-bottom:0"><a class="btn btn-primary" href="${CU_SIGN_BASE+c.token}" target="_blank" rel="noopener" style="text-decoration:none">Citește și semnează</a></div></div>` : ''}
+      ${c.status==='trimis' && !c._semnat ? `<div class="cu-linkbox"><b>Contractul așteaptă semnătura ta.</b>
+        <div class="cu-acts" style="margin-bottom:0"><button class="btn btn-primary" type="button" data-psign="${cuEsc(c.token)}">Citește și semnează</button></div></div>` : ''}${c.status==='trimis' && c._semnat ? `<div class="cu-linkbox"><b>Ai semnat contractul.</b><p style="margin:4px 0 0;font-size:12.5px;color:var(--stone)">Flamart confirmă semnătura în curând; după aceea contractul apare ca activ și îl găsești în Documente.</p></div>` : ''}
       <p style="font-size:13px;margin:0 0 10px">Showroom: <b>${cuEsc(c.dz.show)}</b> · valabil până la <b>${cuDRo(cuEnd(c))}</b>
         ${c.status==='activ' && exp.length ? ` · ${ns} ${ns===1?'zi':'zile'} fără vânzare din ${zv}` : ''}</p>
       <div style="overflow-x:auto"><table><thead><tr><th>Produs</th><th>Serie</th><th>Preț listă</th><th>Stare</th></tr></thead><tbody>
@@ -3896,6 +3903,58 @@ function ntOpened(){
     if(ch){ ntSaveSeen(); ntBadge(); } }, 4000);
 }
 
+/* ================= SEMNARE ÎN PORTAL (partener) =================
+   Folosește aceeași înregistrare din „semnari” ca linkul de semnare, deci adminul preia semnătura la fel. */
+async function psMarkSigned(list){
+  await Promise.all((list||[]).filter(c => c.status==='trimis' && c.token).map(async c => {
+    try{ const d = await db.collection('semnari').doc(c.token).get(); if(d.exists && d.data().status==='semnat') c._semnat = true; }catch(e){} }));
+}
+function psFill(html, sig, txt){ return String(html||'').replace('<!--SIGDZ-->', sig ? `<img src="${sig}" alt="Semnătura">` : '').replace(/<!--SIGDZTXT-->[\s\S]*?<!--\/SIGDZTXT-->/, txt); }
+async function psOpen(tok){
+  const m = document.createElement('div'); m.className = 'ps-modal'; m.innerHTML = '<div class="ps-box"><div class="empty">Se încarcă contractul…</div></div>';
+  document.body.appendChild(m); document.body.style.overflow = 'hidden';
+  const close = () => { m.remove(); document.body.style.overflow = ''; };
+  let D;
+  try{ const d = await db.collection('semnari').doc(tok).get(); if(!d.exists){ m.querySelector('.ps-box').innerHTML = '<div class="empty">Contractul nu mai e disponibil pentru semnare. Cere Flamart să-l retrimită.</div><button class="btn btn-secondary" id="psX" type="button">Închide</button>'; m.querySelector('#psX').onclick = close; return; } D = d.data(); }
+  catch(e){ console.error(e); m.querySelector('.ps-box').innerHTML = '<div class="empty">Contractul nu s-a putut încărca.</div><button class="btn btn-secondary" id="psX" type="button">Închide</button>'; m.querySelector('#psX').onclick = close; return; }
+  const c = D.contract || {}, dz = c.dz || {};
+  const box = m.querySelector('.ps-box');
+  if(D.status==='semnat'){ box.innerHTML = `<div class="ps-head"><b>Contract ${cuEsc(c.nr||'')}</b><button class="btn btn-secondary cu-sm" id="psX" type="button">Închide</button></div><div class="cu-linkbox"><b>Contractul e deja semnat.</b></div>`; box.querySelector('#psX').onclick = close; return; }
+  box.innerHTML = `
+    <div class="ps-head"><b>Contract ${cuEsc(c.nr||'')} · citește și semnează</b><button class="btn btn-secondary cu-sm" id="psX" type="button">Închide</button></div>
+    <div class="cu-docwrap"><article class="cdoc">${psFill(D.docHtml, '', 'Nesemnat')}</article></div>
+    <div class="card" style="margin-top:12px"><h2>Semnătura ta</h2>
+      <div class="field"><label>Numele celui care semnează</label><input type="text" id="psNm" value="${cuEsc(dz.rep||currentUser.name||'')}"></div>
+      <div class="field"><label>Semnează în chenar · <a class="cu-clr" id="psClr">șterge</a></label><canvas class="ps-pad" id="psPad"></canvas></div>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:13px;margin-top:6px"><input type="checkbox" id="psAg" style="width:20px;height:20px;flex:none"><span>Am citit contractul și sunt de acord cu el, în numele ${cuEsc(dz.firma||'firmei')}.</span></label>
+      <div id="psErr" style="color:var(--red);font-size:13px;font-weight:600;min-height:1em;margin-top:8px"></div>
+      <button class="btn btn-primary" id="psGo" type="button" style="width:100%;margin-top:6px">Semnez contractul</button></div>`;
+  box.querySelector('#psX').onclick = close;
+  const cv = box.querySelector('#psPad'), ctx = cv.getContext('2d'); let down = false, last = null, dirty = false;
+  const size = () => { const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio||1; cv.width = r.width*dpr; cv.height = r.height*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.lineWidth = 2.3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f2a55'; };
+  setTimeout(size, 30);
+  const pt = e => { const r = cv.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; };
+  cv.onpointerdown = e => { down = true; last = pt(e); cv.setPointerCapture(e.pointerId); ctx.beginPath(); ctx.arc(last.x,last.y,1.1,0,7); ctx.fillStyle = '#0f2a55'; ctx.fill(); dirty = true; };
+  cv.onpointermove = e => { if(!down) return; const q = pt(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(q.x,q.y); ctx.stroke(); last = q; };
+  cv.onpointerup = cv.onpointercancel = () => { down = false; };
+  box.querySelector('#psClr').onclick = () => { ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height); dirty = false; size(); };
+  box.querySelector('#psGo').onclick = async () => {
+    const nm = box.querySelector('#psNm').value.trim(), err = box.querySelector('#psErr');
+    if(!nm){ err.textContent = 'Scrie numele celui care semnează.'; return; }
+    if(!dirty){ err.textContent = 'Semnează în chenar.'; return; }
+    if(!box.querySelector('#psAg').checked){ err.textContent = 'Bifează că ești de acord cu contractul.'; return; }
+    const b = box.querySelector('#psGo'); b.disabled = true; b.textContent = 'Se salvează…'; err.textContent = '';
+    try{
+      await db.collection('semnari').doc(tok).update({ status:'semnat', sigDz:cv.toDataURL('image/png'), semnatar:nm,
+        dispozitiv:('Portal BOKAR · '+navigator.userAgent).slice(0,200), semnatLa:firebase.firestore.FieldValue.serverTimestamp() });
+      box.innerHTML = `<div class="ps-head"><b>Contract ${cuEsc(c.nr||'')}</b><button class="btn btn-secondary cu-sm" id="psX" type="button">Închide</button></div>
+        <div class="cu-linkbox" style="background:var(--green-bg)"><b style="color:var(--green)">Mulțumim! Contractul a fost semnat.</b><p style="margin:4px 0 0;font-size:12.5px">Flamart primește semnătura automat. După confirmare, contractul semnat apare în Documente → Contractele mele.</p></div>`;
+      box.querySelector('#psX').onclick = () => { close(); loadPartCustodie(); loadPartComision(); loadPartNotif(); };
+    }catch(e){ console.error(e); b.disabled = false; b.textContent = 'Încearcă din nou'; err.textContent = 'Semnătura nu s-a putut salva. Verifică internetul și încearcă din nou.'; }
+  };
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-psign]'); if(b){ e.preventDefault(); psOpen(b.dataset.psign); } });
+
 /* ================= NOTIFICĂRI PARTENER =================
    „De făcut” = lucruri care așteaptă o acțiune (rămân până se rezolvă).
    „Noutăți” = ce s-a întâmplat (marcate NOU până le vezi; ținute minte în acest browser). */
@@ -3914,10 +3973,11 @@ async function pnBuild(){
   const serii = new Set(garantii.map(g => String(g.serie||'').trim().toUpperCase()));
 
   // contracte de semnat
-  contracte.filter(c => c.status==='trimis' && c.token && !(c.expira && new Date(c.expira) < new Date())).forEach(c => {
-    const cm = c.tip==='comision', link = (cm ? CM_SIGN_BASE : CU_SIGN_BASE) + c.token;
+  await psMarkSigned(contracte);
+  contracte.filter(c => c.status==='trimis' && c.token && !c._semnat && !(c.expira && new Date(c.expira) < new Date())).forEach(c => {
+    const cm = c.tip==='comision';
     todo.push({ ic:'✍️', text:`<b>Ai de semnat ${cm?'contractul-cadru de comision':'contractul de custodie'} ${cuEsc(c.nr||'')}</b>`,
-      sub:`Linkul e valabil până la ${cuDRo(cuLocalDate(c.expira))}.`, act:`<a class="btn btn-primary cu-sm nt-go" href="${link}" target="_blank" rel="noopener" style="text-decoration:none">Semnează</a>` }); });
+      sub:`Poți semna aici, în portal, până la ${cuDRo(cuLocalDate(c.expira))}.`, act:`<button class="btn btn-primary cu-sm nt-go" type="button" data-psign="${cuEsc(c.token)}">Semnează</button>` }); });
 
   // garanții: produse din custodie vândute fără garanție + focare comandate fără garanție
   contracte.filter(c => c.tip!=='comision' && (c.status==='activ' || c.status==='incheiat')).forEach(c => (c.prods||[]).forEach(pr => {
@@ -4413,12 +4473,13 @@ async function loadPartComision(){
     list = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(c => cmIsCm(c) && c.status!=='ciorna');
   }catch(e){ console.error(e); showDebugError('custodii', e); }
   list.sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  await psMarkSigned(list);
   if(!list.length){ el.innerHTML = '<div class="card"><div class="empty">Nu ai încă un contract de comision. Când Flamart îți trimite contractul-cadru, îl găsești aici.</div></div>'; return; }
   el.innerHTML = list.map(c => { const s = cmState(c), r = c.r||{};
     return `<div class="card">
       <div class="cu-top"><h2 style="margin:0">Contract-cadru ${cuEsc(c.nr)}</h2><span class="cu-pill ${s.cls}">${cuEsc(s.t)}</span></div>
-      ${c.status==='trimis' ? `<div class="cu-linkbox"><b>Contractul așteaptă semnătura ta.</b>
-        <div class="cu-acts" style="margin-bottom:0"><a class="btn btn-primary" href="${CM_SIGN_BASE+c.token}" target="_blank" rel="noopener" style="text-decoration:none">Citește și semnează</a></div></div>` : ''}
+      ${c.status==='trimis' && !c._semnat ? `<div class="cu-linkbox"><b>Contractul așteaptă semnătura ta.</b>
+        <div class="cu-acts" style="margin-bottom:0"><button class="btn btn-primary" type="button" data-psign="${cuEsc(c.token)}">Citește și semnează</button></div></div>` : ''}${c.status==='trimis' && c._semnat ? `<div class="cu-linkbox"><b>Ai semnat contractul.</b><p style="margin:4px 0 0;font-size:12.5px;color:var(--stone)">Flamart confirmă semnătura în curând; după aceea contractul apare ca activ și îl găsești în Documente.</p></div>` : ''}
       <div style="overflow-x:auto"><table><thead><tr><th>Situație</th><th>Procent</th></tr></thead><tbody>
         ${CM_RATE_ROWS.map(x => `<tr><td>${x.t}</td><td>${cmPct(r[x.k])}</td></tr>`).join('')}</tbody></table></div>
       <p style="font-size:12px;color:var(--stone);margin:10px 0 0">Comisionul se calculează la valoarea fără TVA facturată clientului, după ce clientul plătește integral. Flamart îți comunică suma, iar tu emiți factura prin e-Factura${c.dz&&c.dz.tva==='da'?' cu TVA':', fără TVA'}. Anunță Flamart în scris fiecare ofertă, altfel vânzarea nu dă drept la comision.</p>
