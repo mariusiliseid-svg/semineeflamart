@@ -2442,7 +2442,11 @@ document.getElementById('contDealerForm').onsubmit = async function(e){
     const uid = cred.user.uid;
     await a2.signOut();
     await db.collection('roles').doc(uid).set({ role:'partener', name:nume, updatedAt:new Date().toISOString() });
-    await db.collection('parteneriConturi').doc(uid).set({ nume, email, uid, activ:true, creat:new Date().toISOString() });
+    const cont = { nume, email, uid, activ:true, creat:new Date().toISOString() };
+    if(cpSursa && String(cpSursa.email||'').trim().toLowerCase()===email)
+      cont.firmaDate = { firma:cpSursa.firma||'', cui:cpSursa.cui||'', rep:cpSursa.nume||'', tel:cpSursa.telefon||'', mail:cpSursa.email||'', judet:cpSursa.judet||'' };
+    await db.collection('parteneriConturi').doc(uid).set(cont);
+    cpSursa = null;
     // dacă exista un cont vechi cu același nume, îl ștergem (parola veche nu mai rămâne stocată)
     for(const v of existente.filter(c => !c.uid && String(c.nume).trim().toLowerCase() === nume.toLowerCase())){
       await db.collection('parteneriConturi').doc(v.id).delete();
@@ -2762,6 +2766,7 @@ async function backfillGarantiiPublice(){
     catch(e){ console.error('publicare garanție', g.serie, e); }
   }
 }
+let cpSursa = null;   // cererea bokar.ro din care se creează contul
 function renderCereriParteneriat(){
   const el = document.getElementById('cereriPartRoot'); if(!el) return;
   const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
@@ -2775,7 +2780,7 @@ function renderCereriParteneriat(){
       <td style="white-space:nowrap"><button class="btn btn-secondary cu-sm" type="button" data-cpcont="${esc(c.id)}">Creează cont</button>
         <button class="btn btn-secondary cu-sm" type="button" data-cpok="${esc(c.id)}">Rezolvat</button></td></tr>`).join('')}
     </tbody></table></div></div>`;
-  el.querySelectorAll('[data-cpcont]').forEach(b => b.onclick = () => { const c = noi.find(x => x.id===b.dataset.cpcont);
+  el.querySelectorAll('[data-cpcont]').forEach(b => b.onclick = () => { const c = noi.find(x => x.id===b.dataset.cpcont); cpSursa = c;
     document.getElementById('ct-nume').value = c.firma; document.getElementById('ct-email').value = c.email||'';
     document.getElementById('ct-parola').focus(); document.getElementById('contDealerForm').scrollIntoView({ behavior:'smooth', block:'center' }); });
   el.querySelectorAll('[data-cpok]').forEach(b => b.onclick = async () => {
@@ -2983,6 +2988,29 @@ function imOpenFromStoc(unitId){
     if(tr){ tr.scrollIntoView({ block:'center', behavior:'smooth' }); tr.style.background = 'var(--amber-bg)'; setTimeout(() => tr.style.background = '', 2500); } }, 60);
 }
 
+
+/* Datele firmei unui partener, pentru precompletarea contractelor:
+   întâi din contul lui (parteneriConturi.firmaDate), apoi din cererea de parteneriat de pe bokar.ro (după e-mail). */
+function partnerCompanyData(p){
+  if(!p) return {};
+  const fd = p.firmaDate || {};
+  const em = String(p.email||'').trim().toLowerCase();
+  const cr = (CACHE.cereriParteneriat||[]).filter(x => em && String(x.email||'').trim().toLowerCase()===em)
+    .sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')))[0] || {};
+  const pick = (...v) => v.find(x => x!=null && String(x).trim()!=='') || '';
+  return { firma:pick(fd.firma, cr.firma, p.nume), cui:pick(fd.cui, cr.cui), rc:pick(fd.rc), sediu:pick(fd.sediu),
+    rep:pick(fd.rep, cr.nume), tel:pick(fd.tel, cr.telefon), mail:pick(fd.mail, p.email, cr.email), judet:pick(fd.judet, cr.judet) };
+}
+function saveFirmaDate(c){
+  if(!c.dealerUid || !c.dz) return;
+  const d = {}; ['firma','cui','rc','sediu','rep','fct','tel','mail'].forEach(k => { if(c.dz[k]) d[k] = c.dz[k]; });
+  db.collection('parteneriConturi').doc(c.dealerUid).set({ firmaDate:d }, { merge:true }).catch(e => console.error('date firmă partener', e));
+}
+/* completează doar câmpurile goale din c.dz */
+function fillDzFromPartner(c, p){
+  const d = partnerCompanyData(p);
+  ['firma','cui','rc','sediu','rep','tel','mail'].forEach(k => { if(!String(c.dz[k]||'').trim() && d[k]) c.dz[k] = d[k]; });
+}
 
 /* ================= CONTRACTE DE CUSTODIE =================
    Contractele stau în colecția „custodii”. Semnarea la distanță folosește colecția „semnari”
@@ -3329,9 +3357,10 @@ function cuRenderForm(el){
   document.getElementById('cuDealer').onchange = e => {
     const uid = e.target.value; const p = partners.find(x => x.uid===uid);
     c.dealerUid = uid; c.dealerName = p ? p.nume : '';
-    if(p){ const prev = (CACHE.custodii||[]).filter(x => x.tip!=='comision' && x.dealerUid===uid && x.id!==c.id).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')))[0];
-      if(prev){ c.dz = JSON.parse(JSON.stringify(prev.dz)); c.tier = prev.tier || c.tier; }
-      else if(!c.dz.firma){ c.dz.firma = p.nume; c.dz.mail = c.dz.mail || p.email; } }
+    if(p){ const prev = (CACHE.custodii||[]).filter(x => x.dealerUid===uid && x.id!==c.id && x.dz).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')))[0];
+      if(prev){ ['firma','cui','rc','sediu','rep','fct','tel','mail'].forEach(k => { if(prev.dz[k]) c.dz[k] = prev.dz[k]; });
+        if(prev.tip!=='comision' && prev.dz.show) c.dz.show = prev.dz.show; c.tier = prev.tier || c.tier; }
+      fillDzFromPartner(c, p); }
     cuCollect(); cuRenderForm(el);
   };
   document.getElementById('cuBack').onclick = () => cuGo('list', { cur:null });
@@ -3430,6 +3459,7 @@ async function cuFinalize(){
     }
     await ref.set(cuPlain(c));
     await cuSyncUnits(c);
+    saveFirmaDate(c);
     CU.cur = null; CU.view = 'detail'; CU.openId = c.id;
     await loadAll();
   }catch(e){ console.error(e); cuErr('Contractul nu s-a putut salva. Verifică conexiunea și încearcă din nou.'); btn.disabled = false; btn.textContent = 'Încearcă din nou'; }
@@ -3947,7 +3977,7 @@ function cmRenderForm(el){
     if(p){ const prev = (CACHE.custodii||[]).filter(x => x.dealerUid===uid && x.id!==c.id && x.dz).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')))[0];
       if(prev){ ['firma','cui','rc','sediu','rep','fct','tel','mail'].forEach(k => { if(prev.dz[k]) c.dz[k] = prev.dz[k]; });
         ['iban','banca','tva','forma','zona'].forEach(k => { if(prev.dz[k]!=null && cmIsCm(prev)) c.dz[k] = prev.dz[k]; }); c.tier = prev.tier || c.tier; }
-      else if(!c.dz.firma){ c.dz.firma = p.nume; c.dz.mail = c.dz.mail || p.email; } }
+      fillDzFromPartner(c, p); }
     cmCollect(); cmRenderForm(el);
   };
   document.getElementById('cmBack').onclick = () => cmGo('list', { cur:null });
@@ -4017,6 +4047,7 @@ async function cmFinalize(){
       c.status = 'activ'; c.signedAt = new Date().toISOString(); c.sigDepAt = c.signedAt; c.remote = false;
     }
     await ref.set(cuPlain(c));
+    saveFirmaDate(c);
     CM.cur = null; CM.view = 'detail'; CM.openId = c.id;
     await loadAll();
   }catch(e){ console.error(e); cmErr('Contractul nu s-a putut salva. Verifică conexiunea și încearcă din nou.'); btn.disabled = false; btn.textContent = 'Încearcă din nou'; }
