@@ -150,6 +150,8 @@
   .nt-new{display:inline-block;font-size:9.5px;font-weight:800;color:#fff;background:var(--red);border-radius:4px;padding:1px 5px;margin-right:6px;letter-spacing:.06em;vertical-align:1px;}
   .nt-t{flex:1;min-width:0;font-size:13.5px;line-height:1.45;}
   .nt-t small{display:block;color:var(--stone);font-size:12px;margin-top:2px;}
+  .pn-todo{border-left:4px solid var(--red);}
+  .pn-todo .nt-item{padding:12px 4px;}
   .nt-day{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--stone);margin:16px 0 2px;}
   .nt-go{flex:none;font-size:12px;}
 
@@ -266,6 +268,7 @@
 </div>
 <div id="partenerNav" class="tabs" style="display:none;">
   <button class="tab-btn active" data-tab="partAdauga">Adaugă ofertă</button>
+  <button class="tab-btn" data-tab="partNotif" id="pnTab">Notificări</button>
   <button class="tab-btn" data-tab="partCerere">Cerere comandă</button>
   <button class="tab-btn" data-tab="partGarantie">Înregistrează garanție</button>
   <button class="tab-btn" data-tab="partIstoric">Istoricul meu</button>
@@ -557,6 +560,10 @@
   </div>
 
   <!-- ============ PARTENER (fost coleg + dealer) ============ -->
+  <div id="tab-partNotif" class="tab-content" style="display:none;">
+    <div id="partNotifRoot"><div class="empty">Se încarcă…</div></div>
+  </div>
+
   <div id="tab-partAdauga" class="tab-content" style="display:none;">
     <div class="card">
       <h2>Ofertă nouă</h2>
@@ -1515,6 +1522,7 @@ async function loadPartenerView(){
   loadPartCustodie();
   loadPartComision();
   loadPartContracte();
+  loadPartNotif();
   loadPartGarantii();
   loadPartReclamatii();
 }
@@ -1768,6 +1776,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
     document.getElementById('tab-'+btn.dataset.tab).style.display='block';
     if(btn.dataset.tab==='notificari') ntOpened();
+    if(btn.dataset.tab==='partNotif') pnOpened();
   };
 });
 
@@ -3885,6 +3894,99 @@ function ntOpened(){
   clearTimeout(ntTimer);
   ntTimer = setTimeout(() => { if(!NT.seen) return; let ch = false; NT.items.forEach(x => { if(!NT.seen.has(x.key)){ NT.seen.add(x.key); ch = true; } });
     if(ch){ ntSaveSeen(); ntBadge(); } }, 4000);
+}
+
+/* ================= NOTIFICĂRI PARTENER =================
+   „De făcut” = lucruri care așteaptă o acțiune (rămân până se rezolvă).
+   „Noutăți” = ce s-a întâmplat (marcate NOU până le vezi; ținute minte în acest browser). */
+let PN = { todo:[], news:[], seen:null };
+const PN_ZILE = 45;
+function pnGoBtn(tab, label){ return `<button class="btn btn-secondary cu-sm nt-go" type="button" data-pngo="${tab}">${label||'Deschide'}</button>`; }
+async function pnBuild(){
+  const me = currentUser.name, uid = currentUser.uid, today = cuToday();
+  const daysAgo = d => cuDays(String(d||today).slice(0,10), today);
+  const q = async (coll, f, v) => { try{ const sn = await db.collection(coll).where(f,'==',v).get(); return sn.docs.map(d => ({ id:d.id, ...d.data() })); }catch(e){ console.error(coll, e); return []; } };
+  const [oferte, comenzi, leaduri, contracte, garantii, recl] = await Promise.all([
+    safeGetAll('oferte'), safeGetAll('dealeriComenzi'), safeGetAll('leaduri'),
+    q('custodii','dealerUid',uid), q('garantii','inregistratDe',me), q('reclamatii','createdBy',uid) ]);
+  const todo = [], news = [];
+  const mv = x => `${x.model||''}${x.varianta?' '+x.varianta:''}`.trim();
+  const serii = new Set(garantii.map(g => String(g.serie||'').trim().toUpperCase()));
+
+  // contracte de semnat
+  contracte.filter(c => c.status==='trimis' && c.token && !(c.expira && new Date(c.expira) < new Date())).forEach(c => {
+    const cm = c.tip==='comision', link = (cm ? CM_SIGN_BASE : CU_SIGN_BASE) + c.token;
+    todo.push({ ic:'✍️', text:`<b>Ai de semnat ${cm?'contractul-cadru de comision':'contractul de custodie'} ${cuEsc(c.nr||'')}</b>`,
+      sub:`Linkul e valabil până la ${cuDRo(cuLocalDate(c.expira))}.`, act:`<a class="btn btn-primary cu-sm nt-go" href="${link}" target="_blank" rel="noopener" style="text-decoration:none">Semnează</a>` }); });
+
+  // garanții: produse din custodie vândute fără garanție + focare comandate fără garanție
+  contracte.filter(c => c.tip!=='comision' && (c.status==='activ' || c.status==='incheiat')).forEach(c => (c.prods||[]).forEach(pr => {
+    const sr = String(pr.s||'').trim().toUpperCase();
+    if((pr.stare||'expus')==='vandut' && sr && sr!=='—' && !serii.has(sr)){
+      const z = daysAgo(pr.dataStare), rest = MAX_ZILE_INREGISTRARE - z;
+      todo.push({ ic:'🛡️', text:`<b>Înregistrează garanția</b> pentru ${cuEsc(pr.m)}, seria ${cuEsc(pr.s)}`,
+        sub:`Vândut din showroom pe ${cuDRo(pr.dataStare)}.${rest>0?` Mai ai ${rest} zile.`:' Termenul de 60 de zile a trecut, anunță Flamart.'}`, act:pnGoBtn('partGarantie','Înregistrează') }); } }));
+  const aprobate = comenzi.filter(c => c.dealer===me && (c.status||'aprobata')==='aprobata' && daysAgo(c.data) >= 7);
+  const bucComandate = aprobate.reduce((a,c) => a + (Number(c.cantitate)||1), 0);
+  const faraGar = bucComandate - garantii.length;
+  if(faraGar > 0) todo.push({ ic:'🛡️', text:`<b>${faraGar} ${faraGar===1?'focar comandat nu are':'focare comandate nu au'} încă garanția înregistrată</b>`,
+    sub:`După montaj, înregistrează garanția cu seria de șasiu în cel mult ${MAX_ZILE_INREGISTRARE} de zile. Dacă focarul e încă pe stoc la tine, ignoră mesajul.`, act:pnGoBtn('partGarantie','Înregistrează') });
+
+  // lead-uri preluate fără rezultat
+  leaduri.filter(l => l.preluatDe===me && l.status==='preluat' && daysAgo(l.dataPreluare) >= 7).forEach(l =>
+    todo.push({ ic:'🎯', text:`<b>Actualizează lead-ul</b> ${cuEsc(l.nume||'')}${l.judet?` (${cuEsc(l.judet)})`:''}`,
+      sub:`Preluat acum ${daysAgo(l.dataPreluare)} zile. Marchează-l câștigat sau pierdut.`, act:pnGoBtn('partLeaduri') }));
+
+  // custodie: expirare și zile fără vânzare
+  contracte.filter(c => c.tip!=='comision' && c.status==='activ').forEach(c => {
+    const left = cuDays(today, cuEnd(c));
+    if(left >= 0 && left <= 30) todo.push({ ic:'⏳', text:`<b>Contractul de custodie ${cuEsc(c.nr)} expiră în ${left} ${left===1?'zi':'zile'}</b>`, sub:`Valabil până la ${cuDRo(cuEnd(c))}. Discută cu Flamart prelungirea.`, act:pnGoBtn('partCustodie') });
+    const zv = c.zileVanz??60, ns = cuDays(cuLastBase(c));
+    if(cuExpuse(c).length && ns >= zv-10) todo.push({ ic:'📉', text:`<b>${ns} zile fără vânzare</b> în custodia ${cuEsc(c.nr)}`,
+      sub:`La ${zv} de zile, Flamart poate retrage produsele. Ai vândut ceva? Înregistrează garanția și anunță Flamart.`, act:pnGoBtn('partCustodie') }); });
+
+  // NOUTĂȚI
+  const lim = cuLocalDate(new Date(Date.now()-PN_ZILE*864e5));
+  const addN = (key, ic, date, text, sub, tab) => { const d = String(date||'').slice(0,10); if(d && d >= lim) news.push({ key, ic, date:d, text, sub, tab }); };
+  comenzi.filter(c => c.dealer===me && (c.status==='aprobata' || c.status==='respinsa')).forEach(c =>
+    addN(`co-${c.id}-${c.status}`, c.status==='aprobata'?'✅':'❌', c.data, `Cererea de comandă pentru ${cuEsc(c.cantitate||1)} × ${cuEsc(mv(c))} a fost <b>${c.status==='aprobata'?'aprobată':'respinsă'}</b>`, c.nota?cuEsc(c.nota):'', 'partIstoric'));
+  const mele = oferte.filter(o => o.coleg===me && o.tel5);
+  mele.forEach(o => { const alt = oferte.find(x => x.id!==o.id && x.coleg!==me && x.judet===o.judet && x.tel5===o.tel5 && Math.abs(cuDays(x.data, o.data)) <= 30);
+    if(alt) addN(`cx-${o.id}`, '⚔️', alt.data > o.data ? alt.data : o.data, `<b>Contraofertare:</b> clientul tău din ${cuEsc(o.judet)} (tel. …${cuEsc(o.tel5)}) a primit ofertă și de la alt partener`,
+      `Oferta ta: ${cuEsc(mv(o))}, ${fmtDate(o.data)}. Discută cu Flamart înainte să modifici prețul.`, 'partIstoric'); });
+  leaduri.filter(l => l.status==='nou').forEach(l => addN(`ld-${l.id}`, '🎯', l.data, `<b>Lead nou disponibil</b>${l.judet?` în ${cuEsc(l.judet)}`:''}${l.interes?`: ${cuEsc(l.interes)}`:''}`, 'Primul care îl preia îl primește.', 'partLeaduri'));
+  recl.filter(r => r.status && r.status!=='nou').forEach(r => { const st = (RC_STATUS[r.status]||[r.status])[0];
+    addN(`rc-${r.id}-${r.status}${r.raspuns?'-r':''}`, '⚠️', r.dataTrimitere || r.created, `${r.tip==='feedback'?'Feedback-ul':'Reclamația'} ${cuEsc(r.nr||'')} are statusul <b>${cuEsc(st)}</b>`, r.raspuns ? `Răspuns: ${cuEsc(r.raspuns)}` : `Seria ${cuEsc(r.serie||'')}`, 'partReclamatii'); });
+  contracte.filter(c => c.status==='activ' && c.signedAt).forEach(c => addN(`cs-${c.id}`, '📄', c.signedAt, `${c.tip==='comision'?'Contractul-cadru':'Contractul de custodie'} ${cuEsc(c.nr||'')} e semnat de ambele părți`, 'Îl găsești în Documente → Contractele mele.', 'partDocumente'));
+  news.sort((a,b) => b.date.localeCompare(a.date));
+  return { todo, news };
+}
+function pnSeen(){ if(!PN.seen){ let a = []; try{ a = JSON.parse(localStorage.getItem('bokarPnSeen')||'null'); }catch(e){ a = null; } PN.seen = a ? new Set(a) : null; } return PN.seen; }
+function pnSaveSeen(){ try{ localStorage.setItem('bokarPnSeen', JSON.stringify([...PN.seen].filter(k => PN.news.some(x => x.key===k)))); }catch(e){} }
+function pnBadge(){
+  const n = PN.todo.length + PN.news.filter(x => !PN.seen.has(x.key)).length, b = document.getElementById('pnTab');
+  if(b) b.innerHTML = `Notificări${n?`<span class="nt-badge">${n>99?'99+':n}</span>`:''}`;
+}
+async function loadPartNotif(){
+  const el = document.getElementById('partNotifRoot'); if(!el) return;
+  const r = await pnBuild(); PN.todo = r.todo; PN.news = r.news;
+  if(!pnSeen()){ PN.seen = new Set(PN.news.map(x => x.key)); pnSaveSeen(); }   // prima deschidere: istoricul nu apare ca nou
+  pnBadge();
+  let last = '';
+  el.innerHTML = `
+    <div class="card pn-todo"><h2 style="margin:0 0 6px">De făcut ${PN.todo.length?`<span class="nt-badge">${PN.todo.length}</span>`:''}</h2>
+      ${PN.todo.length ? `<div class="nt-list">${PN.todo.map(x => `<div class="nt-item"><div class="nt-ic">${x.ic}</div><div class="nt-t">${x.text}<small>${x.sub}</small></div>${x.act||''}</div>`).join('')}</div>`
+        : '<div class="empty">Nimic de făcut acum. 👍</div>'}</div>
+    <div class="card"><h2 style="margin:0 0 6px">Noutăți</h2>
+      ${PN.news.length ? `<div class="nt-list">${PN.news.map(x => { const d = x.date!==last ? `<div class="nt-day">${ntDay(x.date)}</div>` : ''; last = x.date;
+        return `${d}<div class="nt-item ${PN.seen.has(x.key)?'':'new'}"><div class="nt-ic">${x.ic}</div><div class="nt-t">${x.text}<small>${PN.seen.has(x.key)?'':'<span class="nt-new">NOU</span>'}${x.sub}</small></div>${pnGoBtn(x.tab)}</div>`; }).join('')}</div>`
+        : `<div class="empty">Nicio noutate în ultimele ${PN_ZILE} de zile.</div>`}</div>`;
+  el.querySelectorAll('[data-pngo]').forEach(b => b.onclick = () => { const tb = document.querySelector(`#partenerNav .tab-btn[data-tab="${b.dataset.pngo}"]`); if(tb) tb.click(); window.scrollTo({ top:0, behavior:'smooth' }); });
+}
+let pnTimer = null;
+function pnOpened(){
+  clearTimeout(pnTimer);
+  pnTimer = setTimeout(() => { if(!PN.seen) return; let ch = false; PN.news.forEach(x => { if(!PN.seen.has(x.key)){ PN.seen.add(x.key); ch = true; } }); if(ch){ pnSaveSeen(); pnBadge(); } }, 4000);
 }
 
 /* ================= CONTRACTE CADRU DE INTERMEDIERE ȘI REVÂNZARE (COMISION) =================
