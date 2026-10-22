@@ -147,6 +147,9 @@
   .ps-pad{width:100%;height:180px;border:1.5px dashed var(--blue);border-radius:8px;background:#fff;touch-action:none;display:block;}
 
   /* ---- Notificări ---- */
+  .bell{margin-left:auto;position:relative;background:none;border:0;color:#ddd;cursor:pointer;padding:6px 8px;border-radius:8px;display:flex;align-items:center;}
+  .bell:hover,.bell.on{background:#444;color:#fff;}
+  .bell-cnt{position:absolute;top:0;right:0;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--red);color:#fff;font-size:10.5px;font-weight:800;line-height:17px;text-align:center;}
   .nt-badge{display:inline-block;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;line-height:18px;text-align:center;vertical-align:1px;}
   .nt-list{display:flex;flex-direction:column;}
   .nt-item{display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-bottom:1px solid var(--line);}
@@ -254,15 +257,18 @@
   <h1>BOKAR — Dashboard Central</h1>
   <div class="sub">Tot ce mișcă în business, dintr-un singur loc</div>
 </div>
-<div class="toolbar" id="sessionBar" style="display:none;background:#333;padding:8px 20px;">
+<div class="toolbar" id="sessionBar" style="display:none;background:#333;padding:8px 20px;align-items:center;flex-wrap:wrap;">
   <span id="sessionLabel" style="font-size:12.5px;color:#ccc;"></span>
   <a id="passLink" style="color:#999;font-size:12px;cursor:pointer;margin-left:14px;">Schimbă parola</a>
   <a id="logoutLink" style="color:#999;font-size:12px;cursor:pointer;margin-left:14px;">Ieși din cont</a>
+  <button id="bellBtn" class="bell" type="button" aria-label="Notificări" title="Notificări">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    <span class="bell-cnt" id="bellCnt" hidden></span></button>
 </div>
 
 <div id="adminNav" class="tabs" style="display:none;">
   <button class="tab-btn active" data-tab="overview">Prezentare generală</button>
-  <button class="tab-btn" data-tab="notificari" id="ntTab">Notificări</button>
+  <button class="tab-btn" data-tab="notificari" id="ntTab" hidden>Notificări</button>
   <button class="tab-btn" data-tab="profituri">Profituri</button>
   <button class="tab-btn" data-tab="dealeri">Dealeri</button>
   <button class="tab-btn" data-tab="oferte">Oferte &amp; contraoferte</button>
@@ -274,7 +280,7 @@
 </div>
 <div id="partenerNav" class="tabs" style="display:none;">
   <button class="tab-btn active" data-tab="partAdauga">Adaugă ofertă</button>
-  <button class="tab-btn" data-tab="partNotif" id="pnTab">Notificări</button>
+  <button class="tab-btn" data-tab="partNotif" id="pnTab" hidden>Notificări</button>
   <button class="tab-btn" data-tab="partCerere">Cerere comandă</button>
   <button class="tab-btn" data-tab="partGarantie">Înregistrează garanție</button>
   <button class="tab-btn" data-tab="partIstoric">Istoricul meu</button>
@@ -1781,6 +1787,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
     document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+    document.getElementById('bellBtn').classList.toggle('on', btn.dataset.tab==='notificari' || btn.dataset.tab==='partNotif');
     if(btn.dataset.tab==='notificari') ntOpened();
     if(btn.dataset.tab==='partNotif') pnOpened();
   };
@@ -3802,6 +3809,12 @@ async function loadPartGarantii(){
   });
 }
 
+function bellSet(n){ const c = document.getElementById('bellCnt'); if(!c) return; c.hidden = !n; c.textContent = n>99 ? '99+' : n; }
+document.getElementById('bellBtn').onclick = () => {
+  const tb = document.getElementById(currentUser.role==='admin' ? 'ntTab' : 'pnTab'); if(tb) tb.click();
+  window.scrollTo({ top:0, behavior:'smooth' });
+};
+
 /* ================= NOTIFICĂRI (activitatea partenerilor) =================
    Se calculează din datele existente; nu scriu nimic în colecțiile partenerilor.
    Ce a văzut adminul se ține în config/notificari (câmpul seen.<uid> = lista cheilor văzute). */
@@ -3853,7 +3866,7 @@ async function ntSaveSeen(){
 }
 function ntBadge(){
   const n = NT.items.filter(x => !NT.seen.has(x.key)).length, b = document.getElementById('ntTab');
-  if(b) b.innerHTML = `Notificări${n?`<span class="nt-badge">${n>99?'99+':n}</span>`:''}`;
+  bellSet(n);
   return n;
 }
 async function renderNotificari(){
@@ -4025,7 +4038,7 @@ function pnSeen(){ if(!PN.seen){ let a = []; try{ a = JSON.parse(localStorage.ge
 function pnSaveSeen(){ try{ localStorage.setItem('bokarPnSeen', JSON.stringify([...PN.seen].filter(k => PN.news.some(x => x.key===k)))); }catch(e){} }
 function pnBadge(){
   const n = PN.todo.length + PN.news.filter(x => !PN.seen.has(x.key)).length, b = document.getElementById('pnTab');
-  if(b) b.innerHTML = `Notificări${n?`<span class="nt-badge">${n>99?'99+':n}</span>`:''}`;
+  bellSet(n);
 }
 async function loadPartNotif(){
   const el = document.getElementById('partNotifRoot'); if(!el) return;
