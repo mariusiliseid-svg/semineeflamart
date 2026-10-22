@@ -4139,8 +4139,9 @@ async function poSave(silent){
   try{
     if(!c.nr) c.nr = await poNextNr();
     const ref = c.id ? db.collection('comenziBokar').doc(c.id) : db.collection('comenziBokar').doc();
-    c.id = ref.id; c.created = c.created || new Date().toISOString(); c.updated = new Date().toISOString(); c.createdBy = c.createdBy || currentUser.uid;
+    c.created = c.created || new Date().toISOString(); c.updated = new Date().toISOString(); c.createdBy = c.createdBy || currentUser.uid;
     const o = JSON.parse(JSON.stringify(c)); delete o.id; await ref.set(o);
+    c.id = ref.id;   // doar după ce s-a salvat efectiv
     try{ localStorage.removeItem(poKey); }catch(e){}
     if(!silent){ alert(`Comanda ${c.nr} a fost salvată.`); poGo('form', { cur:c }); }
     return true;
