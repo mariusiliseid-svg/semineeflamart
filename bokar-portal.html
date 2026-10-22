@@ -3113,7 +3113,8 @@ function fillDzFromPartner(c, p){
    și pagina de semnare de pe bokar-custodie.netlify.app (același format de link ca până acum).
    Produsele alese din stoc („unitati”) primesc câmpurile showroom + custodieId cât timp sunt expuse. */
 const CU_FIRME = [
-  { n:'FLAMART PROJECT SRL', s:'Flamart Project', cui:'47523170', adr:'Str. Carpați nr. 5, Municipiul Bacău, Județul Bacău' },
+  { n:'FLAMART PROJECT SRL', s:'Flamart Project', cui:'47523170', adr:'Str. Carpați nr. 5, Municipiul Bacău, Județul Bacău',
+    rc:'J04/149/2023', iban:'RO79BTRLRONCRT0CK3984701', banca:'Banca Transilvania', tel:'0757 355 813', mail:'contact@flamart.ro' },
   { n:'DOVENT PROJECT SRL', s:'Dovent Project', cui:'55246453', adr:'Strada Carpați, Nr. 5, Sc. C, Ap. 4, Municipiul Bacău, Județul Bacău' },
   { n:'FOCARESTI SRL', s:'Focărești', cui:'50073092', adr:'Str. Prietenie nr. 37, Sat Pădureni, Com. Filipești, Jud. Bacău' }
 ];
@@ -3132,7 +3133,8 @@ function cuAddMonths(iso,n){ if(!iso) return ''; const d = new Date(iso+'T12:00:
 function cuDays(fromIso,toIso){ const a = new Date(String(fromIso).slice(0,10)+'T12:00:00'), b = new Date((toIso||cuToday())+'T12:00:00'); return Math.round((b-a)/864e5); }
 function cuCfg(){ return Object.assign({ serie:'CUS', next:1, logo:'', firme:[{},{},{}] }, (typeof CACHE!=='undefined' && CACHE.custodieCfg) || {}); }
 function cuFirm(i){ const f = CU_FIRME[i]||CU_FIRME[0], o = (cuCfg().firme||[])[i]||{};
-  return { n:o.n||f.n, s:f.s, cui:o.cui||f.cui, adr:o.adr||f.adr, rc:o.rc||'', rep:o.rep||'', fct:o.fct||'Administrator' }; }
+  return { n:o.n||f.n, s:f.s, cui:o.cui||f.cui, adr:o.adr||f.adr, rc:o.rc||f.rc||'', rep:o.rep||'', fct:o.fct||'Administrator',
+    iban:o.iban||f.iban||'', banca:o.banca||f.banca||'', tel:o.tel||f.tel||'', mail:o.mail||f.mail||'' }; }
 const cuMon = c => c.moneda==='RON' ? 'lei' : '€';
 const cuTotal = c => (c.prods||[]).reduce((a,p)=>a+(+p.q||0)*(+p.p||0),0);
 const cuEnd = c => cuAddMonths(c.data, c.durata);
@@ -3192,7 +3194,7 @@ function cuBuildDoc(c, opt){
 ${H('Părțile contractante')}
 <div class="parties">
  <div class="party"><h4>Deponent</h4><div class="n">${cuEsc(F.n)}</div>
-  Sediul: ${cuEsc(F.adr)}<br>CUI ${cuEsc(F.cui)} · Reg. Com. ${B(c.depRc)}<br>Reprezentant: ${B(c.depRep)}, ${B(c.depFct)}</div>
+  Sediul: ${cuEsc(F.adr)}<br>CUI ${cuEsc(F.cui)} · Reg. Com. ${B(c.depRc||F.rc)}<br>Cont: ${B(F.iban)}${F.banca?`, ${cuEsc(F.banca)}`:''}${F.tel||F.mail?`<br>Tel. ${cuEsc(F.tel||'—')} · ${cuEsc(F.mail||'—')}`:''}<br>Reprezentant: ${B(c.depRep)}, ${B(c.depFct)}</div>
  <div class="party"><h4>Depozitar · partener ${cuEsc(c.tier)}</h4><div class="n">${B(c.dz.firma)}</div>
   Sediul: ${B(c.dz.sediu)}<br>CUI ${B(c.dz.cui)} · Reg. Com. ${B(c.dz.rc)}<br>Reprezentant: ${B(c.dz.rep)}, ${B(c.dz.fct)}<br>Tel. ${B(c.dz.tel)} · ${B(c.dz.mail)}</div>
 </div>
@@ -3390,7 +3392,8 @@ function cuRenderForm(el){
     <div id="cuErr" class="warning-banner"></div>
     <div class="card"><h2>1. Emitent și durată</h2>
       <div class="field"><label>Firma care predă marfa</label>
-        <div class="cu-seg" id="cuDep">${CU_FIRME.map((f,i)=>`<button type="button" data-dep="${i}" aria-pressed="${c.dep===i}">${cuEsc(f.s)}<small>CUI ${cuEsc(cuFirm(i).cui)}</small></button>`).join('')}</div></div>
+        <div class="cu-seg" id="cuDep">${CU_FIRME.map((f,i)=>`<button type="button" data-dep="${i}" aria-pressed="${c.dep===i}">${cuEsc(f.s)}<small>CUI ${cuEsc(cuFirm(i).cui)}</small></button>`).join('')}</div>${(() => { const F = cuFirm(c.dep), lip = [['rc','Reg. Com.'],['iban','IBAN'],['rep','reprezentantul']].filter(([k]) => !F[k]).map(x => x[1]);
+        return lip.length ? `<div style="font-size:12px;color:var(--amber);font-weight:600;margin-top:4px">Lipsesc datele firmei ${cuEsc(F.s)}: ${lip.join(', ')}. Completează-le în Contracte custodie → Setări contract.</div>` : ''; })()}</div>
       <div class="field-row"><div class="field"><label>Reprezentant</label>${inp('depRep')}</div><div class="field"><label>Funcția</label>${inp('depFct')}</div></div>
       <div class="field-row"><div class="field"><label>Data</label>${inp('data','date')}</div>
         <div class="field"><label>Durata (luni)</label>${inp('durata','number','min="1"')}</div>
@@ -3712,7 +3715,11 @@ function cuRenderSetari(el){
         <div class="field"><label>Nr. Reg. Com.</label><input id="cs_rc${i}" value="${cuEsc(d.rc)}" placeholder="J04/…/…"></div></div>
       <div class="field"><label>Sediul social</label><input id="cs_adr${i}" value="${cuEsc(d.adr)}"></div>
       <div class="field-row"><div class="field"><label>Reprezentant</label><input id="cs_rep${i}" value="${cuEsc(d.rep)}"></div>
-        <div class="field"><label>Funcția</label><input id="cs_fct${i}" value="${cuEsc(d.fct)}"></div></div></div>`; }).join('')}
+        <div class="field"><label>Funcția</label><input id="cs_fct${i}" value="${cuEsc(d.fct)}"></div></div>
+      <div class="field-row"><div class="field"><label>IBAN</label><input id="cs_iban${i}" value="${cuEsc(d.iban)}"></div>
+        <div class="field"><label>Banca</label><input id="cs_banca${i}" value="${cuEsc(d.banca)}"></div></div>
+      <div class="field-row"><div class="field"><label>Telefon</label><input id="cs_tel${i}" value="${cuEsc(d.tel)}"></div>
+        <div class="field"><label>E-mail</label><input id="cs_mail${i}" value="${cuEsc(d.mail)}"></div></div></div>`; }).join('')}
     <div class="card"><h2>Logo pe contract</h2>
       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">${s.logo?`<img src="${s.logo}" alt="Logo" style="max-height:48px;max-width:160px;border:1px solid var(--line);border-radius:6px;padding:4px;background:#fff">`:'<span style="color:var(--stone);font-size:13px">Fără logo — apare textul FLAMART</span>'}
         <input type="file" id="cs_logo" accept="image/*">${s.logo?'<button class="btn btn-secondary" id="cs_logoDel" type="button">Scoate logo-ul</button>':''}</div></div>
@@ -3727,7 +3734,9 @@ function cuRenderSetari(el){
   document.getElementById('cs_save').onclick = async () => {
     const firme = CU_FIRME.map((f,i) => ({ n:document.getElementById('cs_n'+i).value.trim(), cui:document.getElementById('cs_cui'+i).value.trim(),
       rc:document.getElementById('cs_rc'+i).value.trim(), adr:document.getElementById('cs_adr'+i).value.trim(),
-      rep:document.getElementById('cs_rep'+i).value.trim(), fct:document.getElementById('cs_fct'+i).value.trim() }));
+      rep:document.getElementById('cs_rep'+i).value.trim(), fct:document.getElementById('cs_fct'+i).value.trim(),
+      iban:document.getElementById('cs_iban'+i).value.replace(/\s+/g,'').toUpperCase(), banca:document.getElementById('cs_banca'+i).value.trim(),
+      tel:document.getElementById('cs_tel'+i).value.trim(), mail:document.getElementById('cs_mail'+i).value.trim() }));
     try{
       await db.collection('config').doc('custodie').set({ serie:document.getElementById('cs_serie').value.trim()||'CUS',
         next:Math.max(1, +document.getElementById('cs_next').value||1), firme, logo }, { merge:true });
@@ -4122,7 +4131,7 @@ function cmBuildDoc(c, opt){
 ${H('Părțile contractante')}
 <div class="parties">
  <div class="party"><h4>Furnizor</h4><div class="n">${cuEsc(F.n)}</div>
-  Sediul: ${cuEsc(F.adr)}<br>CUI ${cuEsc(F.cui)} · Reg. Com. ${B(c.depRc)}<br>Reprezentant: ${B(c.depRep)}, ${B(c.depFct)}</div>
+  Sediul: ${cuEsc(F.adr)}<br>CUI ${cuEsc(F.cui)} · Reg. Com. ${B(c.depRc||F.rc)}<br>Cont: ${B(F.iban)}${F.banca?`, ${cuEsc(F.banca)}`:''}${F.tel||F.mail?`<br>Tel. ${cuEsc(F.tel||'—')} · ${cuEsc(F.mail||'—')}`:''}<br>Reprezentant: ${B(c.depRep)}, ${B(c.depFct)}</div>
  <div class="party"><h4>Revânzător · partener ${cuEsc(c.tier)}</h4><div class="n">${B(dz.firma)}</div>
   Sediul: ${B(dz.sediu)}<br>CUI ${B(dz.cui)} · Reg. Com. ${B(dz.rc)} · ${tvaTxt}<br>Cont: ${B(dz.iban)}${dz.banca?`, ${cuEsc(dz.banca)}`:''}<br>Reprezentant: ${B(dz.rep)}, ${B(dz.fct)}<br>Tel. ${B(dz.tel)} · ${B(dz.mail)}</div>
 </div>
@@ -4268,7 +4277,8 @@ function cmRenderForm(el){
     <div id="cmErr" class="warning-banner"></div>
     <div class="card"><h2>1. Furnizor</h2>
       <div class="field"><label>Firma care încheie contractul</label>
-        <div class="cu-seg" id="cmDep">${CU_FIRME.map((f,i)=>`<button type="button" data-dep="${i}" aria-pressed="${c.dep===i}">${cuEsc(f.s)}<small>CUI ${cuEsc(cuFirm(i).cui)}</small></button>`).join('')}</div></div>
+        <div class="cu-seg" id="cmDep">${CU_FIRME.map((f,i)=>`<button type="button" data-dep="${i}" aria-pressed="${c.dep===i}">${cuEsc(f.s)}<small>CUI ${cuEsc(cuFirm(i).cui)}</small></button>`).join('')}</div>${(() => { const F = cuFirm(c.dep), lip = [['rc','Reg. Com.'],['iban','IBAN'],['rep','reprezentantul']].filter(([k]) => !F[k]).map(x => x[1]);
+        return lip.length ? `<div style="font-size:12px;color:var(--amber);font-weight:600;margin-top:4px">Lipsesc datele firmei ${cuEsc(F.s)}: ${lip.join(', ')}. Completează-le în Contracte custodie → Setări contract.</div>` : ''; })()}</div>
       <div class="field-row"><div class="field"><label>Reprezentant</label>${inp('depRep')}</div><div class="field"><label>Funcția</label>${inp('depFct')}</div></div>
       <div class="field-row"><div class="field"><label>Data</label>${inp('data','date')}</div><div class="field"><label>Localitatea</label>${inp('loc')}</div></div>
     </div>
