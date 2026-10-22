@@ -1406,7 +1406,14 @@ document.getElementById('importActionForm').onsubmit = async function(e){
       await db.collection('config').doc('marje').set({ inputs: newInputs, produse: produseMarje });
     }
 
-    document.getElementById('imSuccess').textContent = `Import salvat — ${rows.reduce((s,r)=>s+r.serii.length,0)} unități noi în stoc.`;
+    let poMsg = '';
+    if(imFromPO){
+      const nImp = rows.reduce((s,r)=>s+r.serii.length,0);
+      try{ await db.collection('comenziBokar').doc(imFromPO.id).update({ status:'livrata', importFactura:factura, importData:data, importId:impRef.id }); poMsg = ` Comanda ${imFromPO.nr} e marcată ca livrată.`; }catch(e){ console.error(e); }
+      if(nImp !== imFromPO.buc) poMsg += ` Atenție: comanda avea ${imFromPO.buc} unități, importul are ${nImp}.`;
+      imFromPO = null;
+    }
+    document.getElementById('imSuccess').textContent = `Import salvat — ${rows.reduce((s,r)=>s+r.serii.length,0)} unități noi în stoc.${poMsg}`;
     document.getElementById('imSuccess').classList.add('show');
     this.reset();
     populateSelects();
@@ -4001,7 +4008,7 @@ async function poRenderList(el){
       <div class="cu-acts" style="margin-bottom:0"><button class="btn btn-primary cu-sm" id="poResume" type="button">Continuă</button><button class="btn btn-secondary cu-sm" id="poDrop" type="button">Renunță</button></div></div>` : ''}
     ${list.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Nr.</th><th>Data</th><th>Poziții</th><th>Bucăți</th><th>Stare</th></tr></thead><tbody>
       ${list.map(c => `<tr class="cu-rowlink" data-po="${cuEsc(c.id)}"><td>${cuEsc(c.nr||'—')}</td><td>${cuDRo(c.data)}</td><td>${(c.lines||[]).length}</td><td>${poTotals(c).buc}</td>
-        <td><span class="cu-pill ${c.status==='trimisa'?'info':c.status==='livrata'?'ok':''}">${c.status==='trimisa'?'Trimisă':c.status==='livrata'?'Livrată':'Ciornă'}</span></td></tr>`).join('')}
+        <td><span class="cu-pill ${c.status==='trimisa'?'info':c.status==='livrata'?'ok':''}">${c.status==='trimisa'?'Trimisă':c.status==='livrata'?'Livrată':'Ciornă'}</span>${c.importFactura?` <span style="font-size:11px;color:var(--stone)">import ${cuEsc(c.importFactura)}</span>`:''}</td></tr>`).join('')}
     </tbody></table></div>` : '<div class="empty">Nicio comandă salvată încă.</div>'}
   </div>`;
   document.getElementById('poNew').onclick = () => poGo('form', { cur:poBlank() });
@@ -4078,7 +4085,8 @@ function poRenderForm(el){
           <div id="poErr" class="warning-banner"></div>
           <div class="cu-acts"><button class="btn btn-primary" id="poPdf" type="button">Generează PDF</button>
             <button class="btn btn-secondary" id="poSave" type="button">Salvează comanda</button>
-            ${c.id ? '<button class="btn btn-secondary" id="poDup" type="button">Duplică</button><button class="btn btn-secondary" id="poDel" type="button" style="color:var(--red)">Șterge</button>' : ''}</div>
+            ${c.id ? '<button class="btn btn-secondary" id="poImp" type="button">Convertește în import</button><button class="btn btn-secondary" id="poDup" type="button">Duplică</button><button class="btn btn-secondary" id="poDel" type="button" style="color:var(--red)">Șterge</button>' : ''}</div>
+          ${c.importFactura ? `<div style="font-size:12px;color:var(--green);font-weight:600">Importată cu factura ${cuEsc(c.importFactura)}${c.importData?` din ${cuDRo(c.importData)}`:''}.</div>` : ''}
         </div>
       </div>
     </div>`;
@@ -4108,6 +4116,7 @@ function poRenderForm(el){
   document.getElementById('poBack').onclick = () => poGo('list', { cur:null });
   document.getElementById('poSave').onclick = () => poSave();
   document.getElementById('poPdf').onclick = () => poPdf();
+  const im = document.getElementById('poImp'); if(im) im.onclick = () => poToImport(c);
   const du = document.getElementById('poDup'); if(du) du.onclick = () => { const n = JSON.parse(JSON.stringify(c)); delete n.id; n.nr = ''; n.status = 'ciorna'; n.data = cuToday(); n.created = ''; poGo('form', { cur:n }); };
   const dl = document.getElementById('poDel'); if(dl) dl.onclick = async () => { if(!confirm(`Ștergi comanda ${c.nr||''}?`)) return;
     try{ await db.collection('comenziBokar').doc(c.id).delete(); poGo('list', { cur:null }); }catch(e){ console.error(e); alert('Nu am putut șterge.'); } };
@@ -4148,6 +4157,41 @@ async function poSave(silent){
   }catch(e){ console.error(e);
     poErr('Comanda nu s-a putut salva în baza de date (probabil regulile Firestore nu permit încă colecția „comenziBokar”). Coșul rămâne salvat pe acest dispozitiv, iar PDF-ul se poate genera oricum.');
     poSaveLocal(); return false; }
+}
+
+/* ---------- comandă → import ---------- */
+const PO_TO_CRM = { '6050':'6050','7050':'7050','8050':'8050','9050':'9050','9050p':'9050 P','655047':'655047 L/R','755047':'755047 L/R','855047':'855047 L/R',
+  '6050g':'6050G','7050g':'7050G','8050g':'8050G','9050g':'9050G','755047g':'755047 L/R G','855047g':'855047 L/R G','psg60':'PSG 60',
+  'forum':'Forum (Sobă sticlă colț)','aston-st':'4380 (Sobă)','aston-fd':'4380 (Sobă)','aston-wd':'4380 (Sobă)' };
+let imFromPO = null;
+function poToImport(c){
+  const groups = {};
+  c.lines.filter(l => l.tip==='focar' || l.tip==='soba').forEach(l => {
+    const model = PO_TO_CRM[l.slug] || l.slug, varianta = l.var || 'Black', k = model+'|'+varianta;
+    const g = groups[k] = groups[k] || { model, varianta, q:0, det:[] };
+    g.q += +l.q||0; g.det.push(`${l.q}${l.lr?' '+l.lr:''}${l.nuanta?' '+l.nuanta:''}`);
+  });
+  const list = Object.values(groups);
+  if(!list.length){ alert('Comanda nu conține focare sau sobe. Importul urmărește doar unitățile cu serie de șasiu.'); return; }
+  const rest = c.lines.filter(l => !(l.tip==='focar' || l.tip==='soba')).reduce((a,l)=>a+(+l.q||0),0);
+  const tb = document.querySelector('#adminNav .tab-btn[data-tab="actiuni"]'); if(tb) tb.click();
+  const sb = document.querySelector('.subtab-btn[data-subtab="import"]'); if(sb) sb.click();
+  const form = document.getElementById('importActionForm'); form.reset();
+  document.getElementById('imProduseRows').innerHTML = '';
+  document.getElementById('im-data').value = cuToday();
+  list.forEach(g => {
+    addImProdusRow();
+    const row = [...document.querySelectorAll('#imProduseRows .produs-row')].pop();
+    const ms = row.querySelector('.im-model'); if(![...ms.options].some(o => o.value===g.model)) ms.insertAdjacentHTML('beforeend', `<option>${cuEsc(g.model)}</option>`);
+    ms.value = g.model; row.querySelector('.im-varianta').value = g.varianta;
+    const ta = row.querySelector('.im-serii'); ta.rows = Math.min(10, Math.max(3, g.q));
+    ta.placeholder = `${g.q} ${g.q===1?'serie':'serii'} de introdus (din comandă: ${g.det.join(', ')}), una pe linie`;
+  });
+  imFromPO = { id:c.id, nr:c.nr, buc:list.reduce((a,g)=>a+g.q,0) };
+  const ok = document.getElementById('imSuccess');
+  ok.innerHTML = `Precompletat din comanda <b>${cuEsc(c.nr)}</b>: ${imFromPO.buc} ${imFromPO.buc===1?'unitate':'unități'} în ${list.length} ${list.length===1?'rând':'rânduri'}. Completează factura, costurile și seriile de șasiu de pe factura BOKAR, apoi salvează.${rest?` Grilele, firidele, ramele și produsele speciale (${rest} buc.) nu au serie și nu intră în stoc.`:''}`;
+  ok.classList.add('show');
+  form.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ---------- PDF ---------- */
