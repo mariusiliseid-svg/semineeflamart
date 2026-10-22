@@ -339,6 +339,9 @@
             <div class="field" id="ct-parola-wrap"><label>Parolă inițială</label><input type="text" id="ct-parola">
               <div class="field-error">Minimum 6 caractere</div></div>
           </div>
+          <h3 style="font-size:14px;margin:6px 0 4px">Datele firmei</h3>
+          <p style="font-size:12px;color:var(--stone);margin:0 0 8px;">Se folosesc la contractele de comision și custodie, ca să nu le mai completezi de fiecare dată.</p>
+          <div id="ctFirma"></div>
           <p style="font-size:12px;color:var(--stone);margin:0 0 12px;">Parola nu se salvează în portal. Comunic-o partenerului; o poate schimba oricând din „Schimbă parola” sau „Am uitat parola”.</p>
           <button type="submit" class="btn btn-primary">Creează contul</button>
         </form>
@@ -1968,11 +1971,27 @@ function renderConturiList(){
             <td><button type="button" class="btn btn-secondary" data-migrate="${esc(c.nume)}">Mută</button></td></tr>`;
           const activ = c.activ !== false;
           return `<tr><td>${esc(c.nume)}</td><td>${esc(c.email)}</td><td>${activ?'Activ':'<span style="color:var(--red);font-weight:600;">Suspendat</span>'}</td>
-            <td><button type="button" class="btn btn-secondary" data-toggle-acc="${esc(c.id)}">${activ?'Suspendă':'Reactivează'}</button></td></tr>`;
+            <td style="white-space:nowrap"><button type="button" class="btn btn-secondary" data-fd-acc="${esc(c.id)}">Date firmă${(c.firmaDate&&c.firmaDate.cui&&c.firmaDate.rc&&c.firmaDate.iban)?'':' ⚠'}</button>
+              <button type="button" class="btn btn-secondary" data-toggle-acc="${esc(c.id)}">${activ?'Suspendă':'Reactivează'}</button></td></tr>`;
         }).join('')}
       </tbody>
     </table>
+    <div id="fdEdit"></div>
   `;
+  el.querySelectorAll('[data-fd-acc]').forEach(b => b.onclick = () => {
+    const c = conturi.find(x => x.id===b.dataset.fdAcc); if(!c) return;
+    const box = document.getElementById('fdEdit');
+    box.innerHTML = `<div class="card" style="margin-top:14px;box-shadow:none;border:1px solid var(--line)"><h2>Datele firmei · ${esc(c.nume)}</h2>
+      ${fdFormHtml('fde', Object.assign({}, partnerCompanyData(c), c.firmaDate||{}))}
+      <div style="display:flex;gap:8px"><button type="button" class="btn btn-primary" id="fdSave">Salvează</button><button type="button" class="btn btn-secondary" id="fdCancel">Închide</button></div></div>`;
+    box.scrollIntoView({ behavior:'smooth', block:'start' });
+    document.getElementById('fdCancel').onclick = () => { box.innerHTML = ''; };
+    document.getElementById('fdSave').onclick = async () => {
+      const d = fdRead('fde', true); if(!d) return;
+      try{ await db.collection('parteneriConturi').doc(c.id).update({ firmaDate:d }); box.innerHTML = ''; loadAll(); }
+      catch(e){ console.error(e); alert('Nu am putut salva datele firmei.'); }
+    };
+  });
   el.querySelectorAll('[data-migrate]').forEach(b => b.onclick = () => {
     document.getElementById('ct-nume').value = b.dataset.migrate;
     document.getElementById('ct-email').value = '';
@@ -2418,6 +2437,8 @@ function creareAuth(){
   if(!creareApp) creareApp = firebase.initializeApp(firebaseConfig, 'creare-conturi');
   return creareApp.auth();
 }
+function renderCtFirma(d){ const b = document.getElementById('ctFirma'); if(b) b.innerHTML = fdFormHtml('ctf', d); }
+setTimeout(() => renderCtFirma({}), 0);
 document.getElementById('contDealerForm').onsubmit = async function(e){
   e.preventDefault();
   const nume = document.getElementById('ct-nume').value.trim();
@@ -2427,7 +2448,8 @@ document.getElementById('contDealerForm').onsubmit = async function(e){
   markFieldValid('ct-nume-wrap', !!nume);
   markFieldValid('ct-email-wrap', emailOk);
   markFieldValid('ct-parola-wrap', parola.length >= 6);
-  if(!nume || !emailOk || parola.length < 6) return;
+  const firmaDate = fdRead('ctf', true);
+  if(!nume || !emailOk || parola.length < 6 || !firmaDate) return;
   if(!firebaseReady){ alert('Nu s-a putut conecta la baza de date.'); return; }
   const existente = CACHE.parteneriConturi || [];
   if(existente.some(c => c.uid && String(c.nume).trim().toLowerCase() === nume.toLowerCase())){
@@ -2442,9 +2464,7 @@ document.getElementById('contDealerForm').onsubmit = async function(e){
     const uid = cred.user.uid;
     await a2.signOut();
     await db.collection('roles').doc(uid).set({ role:'partener', name:nume, updatedAt:new Date().toISOString() });
-    const cont = { nume, email, uid, activ:true, creat:new Date().toISOString() };
-    if(cpSursa && String(cpSursa.email||'').trim().toLowerCase()===email)
-      cont.firmaDate = { firma:cpSursa.firma||'', cui:cpSursa.cui||'', rep:cpSursa.nume||'', tel:cpSursa.telefon||'', mail:cpSursa.email||'', judet:cpSursa.judet||'' };
+    const cont = { nume, email, uid, activ:true, creat:new Date().toISOString(), firmaDate };
     await db.collection('parteneriConturi').doc(uid).set(cont);
     cpSursa = null;
     // dacă exista un cont vechi cu același nume, îl ștergem (parola veche nu mai rămâne stocată)
@@ -2454,7 +2474,7 @@ document.getElementById('contDealerForm').onsubmit = async function(e){
     const ok = document.getElementById('contSuccess');
     ok.textContent = `Cont creat pentru ${nume}. Se loghează cu ${email} și parola stabilită.`;
     ok.classList.add('show');
-    this.reset();
+    this.reset(); renderCtFirma({});
     loadAll();
   }catch(err){
     console.error(err);
@@ -2782,6 +2802,7 @@ function renderCereriParteneriat(){
     </tbody></table></div></div>`;
   el.querySelectorAll('[data-cpcont]').forEach(b => b.onclick = () => { const c = noi.find(x => x.id===b.dataset.cpcont); cpSursa = c;
     document.getElementById('ct-nume').value = c.firma; document.getElementById('ct-email').value = c.email||'';
+    renderCtFirma({ firma:c.firma||'', cui:c.cui||'', rep:c.nume||'', tel:c.telefon||'', mail:c.email||'', judet:c.judet||'' });
     document.getElementById('ct-parola').focus(); document.getElementById('contDealerForm').scrollIntoView({ behavior:'smooth', block:'center' }); });
   el.querySelectorAll('[data-cpok]').forEach(b => b.onclick = async () => {
     try{ await db.collection('cereriParteneriat').doc(b.dataset.cpok).update({ status:'rezolvat' }); loadAll(); }
@@ -2989,6 +3010,26 @@ function imOpenFromStoc(unitId){
 }
 
 
+const FD_FIELDS = [
+  { k:'firma', t:'Denumire firmă (SRL, PFA, II)', req:true }, { k:'cui', t:'CUI / CIF', req:true }, { k:'rc', t:'Nr. Reg. Com.', req:true },
+  { k:'sediu', t:'Sediul social', req:true }, { k:'rep', t:'Reprezentant legal', req:true }, { k:'fct', t:'Funcția', ph:'Administrator' },
+  { k:'tel', t:'Telefon', req:true }, { k:'mail', t:'E-mail firmă (pentru contracte)' }, { k:'judet', t:'Județ' },
+  { k:'iban', t:'IBAN', req:true }, { k:'banca', t:'Banca' }
+];
+function fdFormHtml(prefix, d){
+  d = d || {}; const e = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const f = x => `<div class="field" id="${prefix}-${x.k}-wrap"><label>${x.t}${x.req?' *':''}</label><input type="text" id="${prefix}-${x.k}" value="${e(d[x.k]||'')}" placeholder="${e(x.ph||'')}"><div class="field-error">Completează câmpul</div></div>`;
+  let h = ''; for(let i=0;i<FD_FIELDS.length;i+=2) h += `<div class="field-row">${f(FD_FIELDS[i])}${FD_FIELDS[i+1]?f(FD_FIELDS[i+1]):''}</div>`;
+  return h + `<div class="field"><label>TVA</label><select id="${prefix}-tva"><option value="nu" ${d.tva!=='da'?'selected':''}>Neplătitor de TVA</option><option value="da" ${d.tva==='da'?'selected':''}>Plătitor de TVA</option></select></div>`;
+}
+function fdRead(prefix, check){
+  const d = {}; let ok = true;
+  FD_FIELDS.forEach(x => { const v = (document.getElementById(`${prefix}-${x.k}`)||{}).value; d[x.k] = String(v||'').trim();
+    if(check){ const bad = x.req && !d[x.k]; markFieldValid(`${prefix}-${x.k}-wrap`, !bad); if(bad) ok = false; } });
+  d.tva = (document.getElementById(`${prefix}-tva`)||{}).value || 'nu';
+  return ok ? d : null;
+}
+
 /* Datele firmei unui partener, pentru precompletarea contractelor:
    întâi din contul lui (parteneriConturi.firmaDate), apoi din cererea de parteneriat de pe bokar.ro (după e-mail). */
 function partnerCompanyData(p){
@@ -2999,17 +3040,19 @@ function partnerCompanyData(p){
     .sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')))[0] || {};
   const pick = (...v) => v.find(x => x!=null && String(x).trim()!=='') || '';
   return { firma:pick(fd.firma, cr.firma, p.nume), cui:pick(fd.cui, cr.cui), rc:pick(fd.rc), sediu:pick(fd.sediu),
-    rep:pick(fd.rep, cr.nume), tel:pick(fd.tel, cr.telefon), mail:pick(fd.mail, p.email, cr.email), judet:pick(fd.judet, cr.judet) };
+    rep:pick(fd.rep, cr.nume), fct:pick(fd.fct), tel:pick(fd.tel, cr.telefon), mail:pick(fd.mail, p.email, cr.email), judet:pick(fd.judet, cr.judet),
+    iban:pick(fd.iban), banca:pick(fd.banca), tva:pick(fd.tva) };
 }
 function saveFirmaDate(c){
   if(!c.dealerUid || !c.dz) return;
-  const d = {}; ['firma','cui','rc','sediu','rep','fct','tel','mail'].forEach(k => { if(c.dz[k]) d[k] = c.dz[k]; });
-  db.collection('parteneriConturi').doc(c.dealerUid).set({ firmaDate:d }, { merge:true }).catch(e => console.error('date firmă partener', e));
+  const d = {}; ['firma','cui','rc','sediu','rep','fct','tel','mail','iban','banca','tva'].forEach(k => { if(c.dz[k]) d[k] = c.dz[k]; });
+  db.collection('parteneriConturi').doc(c.dealerUid).set({ firmaDate:d }, { mergeFields:Object.keys(d).map(k => 'firmaDate.'+k) }).catch(e => console.error('date firmă partener', e));
 }
 /* completează doar câmpurile goale din c.dz */
 function fillDzFromPartner(c, p){
   const d = partnerCompanyData(p);
-  ['firma','cui','rc','sediu','rep','tel','mail'].forEach(k => { if(!String(c.dz[k]||'').trim() && d[k]) c.dz[k] = d[k]; });
+  ['firma','cui','rc','sediu','rep','fct','tel','mail'].forEach(k => { if(!String(c.dz[k]||'').trim() && d[k]) c.dz[k] = d[k]; });
+  if(c.tip==='comision'){ ['iban','banca'].forEach(k => { if(!String(c.dz[k]||'').trim() && d[k]) c.dz[k] = d[k]; }); if(d.tva) c.dz.tva = d.tva; }
 }
 
 /* ================= CONTRACTE DE CUSTODIE =================
