@@ -3700,13 +3700,13 @@ ${H('Obiectul contractului')}
 <p>${A()} Contractul stabilește regulile după care Revânzătorul vinde produsele comercializate de Furnizor (focare BOKAR, grile de ventilație BOKAR, focare Spartherm și produsele altor mărci din oferta Furnizorului), în una dintre următoarele două forme:</p>
 <p><b>a) Intermediere.</b> Revânzătorul aduce clientul, îl consiliază și pune părțile în legătură; vânzarea se încheie direct între Furnizor și clientul final, Furnizorul emite factura către client și încasează prețul, iar Revânzătorul primește un comision, potrivit art. 4.</p>
 <p><b>b) Revânzare.</b> Revânzătorul cumpără produsele de la Furnizor, în nume și pe cont propriu, cu discountul prevăzut la art. 5, și le revinde clientului final pe factura proprie.</p>
-<p>${A()} Forma se stabilește pentru fiecare vânzare și se consemnează în Portalul de parteneri BOKAR (denumit în continuare „Portalul”). Dacă factura către clientul final este emisă de Furnizor, vânzarea se consideră intermediere; dacă este emisă de Revânzător, se consideră revânzare.</p>
+<p>${A()} Forma se stabilește pentru fiecare vânzare. Dacă factura către clientul final este emisă de Furnizor, vânzarea se consideră intermediere; dacă este emisă de Revânzător, se consideră revânzare.</p>
 <p>${A()} Contractul nu creează între părți un raport de muncă, de mandat cu reprezentare, de asociere sau de exclusivitate, cu excepția zonei exclusive, dacă aceasta este prevăzută la art. 8.5. Fiecare parte își desfășoară activitatea pe cont și risc propriu.</p>
 
-${H('Înregistrarea ofertelor și protecția clientului')}
-<p>${A()} Revânzătorul înregistrează în Portal fiecare ofertă emisă, cel târziu în ziua emiterii: județul, ultimele 5 cifre ale telefonului clientului, modelul ofertat și data.</p>
-<p>${A()} Datele din Portal stabilesc cine a ofertat și cine montează la fiecare vânzare, deci procentul de comision sau de discount aplicabil. O vânzare neînregistrată în Portal nu dă dreptul la comision.</p>
-<p>${A()} Dacă un client a fost deja ofertat de un alt partener, Portalul semnalează acest lucru. În acest caz, Revânzătorul nu ofertează clientul respectiv fără acordul Furnizorului, pentru a nu concura oferta deja emisă de alt partener.</p>
+${H('Anunțarea clienților și protecția clientului')}
+<p>${A()} Revânzătorul anunță Furnizorului în scris (e-mail sau mesaj) fiecare ofertă emisă, cel târziu în ziua emiterii, indicând clientul, localitatea, modelul ofertat și data.</p>
+<p>${A()} Comunicările scrise dintre părți și ofertele emise stabilesc cine a ofertat și cine montează la fiecare vânzare, deci procentul de comision sau de discount aplicabil. O vânzare către un client neanunțat Furnizorului nu dă dreptul la comision.</p>
+<p>${A()} Dacă un client a fost deja ofertat de un alt partener, Furnizorul îl informează pe Revânzător. În acest caz, Revânzătorul nu ofertează clientul respectiv fără acordul Furnizorului, pentru a nu concura oferta deja emisă de alt partener.</p>
 
 ${H('Intermedierea — comisionul')}
 <p>${A()} Pentru vânzările încheiate prin intermediere, Revânzătorul are dreptul la un comision calculat ca procent din valoarea fără TVA a produselor facturate de Furnizor clientului final, după scăderea reducerilor acordate clientului:</p>
@@ -3715,7 +3715,7 @@ ${H('Intermedierea — comisionul')}
 <p>${A()} Pentru grilele BOKAR, focarele Spartherm și produsele altor mărci, procentul se aplică vânzărilor la care Revânzătorul a adus clientul și a emis oferta. Pentru aceste categorii, când oferta este emisă de Furnizor, procentul se stabilește în scris pentru fiecare caz, iar când Furnizorul ofertează și montează, nu se datorează comision.</p>
 <p>${A()} Baza de calcul nu include TVA, transportul, montajul, coșul de fum și alte lucrări sau servicii prestate de Furnizor, cu excepția cazului în care părțile convin altfel în scris.</p>
 <p>${A()} Dreptul la comision se naște numai după încasarea integrală a prețului de la clientul final. La încasări parțiale, comisionul se calculează proporțional cu suma încasată.</p>
-<p>${A()} În ${B(c.raportare)} zile lucrătoare de la încasarea integrală, Furnizorul comunică Revânzătorului, prin Portal sau prin e-mail, valoarea comisionului. Pe baza acesteia, Revânzătorul emite factura de comision prin sistemul național RO e-Factura${platitor ? ', cu TVA în cota legală' : ', fără TVA, cu mențiunea legală privind neînregistrarea în scopuri de TVA'}.</p>
+<p>${A()} În ${B(c.raportare)} zile lucrătoare de la încasarea integrală, Furnizorul comunică Revânzătorului, în scris, valoarea comisionului. Pe baza acesteia, Revânzătorul emite factura de comision prin sistemul național RO e-Factura${platitor ? ', cu TVA în cota legală' : ', fără TVA, cu mențiunea legală privind neînregistrarea în scopuri de TVA'}.</p>
 <p>${A()} Furnizorul plătește comisionul în ${B(c.plataCom)} zile de la primirea facturii, prin transfer bancar în contul Revânzătorului de la art. 1.</p>
 <p>${A()} Dacă vânzarea este anulată, produsul este returnat sau prețul este restituit clientului, în tot sau în parte, comisionul aferent nu se mai datorează, iar comisionul deja plătit se restituie sau se compensează cu sumele datorate ulterior Revânzătorului.</p>
 <p>${A()} Revânzătorul nu încasează sume de la client în numele Furnizorului și nu semnează contracte sau documente în numele acestuia fără o împuternicire scrisă. Clientul plătește direct în contul Furnizorului.</p>
@@ -3724,20 +3724,20 @@ ${H('Intermedierea — comisionul')}
 ${H('Revânzarea — discountul')}
 <p>${A()} Pentru vânzările în nume propriu, Revânzătorul cumpără produsele de la Furnizor la prețul de listă comunicat de Furnizor, minus un discount egal cu procentul din tabelul de la art. 4.1 pentru situația în care Revânzătorul ofertează și montează, respectiv pentru categoria de produs, plus TVA.</p>
 <p>${A()} Discountul este o reducere comercială acordată în schimbul funcțiilor pe care Revânzătorul le preia de la Furnizor: prospectarea pieței și promovarea produselor în zona sa, consilierea și ofertarea clienților, expunerea în showroom, montajul, punerea în funcțiune, intervențiile la clienți în perioada de garanție, precum și riscul de stoc, de încasare și de neplată al clienților săi. Revânzătorul se obligă să îndeplinească aceste funcții pentru produsele cumpărate cu discount; în lipsa lor, Furnizorul poate factura următoarele comenzi la discountul corespunzător situației reale, potrivit tabelului de la art. 4.1.</p>
-<p>${A()} Prețul de listă este cel din lista de prețuri a Furnizorului în vigoare la data comenzii, comunicată Revânzătorului și disponibilă în Portal. Discountul se înscrie pe fiecare factură ca reducere comercială distinctă, cu procentul aplicat și trimiterea la prezentul contract.</p>
+<p>${A()} Prețul de listă este cel din lista de prețuri a Furnizorului în vigoare la data comenzii, comunicată în scris Revânzătorului. Discountul se înscrie pe fiecare factură ca reducere comercială distinctă, cu procentul aplicat și trimiterea la prezentul contract.</p>
 <p>${A()} Termenele de plată, eventualele reduceri ale discountului pentru plata la termen și condițiile de livrare sunt cele din Politica de parteneriat BOKAR România în vigoare, potrivit nivelului partenerului.</p>
 <p>${A()} Proprietatea asupra produselor trece la Revânzător numai după plata integrală a facturii, iar riscul trece la Revânzător de la predare.</p>
 <p>${A()} Revânzătorul stabilește liber prețurile de vânzare către clienții săi. Furnizorul poate comunica prețuri de vânzare recomandate, care nu sunt obligatorii.</p>
 
 ${H('Montajul și garanția')}
 <p>${A()} Când montează, Revânzătorul execută lucrarea cu personal calificat, cu respectarea normelor tehnice și de securitate la incendiu în vigoare și a instrucțiunilor din manualul producătorului.</p>
-<p>${A()} Revânzătorul înregistrează garanția fiecărui focar în Portal, cu seria de șasiu și datele clientului, în cel mult 5 zile de la montaj. Garanția BOKAR de 5 ani se acordă pe baza acestei înregistrări.</p>
+<p>${A()} Revânzătorul comunică Furnizorului seria de șasiu a fiecărui focar și datele clientului, în cel mult 5 zile de la montaj, pentru înregistrarea garanției BOKAR de 5 ani.</p>
 <p>${A()} În perioada de garanție, Revânzătorul intervine la clienții săi; costul intervenției este suportat de Furnizor când defecțiunea se datorează produsului, iar de Revânzător când se datorează montajului.</p>
 
 ${H('Obligațiile Furnizorului')}
-<p>${A()} Să pună la dispoziția Revânzătorului listele de prețuri, informațiile tehnice, materialele de prezentare și accesul la Portal, și să comunice în scris orice modificare a prețurilor sau a procentelor.</p>
+<p>${A()} Să pună la dispoziția Revânzătorului listele de prețuri, informațiile tehnice, materialele de prezentare și să comunice în scris orice modificare a prețurilor sau a procentelor.</p>
 <p>${A()} Să ofere instruire despre produse și sprijin tehnic la ofertare și montaj.</p>
-<p>${A()} Să plătească la termen comisioanele datorate și să țină evidența vânzărilor în Portal, unde Revânzătorul își poate vedea propriile oferte și vânzări.</p>
+<p>${A()} Să plătească la termen comisioanele datorate și să țină evidența vânzărilor realizate de Revânzător, pe care i-o comunică la cerere.</p>
 
 ${H('Conduita, confidențialitatea și datele personale')}
 <p>${A()} Revânzătorul prezintă corect produsele și nu face promisiuni privind performanțe, garanții sau termene în afara celor comunicate de Furnizor și de producător.</p>
@@ -4061,7 +4061,7 @@ async function loadPartComision(){
         <div class="cu-acts" style="margin-bottom:0"><a class="btn btn-primary" href="${CM_SIGN_BASE+c.token}" target="_blank" rel="noopener" style="text-decoration:none">Citește și semnează</a></div></div>` : ''}
       <div style="overflow-x:auto"><table><thead><tr><th>Situație</th><th>Procent</th></tr></thead><tbody>
         ${CM_RATE_ROWS.map(x => `<tr><td>${x.t}</td><td>${cmPct(r[x.k])}</td></tr>`).join('')}</tbody></table></div>
-      <p style="font-size:12px;color:var(--stone);margin:10px 0 0">Comisionul se calculează la valoarea fără TVA facturată clientului, după ce clientul plătește integral. Flamart îți comunică suma, iar tu emiți factura prin e-Factura${c.dz&&c.dz.tva==='da'?' cu TVA':', fără TVA'}. Înregistrează fiecare ofertă în portal, altfel vânzarea nu dă drept la comision.</p>
+      <p style="font-size:12px;color:var(--stone);margin:10px 0 0">Comisionul se calculează la valoarea fără TVA facturată clientului, după ce clientul plătește integral. Flamart îți comunică suma, iar tu emiți factura prin e-Factura${c.dz&&c.dz.tva==='da'?' cu TVA':', fără TVA'}. Anunță Flamart în scris fiecare ofertă, altfel vânzarea nu dă drept la comision.</p>
       <div class="cu-acts"><button class="btn btn-secondary" data-cmview="${c.id}" type="button">Vezi contractul</button>
         ${c.status!=='trimis' ? `<button class="btn btn-secondary" data-cmpdf="${c.id}" type="button">PDF</button>` : ''}</div>
       <div class="cu-docwrap" id="cmdoc-${c.id}" hidden><article class="cdoc">${cmBuildDoc(c)}</article></div>
