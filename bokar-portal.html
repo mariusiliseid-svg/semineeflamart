@@ -140,6 +140,19 @@
   .btn:disabled{opacity:.5;cursor:default;}
   [hidden]{display:none!important;}
 
+  /* ---- Notificări ---- */
+  .nt-badge{display:inline-block;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;line-height:18px;text-align:center;vertical-align:1px;}
+  .nt-list{display:flex;flex-direction:column;}
+  .nt-item{display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-bottom:1px solid var(--line);}
+  .nt-item:last-child{border-bottom:0;}
+  .nt-ic{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:var(--bg-soft);}
+  .nt-item.new{background:linear-gradient(90deg,var(--amber-bg),transparent 70%);}
+  .nt-new{display:inline-block;font-size:9.5px;font-weight:800;color:#fff;background:var(--red);border-radius:4px;padding:1px 5px;margin-right:6px;letter-spacing:.06em;vertical-align:1px;}
+  .nt-t{flex:1;min-width:0;font-size:13.5px;line-height:1.45;}
+  .nt-t small{display:block;color:var(--stone);font-size:12px;margin-top:2px;}
+  .nt-day{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--stone);margin:16px 0 2px;}
+  .nt-go{flex:none;font-size:12px;}
+
   /* ---- Contracte de custodie ---- */
   .cu-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px;}
   .cu-acts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
@@ -241,6 +254,7 @@
 
 <div id="adminNav" class="tabs" style="display:none;">
   <button class="tab-btn active" data-tab="overview">Prezentare generală</button>
+  <button class="tab-btn" data-tab="notificari" id="ntTab">Notificări</button>
   <button class="tab-btn" data-tab="profituri">Profituri</button>
   <button class="tab-btn" data-tab="dealeri">Dealeri</button>
   <button class="tab-btn" data-tab="oferte">Oferte &amp; contraoferte</button>
@@ -267,6 +281,10 @@
 
   <div id="tab-overview" class="tab-content">
     <div id="overviewContent"><div class="empty">Se încarcă…</div></div>
+  </div>
+
+  <div id="tab-notificari" class="tab-content" style="display:none;">
+    <div id="notifRoot"><div class="empty">Se încarcă…</div></div>
   </div>
 
   <div id="tab-profituri" class="tab-content" style="display:none;">
@@ -1749,6 +1767,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
     document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+    if(btn.dataset.tab==='notificari') ntOpened();
   };
 });
 
@@ -1843,6 +1862,7 @@ async function loadAll(){
   renderReclamatiiAdmin();
   if(CU.view !== 'form') renderCustodie();
   if(CM.view !== 'form') renderComision();
+  renderNotificari();
   cuSyncSemnari();
   document.getElementById('dealeriDatalist').innerHTML =
     [...new Set(dealeriComenzi.map(d=>d.dealer))].map(d=>`<option value="${d}">`).join('');
@@ -3764,6 +3784,107 @@ async function loadPartGarantii(){
     try{ await generareCertificatGarantiePDF(g); }catch(e){ console.error(e); alert('Nu am putut genera certificatul.'); }
     b.disabled = false; b.textContent = t;
   });
+}
+
+/* ================= NOTIFICĂRI (activitatea partenerilor) =================
+   Se calculează din datele existente; nu scriu nimic în colecțiile partenerilor.
+   Ce a văzut adminul se ține în config/notificari (câmpul seen.<uid> = lista cheilor văzute). */
+const NT_ZILE = 60;
+let NT = { items:[], seen:null, filtru:'', tip:'' };
+const NT_TIP = {
+  oferta:{ ic:'📝', t:'Oferte', tab:'oferte' }, comanda:{ ic:'📦', t:'Comenzi', tab:'actiuni', sub:'cereri' },
+  garantie:{ ic:'🛡️', t:'Garanții', tab:'garantii' }, lead:{ ic:'🎯', t:'Lead-uri', tab:'leaduri' },
+  reclamatie:{ ic:'⚠️', t:'Reclamații', tab:'reclamatii' }, contract:{ ic:'✍️', t:'Contracte', tab:'actiuni' },
+  cerere:{ ic:'🤝', t:'Cereri de parteneriat', tab:'actiuni', sub:'conturi' }
+};
+const ntD = v => String(v||'').slice(0,10);
+async function ntBuild(){
+  const partNames = new Set((CACHE.parteneriConturi||[]).map(p => String(p.nume||'').trim()).filter(Boolean));
+  const isP = n => partNames.has(String(n||'').trim());
+  const out = [], add = (key, tip, date, who, text, sub) => { if(date) out.push({ key, tip, date:ntD(date), who:who||'', text, sub:sub||'' }); };
+  const mv = x => `${x.model||''}${x.varianta?' '+x.varianta:''}`.trim();
+  (CACHE.oferte||[]).filter(o => isP(o.coleg)).forEach(o => {
+    add('of-'+o.id, 'oferta', o.data, o.coleg, `<b>${cuEsc(o.coleg)}</b> a înregistrat o ofertă: ${cuEsc(mv(o))}`, `Județ ${cuEsc(o.judet||'—')}${o.valoare?` · ${Number(o.valoare).toLocaleString('ro-RO')} €`:''}${o.status&&o.status!=='ofertat'?` · acum: ${cuEsc(o.status)}`:''}`); });
+  (CACHE.dealeriComenziToate||[]).filter(c => isP(c.dealer)).forEach(c => {
+    const st = c.status==='in_asteptare' ? 'așteaptă aprobarea ta' : c.status==='respinsa' ? 'respinsă' : 'aprobată';
+    add('co-'+c.id, 'comanda', c.data, c.dealer, `<b>${cuEsc(c.dealer)}</b> a trimis o cerere de comandă: ${cuEsc(c.cantitate||1)} × ${cuEsc(mv(c))}`, `Status: ${st}${c.nota?` · ${cuEsc(c.nota)}`:''}`); });
+  (CACHE.garantii||[]).filter(g => isP(g.inregistratDe)).forEach(g => {
+    add('ga-'+g.id, 'garantie', g.dataMontaj, g.inregistratDe, `<b>${cuEsc(g.inregistratDe)}</b> a înregistrat o garanție: ${cuEsc(mv(g))}`, `Serie ${cuEsc(g.serie)} · montaj ${fmtDate(g.dataMontaj)}${g.judet?` · ${cuEsc(g.judet)}`:''}`); });
+  (CACHE.leaduri||[]).filter(l => isP(l.preluatDe)).forEach(l => {
+    if(l.dataPreluare) add('lp-'+l.id, 'lead', l.dataPreluare, l.preluatDe, `<b>${cuEsc(l.preluatDe)}</b> a preluat un lead${l.model?`: ${cuEsc(mv(l))}`:''}`, `${cuEsc(l.judet||'')}${l.valoare?` · ${Number(l.valoare).toLocaleString('ro-RO')} €`:''}`);
+    if(l.dataFinalizare && (l.status==='castigat'||l.status==='pierdut')) add('lf-'+l.id, 'lead', l.dataFinalizare, l.preluatDe,
+      `<b>${cuEsc(l.preluatDe)}</b> a marcat un lead ca ${l.status==='castigat'?'<span style="color:var(--green)">câștigat</span>':'<span style="color:var(--red)">pierdut</span>'}`, `${cuEsc(mv(l))}${l.scenariu?` · ${cuEsc(l.scenariu)}`:''}`); });
+  let recl = []; try{ recl = await safeGetAll('reclamatii'); }catch(e){}
+  recl.forEach(r => add('rc-'+r.id, 'reclamatie', r.created, r.partener, `<b>${cuEsc(r.partener||'Partener')}</b> a trimis ${r.tip==='feedback'?'un feedback':'o reclamație'}: ${cuEsc(mv(r))}`, `${cuEsc(r.nr||'')} · serie ${cuEsc(r.serie||'')} · ${cuEsc(r.categorie||'')}`));
+  (CACHE.custodii||[]).filter(c => c.signedAt && c.remote).forEach(c => {
+    const nm = (c.dz&&c.dz.firma) || c.dealerName || 'Partenerul';
+    add('ct-'+c.id, 'contract', c.signedAt, nm, `<b>${cuEsc(nm)}</b> a semnat ${c.tip==='comision'?'contractul-cadru de comision':'contractul de custodie'} ${cuEsc(c.nr||'')}`, `Semnat de ${cuEsc(c.semnatar||'')} prin link`); });
+  (CACHE.cereriParteneriat||[]).forEach(c => add('cp-'+c.id, 'cerere', c.data, c.firma, `<b>${cuEsc(c.firma||'O firmă')}</b> a trimis o cerere de parteneriat`, `${cuEsc(c.nume||'')} · ${cuEsc(c.telefon||'')} · ${cuEsc(c.judet||'')}${c.status==='rezolvat'?' · rezolvată':''}`));
+  const lim = new Date(Date.now()-NT_ZILE*864e5).toISOString().slice(0,10);
+  return out.filter(x => x.date >= lim).sort((a,b) => b.date.localeCompare(a.date) || a.key.localeCompare(b.key));
+}
+async function ntLoadSeen(){
+  if(NT.seen) return NT.seen;
+  let arr = [];
+  try{ const d = await safeGet('config','notificari'); arr = (d && d.seen && d.seen[currentUser.uid]) || []; }catch(e){}
+  if(!arr.length){ try{ arr = JSON.parse(localStorage.getItem('bokarNtSeen')||'[]'); }catch(e){} }
+  NT.seen = new Set(arr); return NT.seen;
+}
+async function ntSaveSeen(){
+  const arr = [...NT.seen].filter(k => NT.items.some(x => x.key===k));   // păstrăm doar cheile încă vizibile
+  try{ localStorage.setItem('bokarNtSeen', JSON.stringify(arr)); }catch(e){}
+  try{ await db.collection('config').doc('notificari').set({ seen:{ [currentUser.uid]:arr } }, { merge:true }); }catch(e){ console.error('notificări', e); }
+}
+function ntBadge(){
+  const n = NT.items.filter(x => !NT.seen.has(x.key)).length, b = document.getElementById('ntTab');
+  if(b) b.innerHTML = `Notificări${n?`<span class="nt-badge">${n>99?'99+':n}</span>`:''}`;
+  return n;
+}
+async function renderNotificari(){
+  if(currentUser.role!=='admin') return;
+  const el = document.getElementById('notifRoot'); if(!el) return;
+  NT.items = await ntBuild(); await ntLoadSeen();
+  const fresh = !NT.seen.size;   // prima folosire: nu marcăm tot istoricul ca nou
+  if(fresh){ NT.items.forEach(x => NT.seen.add(x.key)); ntSaveSeen(); }
+  ntBadge(); ntRender();
+}
+function ntRender(){
+  const el = document.getElementById('notifRoot'); if(!el) return;
+  const who = [...new Set(NT.items.map(x => x.who).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const list = NT.items.filter(x => (!NT.filtru || x.who===NT.filtru) && (!NT.tip || x.tip===NT.tip));
+  const nNoi = NT.items.filter(x => !NT.seen.has(x.key)).length;
+  let lastDay = '';
+  el.innerHTML = `<div class="card">
+    <div class="cu-top"><div><h2 style="margin:0">Activitatea partenerilor</h2>
+      <div style="font-size:12.5px;color:var(--stone);margin-top:3px">Ultimele ${NT_ZILE} de zile · ${nNoi ? `${nNoi} ${nNoi===1?'nouă':'noi'}` : 'nimic nou'}</div></div>
+      ${nNoi?'<button class="btn btn-secondary cu-sm" id="ntAll" type="button">Marchează toate ca văzute</button>':''}</div>
+    <div class="field-row" style="margin-bottom:6px">
+      <div class="field"><label>Partener</label><select id="ntWho"><option value="">Toți</option>${who.map(w=>`<option ${NT.filtru===w?'selected':''}>${cuEsc(w)}</option>`).join('')}</select></div>
+      <div class="field"><label>Tip</label><select id="ntTip"><option value="">Toate</option>${Object.entries(NT_TIP).map(([k,v])=>`<option value="${k}" ${NT.tip===k?'selected':''}>${v.t}</option>`).join('')}</select></div></div>
+    ${list.length ? `<div class="nt-list">${list.map(x => { const d = x.date!==lastDay ? `<div class="nt-day">${ntDay(x.date)}</div>` : ''; lastDay = x.date; const T = NT_TIP[x.tip];
+      return `${d}<div class="nt-item ${NT.seen.has(x.key)?'':'new'}"><div class="nt-ic">${T.ic}</div><div class="nt-t">${x.text}<small>${NT.seen.has(x.key)?'':'<span class="nt-new">NOU</span>'}${x.sub}</small></div>
+        <button class="btn btn-secondary cu-sm nt-go" type="button" data-ntgo="${x.tip}">Deschide</button></div>`; }).join('')}</div>`
+      : '<div class="empty">Nicio activitate în perioada aceasta.</div>'}
+    <p style="font-size:11.5px;color:var(--stone);margin:12px 0 0">Ofertele, comenzile și lead-urile au doar data (fără oră); garanțiile apar la data montajului.</p>
+  </div>`;
+  document.getElementById('ntWho').onchange = e => { NT.filtru = e.target.value; ntRender(); };
+  document.getElementById('ntTip').onchange = e => { NT.tip = e.target.value; ntRender(); };
+  const all = document.getElementById('ntAll'); if(all) all.onclick = () => { NT.items.forEach(x => NT.seen.add(x.key)); ntSaveSeen(); ntBadge(); ntRender(); };
+  el.querySelectorAll('[data-ntgo]').forEach(b => b.onclick = () => { const T = NT_TIP[b.dataset.ntgo];
+    const tb = document.querySelector(`#adminNav .tab-btn[data-tab="${T.tab}"]`); if(tb) tb.click();
+    if(T.sub){ const sb = document.querySelector(`.subtab-btn[data-subtab="${T.sub}"]`); if(sb) sb.click(); }
+    window.scrollTo({ top:0, behavior:'smooth' }); });
+}
+function ntDay(iso){
+  const t = cuToday(), y = cuLocalDate(new Date(Date.now()-864e5));
+  return iso===t ? 'Azi' : iso===y ? 'Ieri' : new Date(iso+'T12:00:00').toLocaleDateString('ro-RO',{ weekday:'long', day:'numeric', month:'long' });
+}
+/* la deschiderea tab-ului: arată ce e nou, apoi după 4 secunde le marchează ca văzute */
+let ntTimer = null;
+function ntOpened(){
+  clearTimeout(ntTimer);
+  ntTimer = setTimeout(() => { if(!NT.seen) return; let ch = false; NT.items.forEach(x => { if(!NT.seen.has(x.key)){ NT.seen.add(x.key); ch = true; } });
+    if(ch){ ntSaveSeen(); ntBadge(); } }, 4000);
 }
 
 /* ================= CONTRACTE CADRU DE INTERMEDIERE ȘI REVÂNZARE (COMISION) =================
