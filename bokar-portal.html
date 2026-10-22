@@ -4125,7 +4125,7 @@ async function poRenderList(el){
       <div class="cu-acts" style="margin-bottom:0"><button class="btn btn-primary cu-sm" id="poResume" type="button">Continuă</button><button class="btn btn-secondary cu-sm" id="poDrop" type="button">Renunță</button></div></div>` : ''}
     ${list.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Nr.</th><th>Data</th><th>Poziții</th><th>Bucăți</th><th>Stare</th></tr></thead><tbody>
       ${list.map(c => `<tr class="cu-rowlink" data-po="${cuEsc(c.id)}"><td>${cuEsc(c.nr||'—')}</td><td>${cuDRo(c.data)}</td><td>${(c.lines||[]).length}</td><td>${poTotals(c).buc}</td>
-        <td><span class="cu-pill ${c.status==='trimisa'?'info':c.status==='livrata'?'ok':''}">${c.status==='trimisa'?'Trimisă':c.status==='livrata'?'Livrată':'Ciornă'}</span>${c.importFactura?` <span style="font-size:11px;color:var(--stone)">import ${cuEsc(c.importFactura)}</span>`:''}</td></tr>`).join('')}
+        <td><span class="cu-pill ${c.status==='trimisa'?'info':c.status==='livrata'?'ok':''}">${c.status==='trimisa'?'Trimisă':c.status==='livrata'?'Livrată':'Netrimisă'}</span>${c.importFactura?` <span style="font-size:11px;color:var(--stone)">import ${cuEsc(c.importFactura)}</span>`:''}</td></tr>`).join('')}
     </tbody></table></div>` : '<div class="empty">Nicio comandă salvată încă.</div>'}
   </div>`;
   document.getElementById('poNew').onclick = () => poGo('form', { cur:poBlank() });
@@ -4198,8 +4198,10 @@ function poRenderForm(el){
           <div class="field"><label>Note pentru producător (scrie în engleză sau ucraineană)</label><textarea data-pf="note" rows="3"></textarea></div>
           <div class="field"><label>Limba PDF-ului</label><div class="cu-seg" id="poLang">
             <button type="button" data-lang="en" aria-pressed="${PO.lang==='en'}">English</button><button type="button" data-lang="ua" aria-pressed="${PO.lang==='ua'}">Українська</button></div></div>
-          ${c.id ? `<div class="field"><label>Stare</label><select id="poSt"><option value="ciorna">Ciornă</option><option value="trimisa">Trimisă producătorului</option><option value="livrata">Livrată</option></select></div>` : ''}
+          ${c.id ? `<div class="field"><label>Stare</label><select id="poSt"><option value="ciorna">Netrimisă</option><option value="trimisa">Trimisă producătorului</option><option value="livrata">Livrată</option></select></div>` : ''}
           <div id="poErr" class="warning-banner"></div>
+          ${c.id && (c.status||'ciorna')==='ciorna' ? `<div class="cu-linkbox" style="margin:6px 0"><b>Ai trimis comanda la BOKAR?</b>
+            <div class="cu-acts" style="margin-bottom:0"><button class="btn btn-primary cu-sm" id="poSent" type="button">Da, marchează ca trimisă</button></div></div>` : ''}
           <div class="cu-acts"><button class="btn btn-primary" id="poPdf" type="button">Generează PDF</button>
             <button class="btn btn-secondary" id="poSave" type="button">Salvează comanda</button>
             ${c.id ? '<button class="btn btn-secondary" id="poImp" type="button">Convertește în import</button><button class="btn btn-secondary" id="poDup" type="button">Duplică</button><button class="btn btn-secondary" id="poDel" type="button" style="color:var(--red)">Șterge</button>' : ''}</div>
@@ -4234,6 +4236,9 @@ function poRenderForm(el){
   document.getElementById('poSave').onclick = () => poSave();
   document.getElementById('poPdf').onclick = () => poPdf();
   const im = document.getElementById('poImp'); if(im) im.onclick = () => poToImport(c);
+  const se = document.getElementById('poSent'); if(se) se.onclick = async () => {
+    try{ await db.collection('comenziBokar').doc(c.id).update({ status:'trimisa', trimisaLa:cuToday() }); c.status = 'trimisa'; c.trimisaLa = cuToday(); poGo('form', { cur:c }); }
+    catch(e){ console.error(e); alert('Nu am putut salva.'); } };
   const du = document.getElementById('poDup'); if(du) du.onclick = () => { const n = JSON.parse(JSON.stringify(c)); delete n.id; n.nr = ''; n.status = 'ciorna'; n.data = cuToday(); n.created = ''; poGo('form', { cur:n }); };
   const dl = document.getElementById('poDel'); if(dl) dl.onclick = async () => { if(!confirm(`Ștergi comanda ${c.nr||''}?`)) return;
     try{ await db.collection('comenziBokar').doc(c.id).delete(); poGo('list', { cur:null }); }catch(e){ console.error(e); alert('Nu am putut șterge.'); } };
@@ -4269,7 +4274,8 @@ async function poSave(silent){
     const o = JSON.parse(JSON.stringify(c)); delete o.id; await ref.set(o);
     c.id = ref.id;   // doar după ce s-a salvat efectiv
     try{ localStorage.removeItem(poKey); }catch(e){}
-    if(!silent){ alert(`Comanda ${c.nr} a fost salvată.`); poGo('form', { cur:c }); }
+    if(!silent){ alert(`Comanda ${c.nr} a fost salvată.`); }
+    poGo('form', { cur:c });
     return true;
   }catch(e){ console.error(e);
     poErr('Comanda nu s-a putut salva în baza de date (probabil regulile Firestore nu permit încă colecția „comenziBokar”). Coșul rămâne salvat pe acest dispozitiv, iar PDF-ul se poate genera oricum.');
