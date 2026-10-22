@@ -201,7 +201,7 @@
   #offerSheet table.items .img-row td{padding:3mm 0 1mm;border:none;background:none;}
   #offerSheet .img-wrap{display:flex;justify-content:center;gap:8mm;}
   #offerSheet .img-wrap figure{margin:0;text-align:center;}
-  #offerSheet .img-wrap img{height:42mm;width:auto;max-width:80mm;object-fit:contain;}
+  #offerSheet .img-wrap img{height:32mm;width:auto;max-width:70mm;object-fit:contain;}
   #offerSheet .img-wrap figcaption{font-size:9px;color:var(--stone);margin-top:1mm;}
   #offerSheet .totals-row{margin-bottom:4mm;}
   #offerSheet .totals-box{width:82mm;}
@@ -369,7 +369,7 @@ body{padding-bottom:84px;}
 .w-btn{font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:8px;padding:13px 16px;cursor:pointer;min-height:48px;}
 .w-btn:disabled{opacity:.55;}
 .w-btn-main{background:var(--ink);color:#fff;}
-.w-btn-ghost{background:#efebe7;color:var(--ink);}
+.w-btn-ghost{background:#ececec;color:var(--ink);}
 .w-big{width:100%;font-size:15.5px;padding:15px 16px;}
 .w-bar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:10px;max-width:640px;margin:0 auto;}
 .w-bar .w-btn{flex:0 0 auto;min-width:104px;}
@@ -619,7 +619,7 @@ function renderOfferSheet(){
         <td class="total-cell">${fmtNum(rowTotal(p))}</td>
       </tr>
     `;}).join("")}
-    ${cat.tip==='focar' && activeProds(cat).some(p=>p.img) ? `<tr class="img-row"><td colspan="5"><div class="img-wrap">${activeProds(cat).filter(p=>p.img).map(p=>`<figure><img src="${p.img}" alt=""><figcaption>${p.denumire||""}</figcaption></figure>`).join("")}</div></td></tr>` : ""}
+    ${cat.tip==='focar' && activeProds(cat).some(p=>p.img&&p.showImg) ? `<tr class="img-row"><td colspan="5"><div class="img-wrap">${activeProds(cat).filter(p=>p.img&&p.showImg).map(p=>`<figure><img src="${p.img}" alt=""><figcaption>${p.denumire||""}</figcaption></figure>`).join("")}</div></td></tr>` : ""}
   `).join("");
 
   sheet.innerHTML = `
@@ -1044,6 +1044,8 @@ function bindActions(root){
         const p = x==='focar' ? newProdFocar() : newProdCos();
         p.denumire = x==='focar' ? focarDenumire(p) : cosDenumire(p);
         c.produse.push(p); renderStep();
+      } else if(a==='toggleimg'){
+        const [c,p] = prodById(x); p.showImg = !p.showImg; renderStep();
       } else if(a==='delimg'){
         const [c,p] = prodById(x); p.img = ''; renderStep();
       } else if(a==='delp'){
@@ -1133,7 +1135,7 @@ function pickCatalog(id, i){
   const [c,p] = prodById(id);
   p.cat = true; p.denumire = it.n; p.pret = it.p; p.pmax = it.pmax||0; p.cantitate = p.cantitate||1;
   if(c.tip==='focar'){
-    p.model = it.n; p.img = '';
+    p.model = it.n; p.img = ''; p.showImg = false;
     if(it.i){ fetchImg(it.i).then(d=>{ p.img = d; toast('Poza focarului preluată ✓'); renderStep(); }).catch(()=>toast('Poza nu a putut fi preluată')); }
     const hay = normS(it.n+' '+(it.b||''));
     p.brand = hay.includes('bokar') ? 'BOKAR' : hay.includes('spartherm') ? 'Spartherm' : 'Altul';
@@ -1193,7 +1195,7 @@ function sFocar(){
     <div class="w-block">
       ${c.produse.length>1?`<div class="w-block-h"><b>Focar ${i+1}</b><button class="w-x" data-act="delp|${p.id}">Șterge</button></div>`:''}
       ${catalogBox('focar',p)}
-      ${p.img?`<div class="w-img"><img src="${p.img}" alt=""><div><div class="w-note">Poza apare în ofertă, sub focar.</div><button class="w-x" data-act="delimg|${p.id}">Elimină poza</button></div></div>`:''}
+      ${p.img?`<div class="w-img"><img src="${p.img}" alt=""><div><div class="w-note">${p.showImg?'Poza apare în ofertă, sub focar (poate împinge totalul pe a doua pagină).':'Poza NU apare în ofertă.'}</div><button class="w-btn w-btn-ghost" data-act="toggleimg|${p.id}">${p.showImg?'Nu include poza':'Include poza în ofertă'}</button> <button class="w-x" data-act="delimg|${p.id}">Elimină</button></div></div>`:''}
       <div class="w-row">
         <div class="w-f"><label>Brand</label><select data-b="p|${p.id}|brand" data-re="1">${BRANDURI_FOCAR.map(b=>`<option ${p.brand===b?'selected':''}>${b}</option>`).join('')}</select></div>
         <div class="w-f"><label>Model</label><input data-b="p|${p.id}|model" value="${esc(p.model||'')}" placeholder="ex: 8050"></div>
