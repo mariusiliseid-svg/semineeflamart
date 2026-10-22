@@ -694,6 +694,11 @@
         <div class="cg-acts"><button class="btn btn-primary" type="button" id="cgGoPortal">Emite din portal</button><button class="btn btn-sec" type="button" id="cgDownload">Descarc oricum</button><button class="btn btn-sec" type="button" id="cgCancel">Renunț</button></div>
       </div>
     </div>
+    <div class="card">
+      <h2 style="margin:0 0 4px">Contractele mele</h2>
+      <p style="color:#666;font-size:13.5px;margin:0 0 12px">Contractele semnate cu Flamart. Le poți descărca oricând în PDF.</p>
+      <div id="partContracteList"><div class="empty">Se încarcă…</div></div>
+    </div>
   </div>
 
 </div>
@@ -1488,6 +1493,7 @@ async function loadPartenerView(){
   loadPartLeaduri();
   loadPartCustodie();
   loadPartComision();
+  loadPartContracte();
   loadPartGarantii();
   loadPartReclamatii();
 }
@@ -3636,6 +3642,24 @@ async function loadPartCustodie(){
 }
 
 
+
+/* ---------- partener: „Contractele mele” (tab Documente) ---------- */
+async function loadPartContracte(){
+  const el = document.getElementById('partContracteList'); if(!el) return;
+  let list = [];
+  try{
+    const [snap, cfg] = await Promise.all([ db.collection('custodii').where('dealerUid','==',currentUser.uid).get(), safeGet('config','custodie') ]);
+    if(typeof CACHE!=='undefined' && cfg) CACHE.custodieCfg = cfg;
+    list = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(c => c.status==='activ' || c.status==='incheiat');
+  }catch(e){ console.error(e); el.innerHTML = '<div class="empty">Lista nu s-a putut încărca.</div>'; return; }
+  list.sort((a,b) => String(b.signedAt||b.created||'').localeCompare(String(a.signedAt||a.created||'')));
+  if(!list.length){ el.innerHTML = '<div class="empty">Nu ai încă niciun contract semnat.</div>'; return; }
+  el.innerHTML = `<div class="doc-list">${list.map(c => { const cm = c.tip==='comision', st = c.status==='incheiat' ? (cm?'Încetat':'Încheiat') : 'Activ';
+    return `<div class="doc-row"><div class="doc-ic">PDF</div>
+      <div class="doc-tx"><b>${cm?'Contract-cadru de comision':'Contract de custodie'} ${cuEsc(c.nr||'')}</b><span>Semnat la ${cuDRo(String(c.signedAt||c.data||'').slice(0,10))} · ${st}</span></div>
+      <div class="doc-ac"><button class="btn btn-primary" type="button" data-pcpdf="${cuEsc(c.id)}">Descarcă</button></div></div>`; }).join('')}</div>`;
+  el.querySelectorAll('[data-pcpdf]').forEach(b => b.onclick = () => cuMakePdf(list.find(c => c.id===b.dataset.pcpdf)));
+}
 
 /* ---------- partener: „Garanțiile mele” ---------- */
 async function loadPartGarantii(){
