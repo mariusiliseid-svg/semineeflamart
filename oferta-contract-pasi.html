@@ -637,7 +637,7 @@ function renderOfferSheet(){
         </div>
       </div>
       <div class="propunere">
-        <h2>PROPUNERE</h2>
+        <h2>OFERTĂ</h2>
         <div class="sub">TEHNICO-FINANCIARĂ</div>
         <div class="meta">
           <div><b>Număr:</b> ${data.numar || "—"}</div>
@@ -763,7 +763,7 @@ function renderContractSheet(){
       <div class="c-section-title">Termeni</div>
       <div class="c-section-body">
         <ol>
-          <li>Această propunere este valabilă până la ${fmtDate(data.data)}.</li>
+          <li>Această ofertă este valabilă până la ${fmtDate(data.data)}.</li>
           <li>Datele scadente de plată pot fi modificate pentru a corespunde cu datele produselor finale.</li>
           <li>Termenul de livrare a echipamentelor și execuție a lucrărilor este: <b>${fmtDate(data.contract.termenLivrare) || "—"}</b></li>
         </ol>
