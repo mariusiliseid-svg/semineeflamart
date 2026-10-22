@@ -140,6 +140,22 @@
   .btn:disabled{opacity:.5;cursor:default;}
   [hidden]{display:none!important;}
 
+  /* ---- Comandă BOKAR ---- */
+  .po-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start;}
+  .po-side{position:sticky;top:10px;}
+  .po-prod{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
+  .po-prod:last-child{border-bottom:0;}
+  .po-pn b{display:block;font-size:13.5px;} .po-pn small{color:var(--stone);font-size:11.5px;}
+  .po-opts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .po-in{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;max-width:150px;}
+  .po-q{width:60px;}
+  .po-line{display:flex;gap:10px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);}
+  .po-lt{flex:1;min-width:0;} .po-lt b{display:block;font-size:13px;} .po-lt small{display:block;color:var(--stone);font-size:11.5px;}
+  .po-note{width:100%;margin-top:5px;font:inherit;font-size:12px;padding:5px 7px;border:1px dashed var(--line);border-radius:6px;}
+  .po-lq{display:flex;align-items:flex-start;gap:2px;} .po-lq input{width:56px;font:inherit;font-size:13px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;}
+  .po-tot{display:flex;justify-content:space-between;font-weight:800;font-size:13px;padding-top:10px;}
+  @media (max-width:900px){ .po-grid{grid-template-columns:1fr;} .po-side{position:static;} }
+
   /* ---- Semnare în portal ---- */
   .ps-modal{position:fixed;inset:0;z-index:9000;background:rgba(20,20,20,.55);overflow-y:auto;padding:16px;}
   .ps-box{background:var(--bg-soft);max-width:820px;margin:0 auto;border-radius:12px;padding:14px;}
@@ -340,6 +356,7 @@
       <button class="subtab-btn" data-subtab="cereri">Cereri dealeri</button>
       <button class="subtab-btn" data-subtab="custodie">Contracte custodie</button>
       <button class="subtab-btn" data-subtab="comision">Contracte comision</button>
+      <button class="subtab-btn" data-subtab="comandabokar">Comandă BOKAR</button>
       <button class="subtab-btn" data-subtab="conturi">Conturi parteneri</button>
     </div>
 
@@ -352,6 +369,10 @@
 
     <div id="subtab-custodie" class="subtab-content" style="display:none;">
       <div id="cuRoot"><div class="empty">Se încarcă…</div></div>
+    </div>
+
+    <div id="subtab-comandabokar" class="subtab-content" style="display:none;">
+      <div id="poRoot"><div class="empty">Se încarcă…</div></div>
     </div>
 
     <div id="subtab-comision" class="subtab-content" style="display:none;">
@@ -1884,6 +1905,7 @@ async function loadAll(){
   renderReclamatiiAdmin();
   if(CU.view !== 'form') renderCustodie();
   if(CM.view !== 'form') renderComision();
+  if(PO.view !== 'form') renderComandaBokar();
   renderNotificari();
   cuSyncSemnari();
   document.getElementById('dealeriDatalist').innerHTML =
@@ -3274,8 +3296,8 @@ async function cuMakePdf(c){
   if(!window.jspdf || !window.html2canvas){ alert('Generatorul PDF nu s-a încărcat. Verifică internetul și reîncarcă pagina.'); return; }
   cuOverlay('Se generează PDF-ul…');
   const host = document.createElement('div'); host.style.cssText = `position:fixed;left:-10000px;top:0;width:${CU_PDF_W}px`;
-  const src = document.createElement('article'); src.className = 'cdoc pdf'; const isCm = c.tip==='comision'; src.innerHTML = isCm ? cmBuildDoc(c) : cuBuildDoc(c); host.appendChild(src); document.body.appendChild(host);
-  const name = `${isCm?'Contract-cadru':'Contract-custodie'}-${c.nr||'ciorna'}-${(c.dz.firma||'').replace(/[^\p{L}\p{N}]+/gu,'-')}.pdf`;
+  const src = document.createElement('article'); src.className = 'cdoc pdf'; const isCm = c.tip==='comision'; src.innerHTML = c._html || (isCm ? cmBuildDoc(c) : cuBuildDoc(c)); host.appendChild(src); document.body.appendChild(host);
+  const name = c._name || `${isCm?'Contract-cadru':'Contract-custodie'}-${c.nr||'ciorna'}-${(c.dz.firma||'').replace(/[^\p{L}\p{N}]+/gu,'-')}.pdf`;
   try{
     try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
     await Promise.all([...src.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
@@ -3304,7 +3326,7 @@ async function cuMakePdf(c){
       box.remove(); cv.width = cv.height = 0;
     }
     const N = pdf.internal.getNumberOfPages(); pdf.setFontSize(8); pdf.setTextColor(120,134,152);
-    for(let i=1;i<=N;i++){ pdf.setPage(i); pdf.text(`${isCm?'Contract-cadru':'Contract de custodie'} ${c.nr||''}  -  pagina ${i} din ${N}`, 105, 291, { align:'center' }); }
+    for(let i=1;i<=N;i++){ pdf.setPage(i); pdf.text(c._html ? `${c.nr||''}  -  ${i} / ${N}` : `${isCm?'Contract-cadru':'Contract de custodie'} ${c.nr||''}  -  pagina ${i} din ${N}`, 105, 291, { align:'center' }); }
     cuPdfReady(pdf.output('blob'), name);
   }catch(e){ console.error(e); cuOverlayClose(); alert('PDF-ul nu a putut fi generat. Încearcă din nou.'); }
   finally{ host.remove(); }
@@ -3823,6 +3845,276 @@ document.getElementById('bellBtn').onclick = () => {
   const tb = document.getElementById(currentUser.role==='admin' ? 'ntTab' : 'pnTab'); if(tb) tb.click();
   window.scrollTo({ top:0, behavior:'smooth' });
 };
+
+
+/* ================= COMANDĂ CĂTRE BOKAR (coș + PDF EN / UA) =================
+   Catalogul e o copie a celui de pe bokar.ro (assets/data.js), fără prețuri.
+   Comenzile se salvează în colecția „comenziBokar”; numerotarea în config/comenziBokar.
+   Coșul în lucru se ține și local, ca să nu se piardă la reîncărcare. */
+const PO_MODELE = [
+  ['6050','BOKAR 6050','drept',185],['7050','BOKAR 7050','drept',194],['8050','BOKAR 8050','drept',214],['9050','BOKAR 9050','drept',234],
+  ['9050p','BOKAR 9050 P','tunel',215],
+  ['655047','BOKAR 655047','colt',190],['755047','BOKAR 755047','colt',194],['855047','BOKAR 855047','colt',208],
+  ['6050g','BOKAR 6050 G','ghilotina',235],['7050g','BOKAR 7050 G','ghilotina',250],['8050g','BOKAR 8050 G','ghilotina',265],['9050g','BOKAR 9050 G','ghilotina',280],
+  ['755047g','BOKAR 755047 G','ghilotina-colt',220],['855047g','BOKAR 855047 G','ghilotina-colt',240],['psg60','BOKAR PSG 60','ghilotina-colt',220],
+  ['forum','BOKAR Forum Corner','soba',157],['aston-st','BOKAR Aston ST4380','soba',157],['aston-fd','BOKAR Aston FD4380','soba',157],['aston-wd','BOKAR Aston WD4380','soba',157]
+].map(([slug,nume,fam,kg]) => ({ slug, nume, fam, kg, lr: /colt/.test(fam) && slug!=='psg60' }));
+const PO_GRILE = {
+  linear:{ nume:'Luft Urban Linear', sizes:['60×200','90×200','60×400','90×400','60×600','90×600','60×700','90×700','60×800','90×800','60×1000','90×1000'] },
+  colt:{ nume:'Luft Urban Corner', lr:true, sizes:['60×650×450','90×650×450','60×750×450','90×750×450','60×850×450','90×850×450','60×600×400','90×600×400','60×700×400','90×700×400','60×800×400','90×800×400'] }
+};
+const PO_FIRIDE = [['MONO 2930160','290 × 300 × 1600'],['SPLIT 2930160','290 × 300 × 1600',1],['MONO 293075','290 × 300 × 750'],['MONO 293050','290 × 300 × 500'],['MONO 293029','290 × 300 × 290']];
+const PO_CUL = ['Alb','Negru','Cream'];
+const PO_T = {
+  en:{ title:'PURCHASE ORDER', sub:'BOKAR fireboxes and accessories', no:'Order no.', date:'Date', buyer:'Buyer', supplier:'Supplier', delivery:'Delivery address',
+    req:'Requested shipment', contact:'Contact', vat:'VAT no.', reg:'Reg. no.', item:'Item', spec:'Specification', qty:'Qty', pcs:'pcs', notes:'Notes',
+    sec:{ focar:'Fireboxes', soba:'Stoves', grila:'Ventilation grilles', firida:'Firewood niches', special:'Custom items' },
+    version:'Version', side:'Side', L:'left', R:'right', colour:'Colour', shade:'Body colour', size:'Size', dims:'Dimensions (mm)', divider:'with middle divider',
+    col:{ Alb:'White', Negru:'Black', Cream:'Cream' }, ver:{ White:'White', Black:'Black' },
+    total:'Total items', weight:'Estimated firebox/stove weight', confirm:'Please confirm this order with a proforma invoice and the expected shipment date.',
+    sign:'Signature and stamp', prepared:'Prepared by', page:'page', of:'of', asap:'as soon as possible', kg:'kg', custom:'Custom', na:'—' },
+  ua:{ title:'ЗАМОВЛЕННЯ НА ПОСТАВКУ', sub:'Топки BOKAR та комплектуючі', no:'№ замовлення', date:'Дата', buyer:'Покупець', supplier:'Постачальник', delivery:'Адреса доставки',
+    req:'Бажана дата відвантаження', contact:'Контакт', vat:'ПДВ №', reg:'Реєстр. №', item:'Найменування', spec:'Характеристики', qty:'К-сть', pcs:'шт.', notes:'Примітки',
+    sec:{ focar:'Топки', soba:'Печі', grila:'Вентиляційні решітки', firida:'Ніші для дров', special:'Індивідуальні вироби' },
+    version:'Виконання', side:'Сторона', L:'ліва', R:'права', colour:'Колір', shade:'Колір корпусу', size:'Розмір', dims:'Розміри (мм)', divider:'з перегородкою посередині',
+    col:{ Alb:'Білий', Negru:'Чорний', Cream:'Кремовий' }, ver:{ White:'White', Black:'Black' },
+    total:'Всього одиниць', weight:'Орієнтовна вага топок / печей', confirm:'Просимо підтвердити замовлення рахунком-проформою та очікуваною датою відвантаження.',
+    sign:'Підпис і печатка', prepared:'Склав', page:'сторінка', of:'з', asap:'якнайшвидше', kg:'кг', custom:'Індивідуально', na:'—' }
+};
+let PO = { view:'list', cur:null, lang:'en' };
+const poKey = 'bokarPoDraft';
+function poBlank(){
+  const F = cuFirm(0);
+  return { nr:'', data:cuToday(), status:'ciorna', lines:[], livrare:`${F.n}, Str. Alecu Russo nr. 88, Bacău, România`, termen:'', note:'', lang:'en',
+    furnizor:'BOKAR (Ukraine)', contact:`${F.rep||''}${F.tel?' · '+F.tel:''}${F.mail?' · '+F.mail:''}`.replace(/^ · /,'') };
+}
+function poSaveLocal(){ try{ if(PO.cur && !PO.cur.id) localStorage.setItem(poKey, JSON.stringify(PO.cur)); }catch(e){} }
+function poLoadLocal(){ try{ const d = JSON.parse(localStorage.getItem(poKey)||'null'); return d && d.lines ? d : null; }catch(e){ return null; } }
+
+/* descrierea unei linii, în limba aleasă */
+function poDesc(l, lang){
+  const T = PO_T[lang||'ro'] || PO_T.en, ro = !PO_T[lang];
+  const sideTxt = s => ro ? (s==='L'?'stânga':'dreapta') : T[s];
+  const col = c => ro ? c : (T.col[c]||c);
+  if(l.tip==='focar' || l.tip==='soba'){
+    const m = PO_MODELE.find(x => x.slug===l.slug) || { nume:l.slug };
+    const sp = [];
+    if(l.var) sp.push(`${ro?'Variantă':T.version}: ${l.var}`);
+    if(l.lr) sp.push(`${ro?'Latura':T.side}: ${l.lr} (${sideTxt(l.lr)})`);
+    if(l.nuanta) sp.push(`${ro?'Nuanță carcasă':T.shade}: ${l.nuanta}`);
+    return { item:m.nume, spec:sp.join(' · ') };
+  }
+  if(l.tip==='grila'){
+    const g = PO_GRILE[l.fam] || {};
+    const sp = [`${ro?'Mărime':T.size}: ${l.size}`, `${ro?'Culoare':T.colour}: ${col(l.cul)}`];
+    if(l.lr) sp.push(`${ro?'Latura':T.side}: ${l.lr} (${sideTxt(l.lr)})`);
+    return { item:`${g.nume} ${l.size}`, spec:sp.join(' · ') };
+  }
+  if(l.tip==='firida'){
+    const f = PO_FIRIDE.find(x => x[0]===l.cod) || [l.cod,''];
+    return { item:`BOKAR ${f[0]}`, spec:`${ro?'Dimensiuni':T.dims}: ${f[1]}${f[2]?` · ${ro?'cu diafragmă la mijloc':T.divider}`:''}` };
+  }
+  return { item:l.nume||'', spec:[l.dims?`${ro?'Dimensiuni':T.dims}: ${l.dims}`:'', l.cul?`${ro?'Culoare':T.colour}: ${l.cul}`:''].filter(Boolean).join(' · ') };
+}
+function poTotals(c){
+  const buc = (c.lines||[]).reduce((a,l) => a+(+l.q||0), 0);
+  const kg = (c.lines||[]).filter(l => l.tip==='focar'||l.tip==='soba').reduce((a,l) => a+(+l.q||0)*((PO_MODELE.find(m => m.slug===l.slug)||{}).kg||0), 0);
+  return { buc, kg };
+}
+
+/* ---------- ecrane ---------- */
+function renderComandaBokar(){
+  const el = document.getElementById('poRoot'); if(!el) return;
+  if(PO.view==='form') return poRenderForm(el);
+  poRenderList(el);
+}
+function poGo(view, opts){ Object.assign(PO, { view }, opts||{}); renderComandaBokar(); const el = document.getElementById('poRoot'); if(el) el.scrollIntoView({ block:'start' }); }
+async function poRenderList(el){
+  let list = []; let err = '';
+  try{ list = await safeGetAll('comenziBokar'); }catch(e){ err = 'x'; }
+  list.sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  const draft = poLoadLocal();
+  el.innerHTML = `<div class="card">
+    <div class="cu-top"><h2 style="margin:0">Comenzi către BOKAR</h2>
+      <button class="btn btn-primary" id="poNew" type="button">+ Comandă nouă</button></div>
+    ${draft && draft.lines.length ? `<div class="cu-linkbox"><b>Ai un coș nesalvat</b> (${draft.lines.length} ${draft.lines.length===1?'poziție':'poziții'}).
+      <div class="cu-acts" style="margin-bottom:0"><button class="btn btn-primary cu-sm" id="poResume" type="button">Continuă</button><button class="btn btn-secondary cu-sm" id="poDrop" type="button">Renunță</button></div></div>` : ''}
+    ${list.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Nr.</th><th>Data</th><th>Poziții</th><th>Bucăți</th><th>Stare</th></tr></thead><tbody>
+      ${list.map(c => `<tr class="cu-rowlink" data-po="${cuEsc(c.id)}"><td>${cuEsc(c.nr||'—')}</td><td>${cuDRo(c.data)}</td><td>${(c.lines||[]).length}</td><td>${poTotals(c).buc}</td>
+        <td><span class="cu-pill ${c.status==='trimisa'?'info':c.status==='livrata'?'ok':''}">${c.status==='trimisa'?'Trimisă':c.status==='livrata'?'Livrată':'Ciornă'}</span></td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty">Nicio comandă salvată încă.</div>'}
+  </div>`;
+  document.getElementById('poNew').onclick = () => poGo('form', { cur:poBlank() });
+  const rs = document.getElementById('poResume'); if(rs) rs.onclick = () => poGo('form', { cur:draft });
+  const dr = document.getElementById('poDrop'); if(dr) dr.onclick = () => { if(confirm('Ștergi coșul nesalvat?')){ try{ localStorage.removeItem(poKey); }catch(e){} poRenderList(el); } };
+  el.querySelectorAll('[data-po]').forEach(r => r.onclick = () => { const c = list.find(x => x.id===r.dataset.po); poGo('form', { cur:JSON.parse(JSON.stringify(c)) }); });
+}
+
+function poRenderForm(el){
+  const c = PO.cur; PO.lang = c.lang || PO.lang;
+  const opt = (arr, sel) => arr.map(v => `<option ${v===sel?'selected':''}>${cuEsc(v)}</option>`).join('');
+  const famLabel = { drept:'Drept', tunel:'Tunel', colt:'Colț', ghilotina:'Ghilotină', 'ghilotina-colt':'Ghilotină colț', soba:'Sobă' };
+  el.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="poBack" type="button">← Înapoi la listă</button>
+      <span class="cu-pill">${c.nr?cuEsc(c.nr):'Comandă nouă'}</span></div>
+    <div class="po-grid">
+      <div>
+        <div class="card"><h2>Focare și sobe</h2>
+          <div class="po-cat">${PO_MODELE.map(m => `<div class="po-prod" data-slug="${m.slug}">
+            <div class="po-pn"><b>${cuEsc(m.nume)}</b><small>${famLabel[m.fam]} · ${m.kg} kg</small></div>
+            <div class="po-opts">
+              ${m.fam==='soba' ? `<input class="po-in" data-k="nuanta" placeholder="Nuanță carcasă">` : ''}
+              <select class="po-in" data-k="var"><option>Black</option><option>White</option></select>
+              ${m.lr ? `<select class="po-in" data-k="lr"><option value="L">L (stânga)</option><option value="R">R (dreapta)</option></select>` : ''}
+              <input class="po-in po-q" data-k="q" type="number" min="1" value="1">
+              <button class="btn btn-primary cu-sm" type="button" data-add="${m.fam==='soba'?'soba':'focar'}">Adaugă</button></div></div>`).join('')}</div>
+        </div>
+        <div class="card"><h2>Grile de ventilație Luft Urban</h2>
+          ${Object.entries(PO_GRILE).map(([k,g]) => `<div class="po-prod" data-fam="${k}">
+            <div class="po-pn"><b>${g.nume}</b><small>${g.sizes.length} mărimi</small></div>
+            <div class="po-opts"><select class="po-in" data-k="size">${opt(g.sizes)}</select>
+              <select class="po-in" data-k="cul">${opt(PO_CUL)}</select>
+              ${g.lr ? `<select class="po-in" data-k="lr"><option value="L">L</option><option value="R">R</option></select>` : ''}
+              <input class="po-in po-q" data-k="q" type="number" min="1" value="1">
+              <button class="btn btn-primary cu-sm" type="button" data-add="grila">Adaugă</button></div></div>`).join('')}
+        </div>
+        <div class="card"><h2>Firide pentru lemne</h2>
+          ${PO_FIRIDE.map(f => `<div class="po-prod" data-cod="${cuEsc(f[0])}">
+            <div class="po-pn"><b>${cuEsc(f[0])}</b><small>${cuEsc(f[1])} mm${f[2]?' · cu diafragmă':''}</small></div>
+            <div class="po-opts"><input class="po-in po-q" data-k="q" type="number" min="1" value="1">
+              <button class="btn btn-primary cu-sm" type="button" data-add="firida">Adaugă</button></div></div>`).join('')}
+        </div>
+        <div class="card"><h2>Produs special (grilă pe comandă, firidă, altceva)</h2>
+          <div class="field"><label>Denumire (scrie direct în engleză, apare așa pe PDF)</label><input id="poSpN" placeholder="ex. Custom ventilation grille / Custom niche"></div>
+          <div class="field-row"><div class="field"><label>Dimensiuni (mm)</label><input id="poSpD" placeholder="ex. 90 × 1200"></div>
+            <div class="field"><label>Culoare</label><input id="poSpC" placeholder="ex. Black RAL 9005"></div>
+            <div class="field" style="max-width:110px"><label>Buc.</label><input id="poSpQ" type="number" min="1" value="1"></div></div>
+          <div class="field"><label>Detalii (opțional)</label><input id="poSpX" placeholder="ex. corner L, 60 mm depth, drawing attached"></div>
+          <button class="btn btn-secondary" id="poSpAdd" type="button">Adaugă în coș</button>
+        </div>
+      </div>
+      <div class="po-side">
+        <div class="card po-cart"><h2>Coș ${c.lines.length?`<span class="nt-badge">${poTotals(c).buc}</span>`:''}</h2>
+          <div id="poCart"></div></div>
+        <div class="card"><h2>Detalii comandă</h2>
+          <div class="field-row"><div class="field"><label>Data</label><input type="date" data-pf="data"></div>
+            <div class="field"><label>Livrare dorită</label><input data-pf="termen" placeholder="ex. săptămâna 46 / cât mai repede"></div></div>
+          <div class="field"><label>Furnizor</label><input data-pf="furnizor"></div>
+          <div class="field"><label>Adresa de livrare</label><input data-pf="livrare"></div>
+          <div class="field"><label>Persoană de contact</label><input data-pf="contact"></div>
+          <div class="field"><label>Note pentru producător (scrie în engleză sau ucraineană)</label><textarea data-pf="note" rows="3"></textarea></div>
+          <div class="field"><label>Limba PDF-ului</label><div class="cu-seg" id="poLang">
+            <button type="button" data-lang="en" aria-pressed="${PO.lang==='en'}">English</button><button type="button" data-lang="ua" aria-pressed="${PO.lang==='ua'}">Українська</button></div></div>
+          ${c.id ? `<div class="field"><label>Stare</label><select id="poSt"><option value="ciorna">Ciornă</option><option value="trimisa">Trimisă producătorului</option><option value="livrata">Livrată</option></select></div>` : ''}
+          <div id="poErr" class="warning-banner"></div>
+          <div class="cu-acts"><button class="btn btn-primary" id="poPdf" type="button">Generează PDF</button>
+            <button class="btn btn-secondary" id="poSave" type="button">Salvează comanda</button>
+            ${c.id ? '<button class="btn btn-secondary" id="poDup" type="button">Duplică</button><button class="btn btn-secondary" id="poDel" type="button" style="color:var(--red)">Șterge</button>' : ''}</div>
+        </div>
+      </div>
+    </div>`;
+  const touch = () => poSaveLocal();
+  el.querySelectorAll('[data-pf]').forEach(x => { x.value = c[x.dataset.pf] ?? ''; x.oninput = () => { c[x.dataset.pf] = x.value; touch(); }; });
+  const st = document.getElementById('poSt'); if(st){ st.value = c.status||'ciorna'; st.onchange = () => { c.status = st.value; }; }
+  el.querySelectorAll('#poLang [data-lang]').forEach(b => b.onclick = () => { PO.lang = c.lang = b.dataset.lang; el.querySelectorAll('#poLang [data-lang]').forEach(x => x.setAttribute('aria-pressed', x===b)); touch(); });
+  el.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+    const row = b.closest('.po-prod'), v = k => { const i = row.querySelector(`[data-k="${k}"]`); return i ? i.value.trim() : ''; };
+    const q = Math.max(1, +v('q')||1), t = b.dataset.add; let l;
+    if(t==='focar'||t==='soba') l = { tip:t, slug:row.dataset.slug, var:v('var'), lr:v('lr'), nuanta:v('nuanta') };
+    else if(t==='grila') l = { tip:t, fam:row.dataset.fam, size:v('size'), cul:v('cul'), lr:v('lr') };
+    else l = { tip:t, cod:row.dataset.cod };
+    const same = c.lines.find(x => JSON.stringify(Object.assign({}, x, { q:0, nota:'' }))===JSON.stringify(Object.assign({}, l, { q:0, nota:'' })));
+    if(same) same.q += q; else c.lines.push(Object.assign(l, { q, nota:'' }));
+    b.textContent = '✓ Adăugat'; setTimeout(() => b.textContent = 'Adaugă', 900);
+    poRenderCart(); touch();
+  });
+  document.getElementById('poSpAdd').onclick = () => {
+    const n = document.getElementById('poSpN').value.trim(); if(!n){ document.getElementById('poSpN').focus(); return; }
+    c.lines.push({ tip:'special', nume:n, dims:document.getElementById('poSpD').value.trim(), cul:document.getElementById('poSpC').value.trim(),
+      q:Math.max(1, +document.getElementById('poSpQ').value||1), nota:document.getElementById('poSpX').value.trim() });
+    ['poSpN','poSpD','poSpC','poSpX'].forEach(i => document.getElementById(i).value = ''); document.getElementById('poSpQ').value = 1;
+    poRenderCart(); touch();
+  };
+  document.getElementById('poBack').onclick = () => poGo('list', { cur:null });
+  document.getElementById('poSave').onclick = () => poSave();
+  document.getElementById('poPdf').onclick = () => poPdf();
+  const du = document.getElementById('poDup'); if(du) du.onclick = () => { const n = JSON.parse(JSON.stringify(c)); delete n.id; n.nr = ''; n.status = 'ciorna'; n.data = cuToday(); n.created = ''; poGo('form', { cur:n }); };
+  const dl = document.getElementById('poDel'); if(dl) dl.onclick = async () => { if(!confirm(`Ștergi comanda ${c.nr||''}?`)) return;
+    try{ await db.collection('comenziBokar').doc(c.id).delete(); poGo('list', { cur:null }); }catch(e){ console.error(e); alert('Nu am putut șterge.'); } };
+  poRenderCart();
+}
+function poRenderCart(){
+  const c = PO.cur, box = document.getElementById('poCart'); if(!box) return;
+  const h = document.querySelector('.po-cart h2'); const tt = poTotals(c);
+  if(h) h.innerHTML = `Coș ${c.lines.length?`<span class="nt-badge">${tt.buc}</span>`:''}`;
+  if(!c.lines.length){ box.innerHTML = '<div class="empty">Coșul e gol. Adaugă produse din stânga.</div>'; return; }
+  box.innerHTML = c.lines.map((l,i) => { const d = poDesc(l); return `<div class="po-line">
+      <div class="po-lt"><b>${cuEsc(d.item)}</b><small>${cuEsc(d.spec)}</small>
+        <input class="po-note" data-ln="${i}" placeholder="Notă pentru producător (EN/UA)" value="${cuEsc(l.nota||'')}"></div>
+      <div class="po-lq"><input type="number" min="1" data-lq="${i}" value="${l.q}"><button class="cu-rm" type="button" data-lrm="${i}" title="Scoate">✕</button></div></div>`; }).join('')
+    + `<div class="po-tot"><span>${tt.buc} buc.</span>${tt.kg?`<span>≈ ${tt.kg.toLocaleString('ro-RO')} kg focare/sobe</span>`:''}</div>`;
+  box.querySelectorAll('[data-lq]').forEach(x => x.oninput = () => { c.lines[+x.dataset.lq].q = Math.max(1, +x.value||1); poSaveLocal();
+    const t2 = poTotals(c); const tot = box.querySelector('.po-tot'); if(tot) tot.innerHTML = `<span>${t2.buc} buc.</span>${t2.kg?`<span>≈ ${t2.kg.toLocaleString('ro-RO')} kg focare/sobe</span>`:''}`; });
+  box.querySelectorAll('[data-ln]').forEach(x => x.oninput = () => { c.lines[+x.dataset.ln].nota = x.value; poSaveLocal(); });
+  box.querySelectorAll('[data-lrm]').forEach(b => b.onclick = () => { c.lines.splice(+b.dataset.lrm, 1); poRenderCart(); poSaveLocal(); });
+}
+function poErr(m){ const e = document.getElementById('poErr'); if(!e){ if(m) alert(m); return; } e.textContent = m; e.classList.toggle('show', !!m); }
+async function poNextNr(){
+  const ref = db.collection('config').doc('comenziBokar'), an = new Date().getFullYear();
+  return db.runTransaction(async t => { const s = await t.get(ref); const d = s.exists ? s.data() : {};
+    const next = d.an===an ? (+d.next||1) : 1; t.set(ref, { an, next:next+1 }, { merge:true }); return `PO-${an}-${String(next).padStart(3,'0')}`; });
+}
+async function poSave(silent){
+  const c = PO.cur; if(!c.lines.length){ poErr('Coșul e gol.'); return false; } poErr('');
+  try{
+    if(!c.nr) c.nr = await poNextNr();
+    const ref = c.id ? db.collection('comenziBokar').doc(c.id) : db.collection('comenziBokar').doc();
+    c.id = ref.id; c.created = c.created || new Date().toISOString(); c.updated = new Date().toISOString(); c.createdBy = c.createdBy || currentUser.uid;
+    const o = JSON.parse(JSON.stringify(c)); delete o.id; await ref.set(o);
+    try{ localStorage.removeItem(poKey); }catch(e){}
+    if(!silent){ alert(`Comanda ${c.nr} a fost salvată.`); poGo('form', { cur:c }); }
+    return true;
+  }catch(e){ console.error(e);
+    poErr('Comanda nu s-a putut salva în baza de date (probabil regulile Firestore nu permit încă colecția „comenziBokar”). Coșul rămâne salvat pe acest dispozitiv, iar PDF-ul se poate genera oricum.');
+    poSaveLocal(); return false; }
+}
+
+/* ---------- PDF ---------- */
+function poBuildDoc(c, lang){
+  const T = PO_T[lang], F = cuFirm(0), tt = poTotals(c);
+  const order = ['focar','soba','grila','firida','special'];
+  let n = 0;
+  const groups = order.map(k => ({ k, rows:c.lines.filter(l => l.tip===k) })).filter(g => g.rows.length);
+  return `
+<div class="dh"><div class="logo"><div class="wm">FLAMART<small>BOKAR IMPORTER · ROMANIA</small></div></div>
+ <div class="firm"><b>${cuEsc(F.n)}</b><br>${T.vat} RO${cuEsc(F.cui)}${F.rc?` · ${T.reg} ${cuEsc(F.rc)}`:''}<br>${cuEsc(F.adr)}, Romania</div></div>
+<div class="dtitle"><h2>${T.title}</h2><p>${T.sub}</p></div>
+<div class="dmeta"><span>${T.no} ${cuEsc(c.nr||'—')}</span><span>${T.date} ${cuDRo(c.data)}</span></div>
+<div class="parties">
+ <div class="party"><h4>${T.buyer}</h4><div class="n">${cuEsc(F.n)}</div>${T.vat} RO${cuEsc(F.cui)}<br>${cuEsc(F.adr)}, Romania${c.contact?`<br>${T.contact}: ${cuEsc(c.contact)}`:''}</div>
+ <div class="party"><h4>${T.supplier}</h4><div class="n">${cuEsc(c.furnizor||'BOKAR')}</div>${T.delivery}:<br>${cuEsc(c.livrare||'')}<br>${T.req}: <b>${cuEsc(c.termen||T.asap)}</b></div>
+</div>
+${groups.map(g => `<h3>${T.sec[g.k]}</h3>
+<table><thead><tr><th style="width:28px">#</th><th>${T.item}</th><th>${T.spec}</th><th class="r" style="width:60px">${T.qty}</th></tr></thead><tbody>
+${g.rows.map(l => { const d = poDesc(l, lang); n++; return `<tr><td>${n}</td><td><b>${cuEsc(d.item)}</b></td><td>${cuEsc(d.spec)}${l.nota?`<br><i style="color:#5d6b80">${cuEsc(l.nota)}</i>`:''}</td><td class="r"><b>${l.q}</b> ${T.pcs}</td></tr>`; }).join('')}
+</tbody></table>`).join('')}
+<div class="keys" style="grid-template-columns:1fr 1fr;margin-top:6px">
+ <div><span>${T.total}</span><b>${tt.buc} ${T.pcs}</b></div>
+ <div><span>${T.weight}</span><b>${tt.kg ? '≈ '+tt.kg.toLocaleString('en-US')+' '+T.kg : T.na}</b></div>
+</div>
+${c.note?`<h3>${T.notes}</h3><p>${cuEsc(c.note).replace(/\n/g,'<br>')}</p>`:''}
+<p style="margin-top:12px">${T.confirm}</p>
+<div class="signs"><div class="sig"><h4>${T.prepared}</h4><b>${cuEsc(F.n)}</b>${cuEsc(F.rep||'')}<div class="im"></div><span class="when">${T.sign}</span></div><div></div></div>
+<div class="dfoot">${cuEsc(F.n)} · ${cuEsc(F.mail||'')} · ${cuEsc(F.tel||'')} · ${cuEsc(c.nr||'')}</div>`;
+}
+async function poPdf(){
+  const c = PO.cur; if(!c.lines.length){ poErr('Coșul e gol.'); return; }
+  await poSave(true);   // îi dă număr și o salvează (dacă se poate)
+  const lang = PO.lang || 'en';
+  const fake = { tip:'_po', nr:c.nr, dz:{ firma:'BOKAR' }, _html:poBuildDoc(c, lang), _name:`${c.nr||'PO'}-BOKAR-${lang.toUpperCase()}.pdf`, _foot:`${PO_T[lang].title} ${c.nr||''}` };
+  cuMakePdf(fake);
+  renderComandaBokar();
+}
 
 /* ================= NOTIFICĂRI (activitatea partenerilor) =================
    Se calculează din datele existente; nu scriu nimic în colecțiile partenerilor.
