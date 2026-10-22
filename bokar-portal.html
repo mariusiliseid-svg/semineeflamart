@@ -2795,14 +2795,15 @@ function renderCereriParteneriat(){
   el.innerHTML = `<div class="card"><h2>Cereri de parteneriat de pe bokar.ro (${noi.length})</h2>
     <div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Firma</th><th>Contact</th><th>Județ</th><th>Activitate</th><th>Mesaj</th><th></th></tr></thead><tbody>
     ${noi.map(c => `<tr><td>${fmtDate(c.data)}</td><td><b>${esc(c.firma)}</b>${c.cui?`<br><span style="color:var(--stone)">CUI ${esc(c.cui)}</span>`:''}</td>
-      <td>${esc(c.nume)}<br>${esc(c.telefon)}${c.email?`<br>${esc(c.email)}`:''}</td><td>${esc(c.judet)}</td><td>${esc(c.tip)}</td>
+      <td>${esc(c.nume)}<br>${esc(c.telefon)}${c.email?`<br>${esc(c.email)}`:''}${c.rc?`<br><span style="color:var(--stone)">${esc(c.rc)}${c.iban?' · IBAN ✓':''}</span>`:''}</td><td>${esc(c.judet)}</td><td>${esc(c.tip)}</td>
       <td style="max-width:260px">${esc(c.mesaj||'')}</td>
       <td style="white-space:nowrap"><button class="btn btn-secondary cu-sm" type="button" data-cpcont="${esc(c.id)}">Creează cont</button>
         <button class="btn btn-secondary cu-sm" type="button" data-cpok="${esc(c.id)}">Rezolvat</button></td></tr>`).join('')}
     </tbody></table></div></div>`;
   el.querySelectorAll('[data-cpcont]').forEach(b => b.onclick = () => { const c = noi.find(x => x.id===b.dataset.cpcont); cpSursa = c;
     document.getElementById('ct-nume').value = c.firma; document.getElementById('ct-email').value = c.email||'';
-    renderCtFirma({ firma:c.firma||'', cui:c.cui||'', rep:c.nume||'', tel:c.telefon||'', mail:c.email||'', judet:c.judet||'' });
+    renderCtFirma({ firma:c.firma||'', cui:c.cui||'', rc:c.rc||'', sediu:c.sediu||'', rep:c.rep||c.nume||'', fct:c.fct||'',
+      tel:c.telefon||'', mail:c.email||'', judet:c.judet||'', iban:c.iban||'', banca:c.banca||'', tva:c.tva||'' });
     document.getElementById('ct-parola').focus(); document.getElementById('contDealerForm').scrollIntoView({ behavior:'smooth', block:'center' }); });
   el.querySelectorAll('[data-cpok]').forEach(b => b.onclick = async () => {
     try{ await db.collection('cereriParteneriat').doc(b.dataset.cpok).update({ status:'rezolvat' }); loadAll(); }
@@ -3039,9 +3040,9 @@ function partnerCompanyData(p){
   const cr = (CACHE.cereriParteneriat||[]).filter(x => em && String(x.email||'').trim().toLowerCase()===em)
     .sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')))[0] || {};
   const pick = (...v) => v.find(x => x!=null && String(x).trim()!=='') || '';
-  return { firma:pick(fd.firma, cr.firma, p.nume), cui:pick(fd.cui, cr.cui), rc:pick(fd.rc), sediu:pick(fd.sediu),
-    rep:pick(fd.rep, cr.nume), fct:pick(fd.fct), tel:pick(fd.tel, cr.telefon), mail:pick(fd.mail, p.email, cr.email), judet:pick(fd.judet, cr.judet),
-    iban:pick(fd.iban), banca:pick(fd.banca), tva:pick(fd.tva) };
+  return { firma:pick(fd.firma, cr.firma, p.nume), cui:pick(fd.cui, cr.cui), rc:pick(fd.rc, cr.rc), sediu:pick(fd.sediu, cr.sediu),
+    rep:pick(fd.rep, cr.rep, cr.nume), fct:pick(fd.fct, cr.fct), tel:pick(fd.tel, cr.telefon), mail:pick(fd.mail, p.email, cr.email), judet:pick(fd.judet, cr.judet),
+    iban:pick(fd.iban, cr.iban), banca:pick(fd.banca, cr.banca), tva:pick(fd.tva, cr.tva) };
 }
 function saveFirmaDate(c){
   if(!c.dealerUid || !c.dz) return;
