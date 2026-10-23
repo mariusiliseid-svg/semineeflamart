@@ -1,0 +1,26 @@
+REGULI FIRESTORE pentru semnarea contractelor la distanță
+=========================================================
+Unde: Firebase Console -> proiectul bokar-crm -> Firestore Database -> Rules.
+Lipește blocul de mai jos ÎN INTERIORUL lui "match /databases/{database}/documents { ... }",
+lângă celelalte reguli existente (nu șterge nimic din ce ai deja). Apoi apasă Publish.
+
+    match /contracteSemnare/{token} {
+      // clientul deschide linkul = citește exact documentul cu tokenul lui (imposibil de ghicit)
+      allow get: if true;
+      // nimeni nu poate lista toate contractele
+      allow list: if false;
+      // aplicația de oferte poate crea un contract nou, doar în starea "pending", cu câmpurile așteptate
+      allow create: if token.size() >= 24
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.keys().hasOnly(['status','json','hash','clientNume','numar','creat'])
+                    && request.resource.data.json is string
+                    && request.resource.data.json.size() < 900000;
+      // clientul poate semna O SINGURĂ DATĂ: pending -> signed, schimbând doar câmpurile semnăturii
+      allow update: if resource.data.status == 'pending'
+                    && request.resource.data.status == 'signed'
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status','semnaturaClient','semnatNume','semnatLa','semnatInfo'])
+                    && request.resource.data.semnaturaClient is string
+                    && request.resource.data.semnaturaClient.size() < 200000;
+      allow delete: if false;
+    }

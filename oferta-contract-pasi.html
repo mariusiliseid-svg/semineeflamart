@@ -7,6 +7,8 @@
 <title>Ofertă și contract — Flamart</title>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 
   :root{
@@ -167,6 +169,7 @@
   .totals-box .t-discount{background:var(--bg-soft);}
   .totals-box .t-final{background:var(--ink);color:#fff;font-weight:800;font-size:13.5px;}
 
+  .sig-audit{font-size:8px;color:var(--stone);margin-top:1mm;}
   .sheet-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:10mm;}
   .sheet-footer img{width:38mm;height:auto;}
   .discount-note{font-size:9px;color:var(--stone);max-width:80mm;text-align:right;}
@@ -398,6 +401,12 @@ body{padding-bottom:84px;}
 .w-line{grid-template-rows:auto;}
 .w-flag{font-style:normal;font-size:10px;font-weight:700;background:#f1e6c6;color:#6b5200;border-radius:8px;padding:1px 6px;margin-left:4px;}
 .w-warn{background:#fff4d6;border-left:4px solid #c99700;color:#5c4400;font-size:12.5px;padding:8px 10px;margin:6px 0;border-radius:4px;}
+.w-agree{display:flex;gap:12px;align-items:flex-start;margin:14px 0;font-size:15px;font-weight:600;}
+.w-agree input{width:26px;height:26px;flex:none;margin-top:2px;accent-color:#232324;}
+.w-modes{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;}
+.w-modes .w-btn{width:auto;flex:1;text-align:center;text-decoration:none;font-size:14px;padding:10px 12px;}
+.w-linkbox{width:100%;font:inherit;font-size:12px;padding:9px;border:1px solid var(--line);border-radius:6px;background:#f6f6f6;margin:6px 0;}
+.w-ok{background:#eaf6ec;border-left:4px solid #2e7d32;color:#1b4d1f;font-size:13.5px;padding:10px 12px;margin:10px 0;border-radius:4px;}
 .w-img{display:flex;gap:12px;align-items:center;margin:0 0 12px;}
 .w-img img{width:96px;height:96px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff;}
 .w-search{border-color:var(--ember)!important;background:#fff!important;}
@@ -552,7 +561,7 @@ let data = {
   contract: {
     termenLivrare: "",
     plati: defaultPlati(),
-    modalitateSemnare: "Prezentul contract se semnează în original, în două exemplare, câte unul pentru fiecare parte.",
+    modalitateSemnare: "Prezentul contract se semnează electronic de către ambele părți, iar fiecare parte păstrează câte o copie în format electronic (PDF).",
     semnaturaPrestator: null,
     semnaturaClient: null,
     certificate: {}
@@ -832,6 +841,7 @@ function renderContractSheet(){
         <div class="sign-col">
           ${data.contract.semnaturaClient ? `<img src="${data.contract.semnaturaClient}" class="sig-img">` : ``}
           <div class="sign-line" style="${data.contract.semnaturaClient ? 'margin-top:2mm;' : ''}">${data.clientNume || ""}</div>
+          ${data.remote && data.remote.status==='signed' ? `<div class="sig-audit">Semnat electronic de ${esc(data.remote.semnatNume||data.clientNume||'')} la ${fmtDateTime(data.remote.semnatLa)}</div>` : ``}
         </div>
       </div>
     </div>
@@ -902,7 +912,7 @@ function blankData(){
     certificatSpartherm:true,
     categorii:[newCat("FOCAR","focar"), newCat("COȘ DE FUM","cos-de-fum"), newCatMateriale(), newCatManopera()],
     discount:0, discountNota:"*Discount valabil pentru plata în avans a focarului și coșului de fum",
-    contract:{ termenLivrare:"", plati:defaultPlati(), modalitateSemnare:"Prezentul contract se semnează în original, în două exemplare, câte unul pentru fiecare parte.", semnaturaPrestator:null, semnaturaClient:null, certificate:{} }
+    contract:{ termenLivrare:"", plati:defaultPlati(), modalitateSemnare:"Prezentul contract se semnează electronic de către ambele părți, iar fiecare parte păstrează câte o copie în format electronic (PDF).", semnaturaPrestator:null, semnaturaClient:null, certificate:{} }
   };
   const mc = d.categorii.find(c=>c.tip==='generic' && /MATERIAL/i.test(c.titlu||''));
   mc.produse.forEach(p=>{
@@ -1066,6 +1076,12 @@ function bindActions(root){
         data.contract.plati.push(newPay()); renderStep();
       } else if(a==='delpay'){
         data.contract.plati = data.contract.plati.filter(q=>q.id!==x); renderStep();
+      } else if(a==='modsem'){
+        data.contract.modalitateSemnare = x==='e' ? MOD_ELECTRONIC : MOD_HARTIE; renderStep();
+      } else if(a==='sendsign'){ sendForSign();
+      } else if(a==='checksign'){ checkSigned();
+      } else if(a==='sharesign'){ shareSignLink();
+      } else if(a==='copysign'){ copySignLink();
       } else if(a==='clearsig'){
         const key = x==='p' ? 'semnaturaPrestator' : 'semnaturaClient';
         const cv = document.getElementById(x==='p' ? 'sigPrestator' : 'sigClient');
@@ -1291,7 +1307,8 @@ function sPret(){
 
   <h3 class="w-h3">Termen de execuție</h3>
   <div class="w-f"><label>Termen de livrare și execuție</label><input type="date" data-b="c||termenLivrare" value="${esc(data.contract.termenLivrare)}"></div>
-  <div class="w-f"><label>Mod de semnare</label><textarea rows="2" data-b="c||modalitateSemnare">${esc(data.contract.modalitateSemnare)}</textarea></div>`;
+  <div class="w-f"><label>Mod de semnare</label><textarea rows="2" data-b="c||modalitateSemnare">${esc(data.contract.modalitateSemnare)}</textarea>
+    <div class="w-modes"><button class="w-btn w-btn-ghost" data-act="modsem|e">Electronic</button><button class="w-btn w-btn-ghost" data-act="modsem|h">Pe hârtie, 2 exemplare</button></div></div>`;
 }
 
 /* ---------- PASUL 7: semnături + certificate ---------- */
@@ -1305,6 +1322,8 @@ function sSemn(){
   <div class="w-f"><label>Client — ${esc(data.clientNume||'')}</label>
     <canvas id="sigClient" class="w-sig" width="700" height="220"></canvas>
     <button class="w-x" data-act="clearsig|c">Șterge semnătura</button></div>
+
+  ${remoteBlock()}
 
   <h3 class="w-h3">Certificate de garanție atașate</h3>
   <div class="w-help">Sunt bifate automat în funcție de brandurile alese. Poți modifica.</div>
@@ -1369,7 +1388,8 @@ function drawPreview(){
 window.addEventListener('resize', ()=>{ if(view==='wizard' && STEPS[step].k==='fin') drawPreview(); });
 
 /* ---------- PDF ---------- */
-async function buildPdf(){
+async function buildPdf(opts){
+  opts = opts||{};
   renderSheetsInto();
   const offerEl = document.getElementById('offerSheet');
   const contractEl = document.getElementById('contractSheet');
@@ -1407,16 +1427,18 @@ async function buildPdf(){
     });
   }
   try{
-    const pdf = await html2pdf().set(genOpts).from(offerEl).toPdf().get('pdf');
+    const blank = document.createElement('div'); blank.style.cssText='width:10px;height:10px'; blank.textContent=' ';
+    const pdf = await html2pdf().set(genOpts).from(opts.contractOnly ? blank : offerEl).toPdf().get('pdf');
     const pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
     const cImg = await html2pdf().set(genOpts).from(contractEl).outputImg('datauristring');
     await addImageAsPages(pdf, cImg, pageW, pageH);
-    for(const cert of CERTIFICATE.filter(c=>certificateChecked(c.id))){
+    for(const cert of (opts.contractOnly ? [] : CERTIFICATE.filter(c=>certificateChecked(c.id)))){
       for(const src of cert.pagini){
         pdf.addPage();
         await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>{ pdf.addImage(im,'JPEG',0,0,pageW,pageH); res(); }; im.onerror=rej; im.src=src; });
       }
     }
+    if(opts.contractOnly && pdf.getNumberOfPages()>1) pdf.deletePage(1);
     return pdf;
   } finally {
     root.style.display = 'none';
@@ -1486,7 +1508,7 @@ function bindHome(){
       if(b.dataset.a==='open') openDoc(JSON.parse(JSON.stringify(r.data)), 7);
       if(b.dataset.a==='dup'){
         const d = JSON.parse(JSON.stringify(r.data)); d.id = uid()+uid(); d.numar = nextNumar(); d.data = new Date().toISOString().slice(0,10);
-        d.contract.semnaturaPrestator = null; d.contract.semnaturaClient = null;
+        d.contract.semnaturaPrestator = null; d.contract.semnaturaClient = null; d.remote = null;
         openDoc(d, 1);
       }
       if(b.dataset.a==='del'){ if(confirm('Ștergi documentul „'+(r.data.clientNume||'fără nume')+'”?')){ regSave(list.filter(x=>x.id!==id)); render(); } }
@@ -1509,6 +1531,173 @@ function bindHome(){
 }
 
 /* ---------- pornire ---------- */
+
+
+/* ---------- semnare electronică la distanță (Firebase bokar-crm) ---------- */
+const MOD_ELECTRONIC = "Prezentul contract se semnează electronic de către ambele părți, iar fiecare parte păstrează câte o copie în format electronic (PDF).";
+const MOD_HARTIE = "Prezentul contract se semnează în original, în două exemplare, câte unul pentru fiecare parte.";
+const SIGN_COL = 'contracteSemnare';
+const FB_CONFIG = { apiKey:"AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4", authDomain:"bokar-crm.firebaseapp.com", projectId:"bokar-crm", storageBucket:"bokar-crm.firebasestorage.app", messagingSenderId:"45902513565", appId:"1:45902513565:web:1d2c55629af5d23e0d9b74" };
+let _fdb = null;
+function fbDb(){
+  if(_fdb) return _fdb;
+  try{ if(typeof firebase==='undefined') return null; if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG); _fdb = firebase.firestore(); }catch(e){ return null; }
+  return _fdb;
+}
+function newToken(){ const a=new Uint8Array(20); crypto.getRandomValues(a); return Array.from(a,b=>('0'+b.toString(36)).slice(-2)).join('').slice(0,32); }
+function signLink(token){ return location.origin+location.pathname+'?s='+token; }
+function fmtDateTime(iso){ try{ return new Date(iso).toLocaleString('ro-RO',{timeZone:'Europe/Bucharest',dateStyle:'short',timeStyle:'short'}); }catch(e){ return iso||''; } }
+function snapshotForSign(){
+  const d = JSON.parse(JSON.stringify(data));
+  delete d.remote;
+  (d.categorii||[]).forEach(c=>(c.produse||[]).forEach(p=>{ delete p.img; }));
+  d.contract.semnaturaClient = null;
+  return d;
+}
+function remoteStale(){ return !!(data.remote && data.remote.hash && sha256(JSON.stringify(snapshotForSign()))!==data.remote.hash); }
+function remoteBlock(){
+  const r = data.remote;
+  let body = '';
+  if(!r){
+    body = `<button class="w-btn w-btn-main w-big" data-act="sendsign">✉ Generează link de semnare pentru client</button>`;
+  } else {
+    const link = signLink(r.token);
+    const msg = `Bună ziua, vă trimitem contractul ${data.numar||''} de la ${getPrestator().denumire}. Îl puteți citi și semna de pe telefon aici: ${link}`;
+    body = r.status==='signed'
+      ? `<div class="w-ok">✓ Semnat de ${esc(r.semnatNume||data.clientNume||'client')} la ${esc(fmtDateTime(r.semnatLa))}. Semnătura este inclusă în PDF.</div>`
+      : `<div class="w-note">Link trimis ${esc(fmtDateTime(r.trimisLa))} · în așteptarea semnăturii clientului.</div>
+         <input class="w-linkbox" readonly value="${esc(link)}" onfocus="this.select()">
+         <div class="w-modes">
+           <button class="w-btn w-btn-ghost" data-act="sharesign">↗ Trimite linkul</button>
+           <a class="w-btn w-btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">WhatsApp</a>
+           <button class="w-btn w-btn-ghost" data-act="copysign">Copiază</button>
+         </div>
+         <button class="w-btn w-btn-main w-big" data-act="checksign">⟳ Verifică dacă a semnat</button>
+         <button class="w-x" data-act="sendsign">Generează un link nou (după modificări)</button>`;
+    if(r.status!=='signed' || true){ if(remoteStale()) body = `<div class="w-warn">⚠ Ai modificat contractul după trimitere. Clientul vede versiunea veche — generează un link nou.</div>` + body; }
+  }
+  return `<h3 class="w-h3">Semnare la distanță</h3>
+  <div class="w-help">Semnează tu mai sus, apoi trimite clientului un link. El citește contractul pe telefonul lui și semnează cu degetul. Semnătura apare aici după ce apeși „Verifică”.</div>
+  ${body}`;
+}
+async function sendForSign(){
+  const db = fbDb();
+  if(!db){ alert('Nu pot contacta serverul de semnare. Verifică conexiunea la internet.'); return; }
+  if(!data.clientNume){ alert('Completează numele clientului (pasul Client).'); return; }
+  if(!data.contract.semnaturaPrestator){ alert('Semnează întâi tu (Prestator) în căsuța de mai sus, apoi generează linkul.'); return; }
+  const json = JSON.stringify(snapshotForSign());
+  if(json.length > 850000){ alert('Documentul este prea mare pentru trimitere (prea multe date).'); return; }
+  const token = newToken(), hash = sha256(json), now = new Date().toISOString();
+  toast('Se pregătește linkul…');
+  try{
+    await db.collection(SIGN_COL).doc(token).set({status:'pending', json, hash, clientNume:data.clientNume||'', numar:data.numar||'', creat:now});
+  }catch(e){ alert('Nu am putut crea linkul ('+(e && e.code || 'eroare')+'). Verifică regulile Firestore pentru colecția '+SIGN_COL+'.'); return; }
+  data.remote = {token, hash, status:'pending', trimisLa:now};
+  regUpsert(false); renderStep(); toast('Link creat ✓');
+}
+async function checkSigned(){
+  const db = fbDb(); if(!db || !data.remote) return;
+  try{
+    const s = await db.collection(SIGN_COL).doc(data.remote.token).get();
+    if(!s.exists){ toast('Documentul nu mai există pe server.'); return; }
+    const x = s.data();
+    if(x.status==='signed' && x.semnaturaClient){
+      data.contract.semnaturaClient = x.semnaturaClient;
+      Object.assign(data.remote, {status:'signed', semnatLa:x.semnatLa, semnatNume:x.semnatNume});
+      regUpsert(false); renderStep(); toast('Clientul a semnat ✓');
+    } else toast('Clientul nu a semnat încă.');
+  }catch(e){ toast('Nu am putut verifica. Încearcă din nou.'); }
+}
+async function shareSignLink(){
+  const link = signLink(data.remote.token);
+  const text = `Bună ziua, vă trimitem contractul ${data.numar||''} de la ${getPrestator().denumire}. Îl puteți citi și semna de pe telefon.`;
+  if(navigator.share){ try{ await navigator.share({title:'Contract de semnat', text, url:link}); return; }catch(e){ if(e && e.name==='AbortError') return; } }
+  copySignLink();
+}
+function copySignLink(){
+  const link = signLink(data.remote.token);
+  if(navigator.clipboard) navigator.clipboard.writeText(link).then(()=>toast('Link copiat ✓'),()=>toast('Copiază linkul manual.')); else toast('Copiază linkul manual.');
+}
+
+/* ---------- pagina clientului: citește și semnează ---------- */
+function simplePad(cv, onChange){
+  const ctx = cv.getContext('2d'); ctx.lineWidth=4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#232324';
+  let down=false, drawn=false;
+  const pos = e=>{ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height}; };
+  cv.addEventListener('pointerdown', e=>{ down=true; cv.setPointerCapture(e.pointerId); const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+0.1,p.y); ctx.stroke(); e.preventDefault(); });
+  cv.addEventListener('pointermove', e=>{ if(!down) return; const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); e.preventDefault(); });
+  const end=()=>{ if(!down) return; down=false; drawn=true; onChange(); };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  return { has:()=>drawn, clear:()=>{ ctx.clearRect(0,0,cv.width,cv.height); drawn=false; onChange(); } };
+}
+function signMsg(app, title, msg){
+  app.innerHTML = `<div class="w-top"><div class="w-top-sp"></div><div class="w-top-title">${esc(title)}</div><div class="w-top-sp"></div></div><div class="w-home"><div class="w-help">${esc(msg)}</div></div>`;
+}
+async function startSign(token){
+  const app = $('#app');
+  signMsg(app, 'Contract de semnat', 'Se încarcă documentul…');
+  const db = fbDb();
+  if(!db){ signMsg(app, 'Contract de semnat', 'Nu m-am putut conecta. Verifică internetul și reîncarcă pagina.'); return; }
+  let x;
+  try{ const s = await db.collection(SIGN_COL).doc(token).get(); if(!s.exists) throw new Error('nf'); x = s.data(); }
+  catch(e){ signMsg(app, 'Contract de semnat', 'Linkul nu este valid sau a expirat. Cere-i expeditorului un link nou.'); return; }
+  try{ data = JSON.parse(x.json); }catch(e){ signMsg(app, 'Contract de semnat', 'Documentul nu poate fi afișat.'); return; }
+  if(x.status==='signed'){ data.contract.semnaturaClient = x.semnaturaClient; data.remote = {status:'signed', semnatLa:x.semnatLa, semnatNume:x.semnatNume}; }
+  renderSignPage(token, x);
+}
+function renderSignPage(token, x){
+  const app = $('#app'); const prest = getPrestator(); const signed = x.status==='signed';
+  app.innerHTML = `
+  <div class="w-top"><div class="w-top-sp"></div><div class="w-top-title">Contract ${esc(data.numar||'')}</div><div class="w-top-sp"></div></div>
+  <div class="w-home">
+    <div class="w-help">${esc(prest.denumire)} îți trimite spre semnare contractul pentru <b>${esc(data.clientNume||'')}</b>. Citește documentul, apoi semnează la final.</div>
+    <div class="w-pvwrap" id="pvWrap"><div class="w-pv" id="pv"></div></div>
+    ${signed ? `
+      <div class="w-ok">✓ Contractul a fost semnat de ${esc(x.semnatNume||'')} la ${esc(fmtDateTime(x.semnatLa))}.</div>
+      <button class="w-btn w-btn-main w-big" id="sgPdf">⬇ Descarcă contractul (PDF)</button>`
+    : `
+      <h3 class="w-h3">Semnătura ta</h3>
+      <div class="w-f"><label>Numele tău complet</label><input id="sgName" value="${esc(data.clientNume||'')}" autocomplete="name"></div>
+      <div class="w-f"><label>Semnează cu degetul în căsuță</label>
+        <canvas id="sgCv" class="w-sig" width="700" height="220"></canvas>
+        <button class="w-x" id="sgClear" type="button">Șterge semnătura</button></div>
+      <label class="w-agree"><input type="checkbox" id="sgOk"> <span>Am citit contractul și sunt de acord să îl semnez electronic.</span></label>
+      <button class="w-btn w-btn-main w-big" id="sgGo" disabled>Semnez contractul</button>
+      <div class="w-note" id="sgErr"></div>`}
+  </div>`;
+  drawSignPreview();
+  window.addEventListener('resize', drawSignPreview);
+  if(signed){ $('#sgPdf').onclick = downloadSignedPdf; return; }
+  const cv = $('#sgCv'); const upd = ()=>{ $('#sgGo').disabled = !(pad.has() && $('#sgOk').checked && $('#sgName').value.trim().length>1); };
+  const pad = simplePad(cv, upd);
+  $('#sgClear').onclick = ()=>pad.clear(); $('#sgOk').onchange = upd; $('#sgName').oninput = upd;
+  $('#sgGo').onclick = async ()=>{
+    const btn = $('#sgGo'); btn.disabled = true; btn.textContent = 'Se salvează…';
+    const sig = cv.toDataURL('image/png'), nume = $('#sgName').value.trim(), at = new Date().toISOString();
+    try{
+      await fbDb().collection(SIGN_COL).doc(token).update({status:'signed', semnaturaClient:sig, semnatNume:nume, semnatLa:at, semnatInfo:(navigator.userAgent||'').slice(0,300)});
+    }catch(e){ btn.disabled=false; btn.textContent='Semnez contractul'; $('#sgErr').textContent='Nu am putut salva semnătura. Verifică internetul și încearcă din nou.'; return; }
+    data.contract.semnaturaClient = sig; data.remote = {status:'signed', semnatLa:at, semnatNume:nume};
+    renderSignPage(token, {status:'signed', semnatNume:nume, semnatLa:at});
+    window.scrollTo(0,0);
+  };
+}
+function drawSignPreview(){
+  const wrap = document.getElementById('pvWrap'), pv = document.getElementById('pv'); if(!wrap||!pv) return;
+  renderContractSheet();
+  const src = document.getElementById('contractSheet'); if(!src) return;
+  pv.innerHTML = src.innerHTML;
+  const px = 210*96/25.4; const z = Math.min(1,(wrap.clientWidth-2)/px);
+  pv.style.width = px+'px'; pv.style.zoom = z;
+}
+async function downloadSignedPdf(){
+  if(typeof html2pdf==='undefined'){ alert('Generarea PDF necesită conexiune la internet.'); return; }
+  toast('Se generează PDF-ul…');
+  try{
+    const pdf = await buildPdf({contractOnly:true});
+    pdf.save('Contract-'+(data.numar||'semnat')+'.pdf');
+  }catch(e){ alert('Nu am putut genera PDF-ul.'); }
+}
 
 /* ---------- acces cu parolă (barieră ușoară, în browser) ---------- */
 const PASS_HASH = '05b0af0bdc7df2298bcb5b106508a76128a6ecd9700b0ad736f4300249e125c8';
@@ -1546,8 +1735,9 @@ function showGate(){
   $('#gGo').onclick = go; $('#gPass').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); }); $('#gPass').focus();
 }
 function start(){ data = blankData(); view='home'; render(); }
-loadCatalog();
-if(isUnlocked()) start(); else showGate();
+const _signTok = new URLSearchParams(location.search).get('s');
+if(_signTok){ startSign(_signTok); }
+else { loadCatalog(); if(isUnlocked()) start(); else showGate(); }
 
 
 </script>
