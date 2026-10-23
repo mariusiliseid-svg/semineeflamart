@@ -1078,6 +1078,7 @@ function bindActions(root){
         data.contract.plati = data.contract.plati.filter(q=>q.id!==x); renderStep();
       } else if(a==='modsem'){
         data.contract.modalitateSemnare = x==='e' ? MOD_ELECTRONIC : MOD_HARTIE; renderStep();
+      } else if(a==='notifperm'){ askNotif().then(()=>renderStep());
       } else if(a==='sendsign'){ sendForSign();
       } else if(a==='checksign'){ checkSigned();
       } else if(a==='sharesign'){ shareSignLink();
@@ -1483,7 +1484,7 @@ function homeHtml(){
           <div class="w-item-main">
             <b>${esc(r.data.clientNume||'(fără nume)')}</b>
             <span>${esc(r.data.numar||'—')} · ${fmtDate(r.data.data)} · ${esc(firma(r.data.prestatorId))}</span>
-            <span class="w-item-price">${ron(totalOf(r.data))} ${r.draft?'<em>ciornă</em>':'<em class="ok">finalizat</em>'}</span>
+            <span class="w-item-price">${ron(totalOf(r.data))} ${r.draft?'<em>ciornă</em>':'<em class="ok">finalizat</em>'}${r.data.remote ? (r.data.remote.status==='signed' ? ' <em class="ok">✓ semnat de client</em>' : ' <em>⏳ așteaptă semnătura</em>') : ''}</span>
           </div>
           <div class="w-item-acts">
             <button data-a="open">Deschide</button>
@@ -1555,11 +1556,21 @@ function snapshotForSign(){
   return d;
 }
 function remoteStale(){ return !!(data.remote && data.remote.hash && sha256(JSON.stringify(snapshotForSign()))!==data.remote.hash); }
+const NOTIFY_KEY = 'flamart_notify_email';
+function getNotifyEmail(){ try{ return (localStorage.getItem(NOTIFY_KEY)||'').trim(); }catch(e){ return ''; } }
+function notifyField(){
+  return `<div class="w-f"><label>Email pentru notificare când semnează clientul (opțional)</label>
+    <input type="email" id="ntEmail" value="${esc(getNotifyEmail())}" placeholder="ex: contact@flamart.ro" autocomplete="email">
+    <div class="w-note">Primești un email în momentul semnării, chiar dacă aplicația e închisă. La prima utilizare serviciul de email (FormSubmit) îți trimite un mesaj de activare — apasă linkul din el, o singură dată.</div></div>`;
+}
+document.addEventListener('change', e=>{
+  if(e.target && e.target.id==='ntEmail'){ try{ localStorage.setItem(NOTIFY_KEY, e.target.value.trim()); }catch(err){} }
+});
 function remoteBlock(){
   const r = data.remote;
   let body = '';
   if(!r){
-    body = `<button class="w-btn w-btn-main w-big" data-act="sendsign">✉ Generează link de semnare pentru client</button>`;
+    body = `${notifyField()}<button class="w-btn w-btn-main w-big" data-act="sendsign">✉ Generează link de semnare pentru client</button>`;
   } else {
     const link = signLink(r.token);
     const msg = `Bună ziua, vă trimitem contractul ${data.numar||''} de la ${getPrestator().denumire}. Îl puteți citi și semna de pe telefon aici: ${link}`;
@@ -1572,6 +1583,7 @@ function remoteBlock(){
            <a class="w-btn w-btn-ghost" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">WhatsApp</a>
            <button class="w-btn w-btn-ghost" data-act="copysign">Copiază</button>
          </div>
+         ${('Notification' in window && Notification.permission==='default') ? `<button class="w-btn w-btn-ghost w-big" data-act="notifperm">🔔 Activează notificările pe acest dispozitiv</button>` : ''}
          <button class="w-btn w-btn-main w-big" data-act="checksign">⟳ Verifică dacă a semnat</button>
          <button class="w-x" data-act="sendsign">Generează un link nou (după modificări)</button>`;
     if(r.status!=='signed' || true){ if(remoteStale()) body = `<div class="w-warn">⚠ Ai modificat contractul după trimitere. Clientul vede versiunea veche — generează un link nou.</div>` + body; }
@@ -1588,12 +1600,15 @@ async function sendForSign(){
   const json = JSON.stringify(snapshotForSign());
   if(json.length > 850000){ alert('Documentul este prea mare pentru trimitere (prea multe date).'); return; }
   const token = newToken(), hash = sha256(json), now = new Date().toISOString();
+  const em = getNotifyEmail(); const rec = {status:'pending', json, hash, clientNume:data.clientNume||'', numar:data.numar||'', creat:now};
+  if(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) rec.notifyEmail = em;
+  askNotif();
   toast('Se pregătește linkul…');
   try{
-    await db.collection(SIGN_COL).doc(token).set({status:'pending', json, hash, clientNume:data.clientNume||'', numar:data.numar||'', creat:now});
+    await db.collection(SIGN_COL).doc(token).set(rec);
   }catch(e){ alert('Nu am putut crea linkul ('+(e && e.code || 'eroare')+'). Verifică regulile Firestore pentru colecția '+SIGN_COL+'.'); return; }
   data.remote = {token, hash, status:'pending', trimisLa:now};
-  regUpsert(false); renderStep(); toast('Link creat ✓');
+  regUpsert(false); watchSigns(); renderStep(); toast('Link creat ✓');
 }
 async function checkSigned(){
   const db = fbDb(); if(!db || !data.remote) return;
@@ -1617,6 +1632,44 @@ async function shareSignLink(){
 function copySignLink(){
   const link = signLink(data.remote.token);
   if(navigator.clipboard) navigator.clipboard.writeText(link).then(()=>toast('Link copiat ✓'),()=>toast('Copiază linkul manual.')); else toast('Copiază linkul manual.');
+}
+
+/* ---------- notificări: urmărește semnăturile în timp real ---------- */
+const _watchers = {};
+async function askNotif(){ try{ if('Notification' in window && Notification.permission==='default') await Notification.requestPermission(); }catch(e){} }
+function pushNotify(title, body){
+  toast(title);
+  try{ if('Notification' in window && Notification.permission==='granted') new Notification(title, {body}); }catch(e){}
+}
+function applySigned(token, x){
+  const list = regLoad(); const i = list.findIndex(r=>r.data && r.data.remote && r.data.remote.token===token);
+  if(i<0) return;
+  const d = list[i].data;
+  d.contract.semnaturaClient = x.semnaturaClient;
+  Object.assign(d.remote, {status:'signed', semnatLa:x.semnatLa, semnatNume:x.semnatNume});
+  regSave(list);
+  if(data && data.id===d.id){ data.contract.semnaturaClient = x.semnaturaClient; Object.assign(data.remote, d.remote); if(view==='wizard') renderStep(); }
+  if(view==='home') render();
+  pushNotify('✓ '+(x.semnatNume||d.clientNume||'Clientul')+' a semnat contractul '+(d.numar||''), 'Semnătura a fost adăugată în document.');
+}
+function watchSigns(){
+  const db = fbDb(); if(!db || !db.collection(SIGN_COL).doc('x').onSnapshot) return;
+  regLoad().filter(r=>r.data && r.data.remote && r.data.remote.status==='pending').slice(0,20).forEach(r=>{
+    const token = r.data.remote.token; if(_watchers[token]) return;
+    _watchers[token] = db.collection(SIGN_COL).doc(token).onSnapshot(s=>{
+      const x = s.exists && s.data();
+      if(x && x.status==='signed' && x.semnaturaClient){ applySigned(token, x); if(_watchers[token]){ try{ _watchers[token](); }catch(e){} delete _watchers[token]; } }
+    }, ()=>{});
+  });
+}
+function emailNotify(x, nume, at){
+  if(!x || !x.notifyEmail) return;
+  try{
+    fetch('https://formsubmit.co/ajax/'+encodeURIComponent(x.notifyEmail), {
+      method:'POST', keepalive:true, headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body: JSON.stringify({_subject:'Contract '+(x.numar||'')+' semnat de '+nume, _captcha:'false', _template:'table', Contract:x.numar||'', Client:nume, 'Semnat la':fmtDateTime(at), Mesaj:'Clientul a semnat contractul. Deschide aplicația de oferte și apasă „Verifică dacă a semnat”.'})
+    }).catch(()=>{});
+  }catch(e){}
 }
 
 /* ---------- pagina clientului: citește și semnează ---------- */
@@ -1677,6 +1730,7 @@ function renderSignPage(token, x){
     try{
       await fbDb().collection(SIGN_COL).doc(token).update({status:'signed', semnaturaClient:sig, semnatNume:nume, semnatLa:at, semnatInfo:(navigator.userAgent||'').slice(0,300)});
     }catch(e){ btn.disabled=false; btn.textContent='Semnez contractul'; $('#sgErr').textContent='Nu am putut salva semnătura. Verifică internetul și încearcă din nou.'; return; }
+    emailNotify(x, nume, at);
     data.contract.semnaturaClient = sig; data.remote = {status:'signed', semnatLa:at, semnatNume:nume};
     renderSignPage(token, {status:'signed', semnatNume:nume, semnatLa:at});
     window.scrollTo(0,0);
@@ -1734,7 +1788,7 @@ function showGate(){
   };
   $('#gGo').onclick = go; $('#gPass').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); }); $('#gPass').focus();
 }
-function start(){ data = blankData(); view='home'; render(); }
+function start(){ data = blankData(); view='home'; render(); watchSigns(); }
 const _signTok = new URLSearchParams(location.search).get('s');
 if(_signTok){ startSign(_signTok); }
 else { loadCatalog(); if(isUnlocked()) start(); else showGate(); }
