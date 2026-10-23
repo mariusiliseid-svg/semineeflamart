@@ -4024,11 +4024,11 @@ const PO_MODELE = [
   ['6050','BOKAR 6050','drept',185],['7050','BOKAR 7050','drept',194],['8050','BOKAR 8050','drept',214],['9050','BOKAR 9050','drept',234],
   ['9050p','BOKAR 9050 P','tunel',215],
   ['655047','BOKAR 655047','colt',190],['755047','BOKAR 755047','colt',194],['855047','BOKAR 855047','colt',208],
-  ['6050g','BOKAR 6050 G','ghilotina',235],['7050g','BOKAR 7050 G','ghilotina',250],['8050g','BOKAR 8050 G','ghilotina',265],['9050g','BOKAR 9050 G','ghilotina',280],
+  ['6050g','BOKAR 6050 G','ghilotina',235],['7050g','BOKAR 7050 G','ghilotina',250],['8050g','BOKAR 8050 G','ghilotina',265],['9050g','BOKAR 9050 G','ghilotina',280],['12050g','BOKAR 12050 G','ghilotina',null],
   ['755047g','BOKAR 755047 G','ghilotina-colt',220],['855047g','BOKAR 855047 G','ghilotina-colt',240],['psg60','BOKAR PSG 60','ghilotina-colt',220],
   ['forum','BOKAR Forum Corner','soba',157],['aston-st','BOKAR Aston ST4380','soba',157],['aston-fd','BOKAR Aston FD4380','soba',157],['aston-wd','BOKAR Aston WD4380','soba',157]
 ].map(([slug,nume,fam,kg]) => ({ slug, nume, fam, kg, lr: /colt/.test(fam) && slug!=='psg60' }));
-const PO_KW = { '6050':14.4,'7050':15.2,'8050':16.8,'9050':19.2,'9050p':19.2,'655047':14.5,'755047':15.2,'855047':17.0,'6050g':14.4,'7050g':15.2,'8050g':16.8,'9050g':19.2,
+const PO_KW = { '6050':14.4,'7050':15.2,'8050':16.8,'9050':19.2,'9050p':19.2,'655047':14.5,'755047':15.2,'855047':17.0,'6050g':14.4,'7050g':15.2,'8050g':16.8,'9050g':19.2,'12050g':22.0,
   '755047g':15.2,'855047g':17.0,'psg60':8.3,'forum':9.2,'aston-st':9.0,'aston-fd':9.0,'aston-wd':9.0 };
 /* furnizorul implicit, după factura BOKAR */
 const PO_SUPPLIER = { nume:'LTD "STYLE-LUX" (BOKAR)', det:'TIN 31289826\n129, Ruska Str., Chernivtsi, Chernivetska dist. 58003, Ukraine\nbokar.com.ua',
@@ -4145,7 +4145,7 @@ function poRenderForm(el){
       <div>
         <div class="card"><h2>Focare și sobe</h2>
           <div class="po-cat">${PO_MODELE.map(m => `<div class="po-prod" data-slug="${m.slug}">
-            <div class="po-pn"><b>${cuEsc(m.nume)}</b><small>${famLabel[m.fam]} · ${m.kg} kg</small></div>
+            <div class="po-pn"><b>${cuEsc(m.nume)}</b><small>${famLabel[m.fam]}${m.kg?` · ${m.kg} kg`:''}</small></div>
             <div class="po-opts">
               ${m.fam==='soba' ? `<input class="po-in" data-k="nuanta" placeholder="Nuanță carcasă">` : ''}
               <select class="po-in" data-k="var"><option>Black</option><option>White</option></select>
@@ -4376,7 +4376,7 @@ document.getElementById('imInvFile').onchange = e => { const f = e.target.files[
 
 /* ---------- comandă → import ---------- */
 const PO_TO_CRM = { '6050':'6050','7050':'7050','8050':'8050','9050':'9050','9050p':'9050 P','655047':'655047 L/R','755047':'755047 L/R','855047':'855047 L/R',
-  '6050g':'6050G','7050g':'7050G','8050g':'8050G','9050g':'9050G','755047g':'755047 L/R G','855047g':'855047 L/R G','psg60':'PSG 60',
+  '6050g':'6050G','7050g':'7050G','8050g':'8050G','9050g':'9050G','12050g':'12050G','755047g':'755047 L/R G','855047g':'855047 L/R G','psg60':'PSG 60',
   'forum':'Forum (Sobă sticlă colț)','aston-st':'4380 (Sobă)','aston-fd':'4380 (Sobă)','aston-wd':'4380 (Sobă)' };
 let imFromPO = null;
 function poToImport(c){
