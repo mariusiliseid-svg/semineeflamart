@@ -952,6 +952,7 @@ function setBound(key, v){
     }
   }
   else if(t==='pay'){ const pl = data.contract.plati.find(x=>x.id===id); if(pl) pl[f] = v; }
+  else if(t==='sb'){ sbState()[f] = v; }
 }
 function bindAll(root){
   root.querySelectorAll('[data-b]').forEach(i=>{
@@ -1080,6 +1081,9 @@ function bindActions(root){
         data.contract.modalitateSemnare = x==='e' ? MOD_ELECTRONIC : MOD_HARTIE; renderStep();
       } else if(a==='notifperm'){ askNotif().then(()=>renderStep());
       } else if(a==='sendsign'){ sendForSign();
+      } else if(a==='sbtip'){ sbState().tip = x; renderStep();
+      } else if(a==='sbcreate'){ sbCreate();
+      } else if(a==='sbsettings'){ sbSettings();
       } else if(a==='checksign'){ checkSigned();
       } else if(a==='sharesign'){ shareSignLink();
       } else if(a==='copysign'){ copySignLink();
@@ -1370,7 +1374,8 @@ function sFin(){
     <button class="w-btn w-btn-main w-big" data-act="pdf" id="btnPdf">⬇ Descarcă PDF (ofertă + contract + garanții)</button>
     <button class="w-btn w-btn-ghost w-big" data-act="share">↗ Trimite / Distribuie PDF</button>
     <button class="w-btn w-btn-ghost w-big" data-act="finish">✓ Gata — salvează în registru</button>
-  </div>`;
+  </div>
+  ${sbBlock()}`;
 }
 function renderSheetsInto(){
   renderOfferSheet(); renderContractSheet(); renderCertSheet();
@@ -1509,7 +1514,7 @@ function bindHome(){
       if(b.dataset.a==='open') openDoc(JSON.parse(JSON.stringify(r.data)), 7);
       if(b.dataset.a==='dup'){
         const d = JSON.parse(JSON.stringify(r.data)); d.id = uid()+uid(); d.numar = nextNumar(); d.data = new Date().toISOString().slice(0,10);
-        d.contract.semnaturaPrestator = null; d.contract.semnaturaClient = null; d.remote = null;
+        d.contract.semnaturaPrestator = null; d.contract.semnaturaClient = null; d.remote = null; d.sb = null;
         openDoc(d, 1);
       }
       if(b.dataset.a==='del'){ if(confirm('Ștergi documentul „'+(r.data.clientNume||'fără nume')+'”?')){ regSave(list.filter(x=>x.id!==id)); render(); } }
@@ -1540,6 +1545,104 @@ const MOD_HARTIE = "Prezentul contract se semnează în original, în două exem
 const SIGN_COL = 'contracteSemnare';
 const FB_CONFIG = { apiKey:"AIzaSyC8lON_PQ9OIvnDUqzqRDHsxXINLpC8uB4", authDomain:"bokar-crm.firebaseapp.com", projectId:"bokar-crm", storageBucket:"bokar-crm.firebasestorage.app", messagingSenderId:"45902513565", appId:"1:45902513565:web:1d2c55629af5d23e0d9b74" };
 let _fdb = null;
+/* ---------- proformă SmartBill (ciornă, doar FLAMART PROJECT SRL) ---------- */
+const SB_API_DEFAULT = 'https://flamart-api.netlify.app/.netlify/functions/smartbill-proforma';
+const SB_API_KEY = 'flamart_sb_api';
+const SB_PASS_KEY = 'flamart_sb_pass';
+let sbBusy = false;
+function sbApi(){ try{ return (localStorage.getItem(SB_API_KEY)||'').trim() || SB_API_DEFAULT; }catch(e){ return SB_API_DEFAULT; } }
+function sbState(){
+  if(!data.sb){
+    const em = /@/.test(data.clientContact||'') ? String(data.clientContact).trim() : '';
+    data.sb = { tip:'avans', cif:'', localitate:'', judet:'', email:em, ciorne:[] };
+  }
+  if(!data.sb.ciorne) data.sb.ciorne = [];
+  return data.sb;
+}
+const SB_TIPURI = {
+  avans: { t:'Avans (fără manoperă)', suma:()=>avansSum() },
+  rest:  { t:'Rest de plată (manoperă)', suma:()=>restSum() },
+  tot:   { t:'Tot contractul', suma:()=>finalPrice() }
+};
+function sbLinii(tip){
+  const cats = activeCats().filter(c => tip==='tot' ? true : tip==='rest' ? c.tip==='manopera' : c.tip!=='manopera');
+  return cats.flatMap(c => activeProds(c).map(p => ({
+    denumire: p.denumire, um: p.um || 'buc', cantitate: Number(p.cantitate)||0, pret: Number(p.pret)||0,
+    nota: p.nota || '', serviciu: c.tip==='manopera'
+  })));
+}
+function sbBlock(){
+  if(data.prestatorId !== 'flamart'){
+    return `<h3 class="w-h3">Proformă SmartBill</h3><div class="w-note">Proformele din SmartBill se fac doar pentru FLAMART PROJECT SRL. Documentul acesta e pe ${esc(getPrestator().denumire)}.</div>`;
+  }
+  const sb = sbState();
+  const opts = Object.keys(SB_TIPURI).filter(k => SB_TIPURI[k].suma() > 0);
+  if(!opts.includes(sb.tip)) sb.tip = opts[0] || 'tot';
+  const facute = sb.ciorne.map(x => `<div class="w-ok">✓ Ciornă creată ${esc(fmtDateTime(x.la))} · ${esc(SB_TIPURI[x.tip] ? SB_TIPURI[x.tip].t : x.tip)} · ${esc(ron(x.total))}${x.editUrl ? ` · <a href="${esc(x.editUrl)}" target="_blank" rel="noopener">Deschide în SmartBill</a>` : ' · o găsești în SmartBill → Proforme'}</div>`).join('');
+  const deja = sb.ciorne.some(x => x.tip === sb.tip);
+  return `<h3 class="w-h3">Proformă SmartBill (ciornă)</h3>
+  <div class="w-help">Trimite produsele din contract în SmartBill ca proformă ciornă, fără număr. O verifici și o emiți tu din SmartBill.</div>
+  ${facute}
+  <div class="w-modes">${opts.map(k => `<button class="w-btn ${sb.tip===k?'w-btn-main':'w-btn-ghost'}" data-act="sbtip|${k}">${esc(SB_TIPURI[k].t)}<br><b>${esc(ron(SB_TIPURI[k].suma()))}</b></button>`).join('')}</div>
+  <div class="w-f"><label>CNP / CUI client (opțional)</label><input data-b="sb||cif" value="${esc(sb.cif)}" placeholder="gol pentru persoană fizică fără CNP" autocomplete="off"></div>
+  <div class="w-row">
+    <div class="w-f"><label>Localitate</label><input data-b="sb||localitate" value="${esc(sb.localitate)}" placeholder="ex: Bacău"></div>
+    <div class="w-f"><label>Județ</label><input data-b="sb||judet" value="${esc(sb.judet)}" placeholder="ex: Bacău"></div>
+  </div>
+  <div class="w-f"><label>Email client (opțional)</label><input type="email" data-b="sb||email" value="${esc(sb.email)}" placeholder="pentru fișa clientului din SmartBill"></div>
+  ${deja ? `<div class="w-warn">⚠ Ai creat deja o ciornă pentru „${esc(SB_TIPURI[sb.tip].t)}”. Dacă mai apeși, apare a doua ciornă în SmartBill.</div>` : ''}
+  <button class="w-btn w-btn-main w-big" data-act="sbcreate" ${sbBusy?'disabled':''}>${sbBusy ? 'Se trimite la SmartBill…' : '🧾 Creează proforma ciornă în SmartBill'}</button>
+  <button class="w-x" data-act="sbsettings">Setări conexiune SmartBill</button>`;
+}
+function sbPass(force){
+  let p = '';
+  try{ p = localStorage.getItem(SB_PASS_KEY) || ''; }catch(e){}
+  if(!p || force){
+    p = (prompt('Parola aplicației (o singură dată pe acest telefon):') || '').trim();
+    if(!p) return '';
+    try{ localStorage.setItem(SB_PASS_KEY, p); }catch(e){}
+  }
+  return p;
+}
+function sbSettings(){
+  const u = prompt('Adresa serverului SmartBill (lasă gol pentru cea implicită):', sbApi()===SB_API_DEFAULT ? '' : sbApi());
+  if(u===null) return;
+  try{ if(u.trim()) localStorage.setItem(SB_API_KEY, u.trim()); else localStorage.removeItem(SB_API_KEY); }catch(e){}
+  sbPass(true);
+  toast('Setări salvate');
+}
+async function sbCreate(){
+  if(sbBusy) return;
+  const sb = sbState();
+  if(!String(data.clientNume||'').trim()){ alert('Completează numele clientului (pasul Client).'); return; }
+  const linii = sbLinii(sb.tip).filter(l => l.cantitate>0 && l.pret>0);
+  if(!linii.length){ alert('Nu există produse cu cantitate și preț pentru această proformă.'); return; }
+  const pass = sbPass(false); if(!pass) return;
+  const scad = new Date(); scad.setDate(scad.getDate() + 7);
+  const payload = {
+    client: { nume: data.clientNume, adresa: data.clientAdresa, cif: sb.cif, localitate: sb.localitate, judet: sb.judet, email: sb.email },
+    linii,
+    discount: sb.tip==='rest' ? 0 : (Number(data.discount)||0),
+    discountNume: 'Discount',
+    scadenta: sb.tip==='avans' ? scad.toISOString().slice(0,10) : '',
+    mentiuni: `${SB_TIPURI[sb.tip].t} conform contractului nr. ${data.numar||'—'} din ${fmtDate(data.data)}`
+  };
+  sbBusy = true; renderStep();
+  try{
+    const res = await fetch(sbApi(), { method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Key': pass }, body: JSON.stringify(payload) });
+    let out = {}; try{ out = await res.json(); }catch(e){}
+    if(res.status===401){ try{ localStorage.removeItem(SB_PASS_KEY); }catch(e){} throw new Error((out.error||'Parolă greșită.') + ' Apasă din nou și introdu parola corectă.'); }
+    if(!res.ok || !out.ok) throw new Error(out.error || ('Eroare server ' + res.status));
+    sb.ciorne.push({ tip: sb.tip, la: new Date().toISOString(), total: out.total, editUrl: out.editUrl||'', viewUrl: out.viewUrl||'' });
+    regUpsert(false);
+    toast('Proforma ciornă a fost creată în SmartBill ✓');
+  }catch(e){
+    alert('Proforma nu a fost creată.\n\n' + (e && e.message ? e.message : e) + (/Failed to fetch|NetworkError|Load failed/i.test(String(e)) ? '\n\nVerifică internetul sau adresa serverului (Setări conexiune SmartBill).' : ''));
+  }finally{
+    sbBusy = false; renderStep();
+  }
+}
+
 function fbDb(){
   if(_fdb) return _fdb;
   try{ if(typeof firebase==='undefined') return null; if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG); _fdb = firebase.firestore(); }catch(e){ return null; }
@@ -1551,6 +1654,7 @@ function fmtDateTime(iso){ try{ return new Date(iso).toLocaleString('ro-RO',{tim
 function snapshotForSign(){
   const d = JSON.parse(JSON.stringify(data));
   delete d.remote;
+  delete d.sb;
   (d.categorii||[]).forEach(c=>(c.produse||[]).forEach(p=>{ delete p.img; }));
   d.contract.semnaturaClient = null;
   return d;
