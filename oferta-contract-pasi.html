@@ -309,6 +309,8 @@ body{padding-bottom:84px;}
 .w-stepno{font-size:12px;font-weight:700;color:var(--stone);letter-spacing:.4px;text-transform:uppercase;}
 .w-stephead h1{font-size:23px;font-weight:800;margin-top:2px;}
 .w-body{padding:8px 16px 28px;}
+.w-sync{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;font-size:13px;color:var(--stone);background:#f6f6f6;border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin:10px 0 4px;}
+.w-sync .w-link{font-size:13px;font-weight:700;}
 .w-help{font-size:13.5px;line-height:1.5;color:var(--stone);margin:6px 0 14px;}
 .w-f{margin-bottom:14px;flex:1;min-width:0;}
 .w-f label{display:block;font-size:12.5px;font-weight:700;color:var(--stone);margin-bottom:5px;}
@@ -891,10 +893,13 @@ function regUpsert(final){
   if(!data.id) return;
   if(!(String(data.clientNume||'').trim() || grandTotal()>0)) return;
   const list = regLoad();
-  const rec = { id:data.id, upd:Date.now(), draft:!final, data:data };
   const i = list.findIndex(r=>r.id===data.id);
-  if(i>=0){ if(!final && !list[i].draft) rec.draft = false; list[i]=rec; } else list.unshift(rec);
+  let draft = !final; if(i>=0 && !final && !list[i].draft) draft = false;
+  if(i>=0 && list[i].draft===draft && JSON.stringify(list[i].data)===JSON.stringify(data)) return; // nimic nou
+  const rec = { id:data.id, upd:Date.now(), draft, data:JSON.parse(JSON.stringify(data)) };
+  if(i>=0) list[i]=rec; else list.unshift(rec);
   regSave(list);
+  schedulePush();
 }
 function nextNumar(){
   let max = 0;
@@ -969,7 +974,7 @@ function bindAll(root){
 /* ---------- randare generală ---------- */
 function render(){
   const app = $('#app');
-  if(view==='home'){ app.innerHTML = homeHtml(); bindHome(); return; }
+  if(view==='home'){ app.innerHTML = homeHtml(); bindHome(); paintSync(); if(!syncState.busy && Date.now()-syncState.at > 5000) syncAll(); return; }
   app.innerHTML = `
     <div class="w-top">
       <button class="w-link" id="wHome">‹ Documente</button>
@@ -1483,6 +1488,7 @@ function homeHtml(){
   <div class="w-top"><div class="w-top-sp"></div><div class="w-top-title">Oferte și contracte</div><div class="w-top-sp"></div></div>
   <div class="w-home">
     <button class="w-btn w-btn-main w-big" id="hNew">+ Document nou</button>
+    <div class="w-sync" id="hSync"></div>
     <div class="w-list">
       ${list.length ? list.map(r=>`
         <div class="w-item" data-id="${r.id}">
@@ -1501,7 +1507,7 @@ function homeHtml(){
     <div class="w-backup">
       <button class="w-link" id="hExp">Descarcă backup registru</button>
       <label class="w-link">Importă backup<input type="file" id="hImp" accept="application/json" hidden></label>
-      <div class="w-note">Registrul este salvat pe acest dispozitiv. Fă backup din când în când.</div>
+      <div class="w-note">Backup-ul e o copie în plus a registrului, pe lângă sincronizare.</div>
     </div>
   </div>`;
 }
@@ -1517,7 +1523,7 @@ function bindHome(){
         d.contract.semnaturaPrestator = null; d.contract.semnaturaClient = null; d.remote = null; d.sb = null;
         openDoc(d, 1);
       }
-      if(b.dataset.a==='del'){ if(confirm('Ștergi documentul „'+(r.data.clientNume||'fără nume')+'”?')){ regSave(list.filter(x=>x.id!==id)); render(); } }
+      if(b.dataset.a==='del'){ if(confirm('Ștergi documentul „'+(r.data.clientNume||'fără nume')+'”? Dispare de pe toate dispozitivele.')){ regSave(list.filter(x=>x.id!==id)); const dl=delLoad(); dl[id]=Date.now(); delSave(dl); render(); syncAll(); } }
     });
   });
   $('#hExp').onclick = ()=>{
@@ -1530,7 +1536,7 @@ function bindHome(){
     rd.onload = ()=>{ try{
       const inc = JSON.parse(rd.result); const cur = regLoad(); const ids = new Set(cur.map(x=>x.id));
       inc.forEach(x=>{ if(x && x.id && x.data && !ids.has(x.id)) cur.push(x); });
-      regSave(cur); render(); toast('Backup importat ✓');
+      regSave(cur); render(); toast('Backup importat ✓'); syncAll();
     }catch(err){ alert('Fișier invalid.'); } };
     rd.readAsText(f);
   };
@@ -1642,6 +1648,90 @@ async function sbCreate(){
     sbBusy = false; renderStep();
   }
 }
+
+/* ---------- sincronizare registru între telefon și calculator (server Netlify) ---------- */
+const DEL_KEY = 'flamart_docs_del';
+const syncState = { st:'', at:0, busy:false, again:false };
+let pushTimer = null;
+function docsApi(){ return sbApi().replace(/smartbill-proforma\/?$/, 'documente'); }
+function cloudPass(){ try{ return localStorage.getItem(SB_PASS_KEY) || ''; }catch(e){ return ''; } }
+async function cloudFetch(q, opt){
+  const pass = cloudPass();
+  if(!pass){ const e = new Error('Fără parolă'); e.nopass = true; throw e; }
+  const res = await fetch(docsApi() + q, Object.assign({}, opt||{}, { headers:{ 'Content-Type':'application/json', 'X-App-Key':pass } }));
+  if(res.status===401){ try{ localStorage.removeItem(SB_PASS_KEY); }catch(e){} const e = new Error('Parola aplicației nu e corectă.'); e.nopass = true; throw e; }
+  return res;
+}
+function delLoad(){ try{ return JSON.parse(localStorage.getItem(DEL_KEY)||'{}'); }catch(e){ return {}; } }
+function delSave(o){ try{ localStorage.setItem(DEL_KEY, JSON.stringify(o)); }catch(e){} }
+async function pushRec(rec){
+  const r = await cloudFetch('', { method:'PUT', body: JSON.stringify(rec) });
+  if(r.status===409) return 'newer';
+  if(!r.ok) throw new Error('Eroare server ' + r.status);
+  return 'ok';
+}
+async function syncAll(){
+  if(!cloudPass()){ syncState.st = 'off'; paintSync(); return; }
+  if(syncState.busy){ syncState.again = true; return; }
+  syncState.busy = true; syncState.st = 'busy'; paintSync();
+  let changed = false;
+  try{
+    const dels = delLoad();
+    for(const id of Object.keys(dels)){
+      const r = await cloudFetch('?id='+encodeURIComponent(id)+'&upd='+dels[id], { method:'DELETE' });
+      if(r.ok) delete dels[id];
+    }
+    delSave(dels);
+    const idx = ((await (await cloudFetch('', { method:'GET' })).json()) || {}).index || {};
+    const list = regLoad();
+    for(const id of Object.keys(idx)){
+      const rm = idx[id];
+      const i = list.findIndex(x=>x.id===id); const loc = i>=0 ? list[i] : null;
+      if(view==='wizard' && data && data.id===id) continue; // nu atinge documentul deschis acum
+      if(rm.deleted){ if(loc && (loc.upd||0) <= rm.upd){ list.splice(i,1); changed = true; } continue; }
+      if(!loc || (loc.upd||0) < rm.upd){
+        const r = await cloudFetch('?id='+encodeURIComponent(id), { method:'GET' });
+        if(!r.ok) continue;
+        const rec = await r.json();
+        if(!rec || !rec.data) continue;
+        const j = list.findIndex(x=>x.id===id);
+        if(j>=0) list[j] = rec; else list.push(rec);
+        changed = true;
+      }
+    }
+    if(changed) regSave(list);
+    for(const loc of regLoad()){
+      const rm = idx[loc.id];
+      if(!rm || (!rm.deleted && rm.upd < (loc.upd||0))) await pushRec(loc);
+    }
+    syncState.st = 'ok'; syncState.at = Date.now();
+  }catch(e){
+    syncState.st = e && e.nopass ? 'off' : 'err';
+  }finally{
+    syncState.busy = false;
+    if(changed && view==='home') render(); else paintSync();
+    if(syncState.again){ syncState.again = false; setTimeout(syncAll, 300); }
+  }
+}
+function schedulePush(){
+  if(!cloudPass()) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(syncAll, 2000);
+}
+function paintSync(){
+  const el = document.getElementById('hSync'); if(!el) return;
+  const t = syncState.at ? new Date(syncState.at).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'}) : '';
+  const st = syncState.st || (cloudPass() ? 'busy' : 'off');
+  el.innerHTML = st==='off'
+    ? `<span>Documentele sunt doar pe acest dispozitiv.</span><button class="w-link" id="hSyncGo">Pornește sincronizarea</button>`
+    : st==='busy' ? `<span>⟳ Se sincronizează…</span>`
+    : st==='err' ? `<span>⚠ Nu s-a putut sincroniza (internet sau server).</span><button class="w-link" id="hSyncGo">Încearcă din nou</button>`
+    : `<span>✓ Sincronizat cu toate dispozitivele${t?' · '+t:''}</span><button class="w-link" id="hSyncGo">⟳ Acum</button>`;
+  const b = document.getElementById('hSyncGo');
+  if(b) b.onclick = ()=>{ if(!cloudPass() && !sbPass(true)) return; syncAll(); };
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && cloudPass()) syncAll(); });
+setInterval(()=>{ if(view==='home' && cloudPass() && document.visibilityState==='visible') syncAll(); }, 60000);
 
 function fbDb(){
   if(_fdb) return _fdb;
