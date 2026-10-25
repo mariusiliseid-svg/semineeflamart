@@ -1731,7 +1731,6 @@ function paintSync(){
   if(b) b.onclick = ()=>{ if(!cloudPass() && !sbPass(true)) return; syncAll(); };
 }
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && cloudPass()) syncAll(); });
-setInterval(()=>{ if(view==='home' && cloudPass() && document.visibilityState==='visible') syncAll(); }, 60000);
 
 function fbDb(){
   if(_fdb) return _fdb;
