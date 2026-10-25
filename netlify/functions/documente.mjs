@@ -1,3 +1,4 @@
+// Server: flamart-api.netlify.app
 // Registrul de oferte/contracte, comun pentru toate dispozitivele (telefon, calculator).
 // Datele stau în Netlify Blobs, iar accesul cere parola aplicației (variabila APP_PASSWORD).
 //
