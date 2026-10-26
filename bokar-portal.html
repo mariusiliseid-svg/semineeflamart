@@ -3029,6 +3029,7 @@ function renderProformeComenzi(){
   const cxc = document.getElementById('cxClose'); if(cxc) cxc.onclick = () => { PFM.cxId = null; renderProformeComenzi(); };
   const cxs = document.getElementById('cxScoate'); if(cxs) cxs.onclick = () => cxApply(toate.find(c => c.id===PFM.cxId), false);
   const cxa = document.getElementById('cxTot'); if(cxa) cxa.onclick = () => cxApply(toate.find(c => c.id===PFM.cxId), true);
+  const cxg = document.getElementById('cxAlocGo'); if(cxg) cxg.onclick = () => cxAloca(toate.find(c => c.id===PFM.cxId));
   const cl = document.getElementById('pfmClose'); if(cl) cl.onclick = () => { PFM.openId = null; renderProformeComenzi(); };
 }
 function pfmFormHtml(c){
@@ -3104,6 +3105,11 @@ function cxFormHtml(c){
     ${us.length ? `<div style="font-size:12.5px;margin-bottom:6px">Bifează seriile care <b>revin în stoc</b> (în depozit):</div>
       <div class="sp-list" id="cxSerii">${us.map(u => `<label><input type="checkbox" value="${e(u.id)}">${e(u.serie)}${garantie(u.serie) ? ' <small style="color:var(--red)">are garanție înregistrată</small>' : ''}</label>`).join('')}</div>`
     : `<div class="field" style="max-width:260px"><label>Câte bucăți scoți din comandă? (comanda nu are serii alocate)</label><input type="number" id="cxBuc" min="1" max="${q}" value="1"></div>`}
+    ${(c.serii||[]).length < q ? (() => { const st = stocFor(c.model, c.varianta);
+      return `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12.5px;margin-bottom:6px"><b>Alocă serie din stoc</b> — comanda are ${(c.serii||[]).length} din ${q} serii:</div>
+        ${st.length ? `<div class="sp-list" id="cxAloc">${seriiPickerHtml(st, 'cxAloc')}</div>
+        <button class="btn btn-primary btn-sm" type="button" id="cxAlocGo" style="margin-top:8px" ${PFM.busy?'disabled':''}>＋ Alocă seriile bifate</button>`
+        : `<div style="font-size:12.5px;color:var(--stone)">Nu există ${e(c.model)} ${e(c.varianta||'')} în stoc.</div>`}</div>`; })() : ''}
     ${(c.documente||[]).length || (c.proformaSB||[]).length ? `<div style="color:var(--amber);font-size:12.5px;margin:8px 0">⚠ Comanda are proformă sau documente. Dacă a fost emisă în SmartBill, anuleaz-o / stornează și acolo.</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       <button class="btn btn-primary btn-sm" type="button" id="cxScoate" ${PFM.busy?'disabled':''}>↩ Scoate din comandă</button>
@@ -3140,6 +3146,24 @@ async function cxApply(c, tot){
     console.error(err);
     alert('Nu am putut corecta comanda.\n\n' + (err && err.message ? err.message : err));
   }finally{ PFM.busy = false; renderProformeComenzi(); }
+}
+
+async function cxAloca(c){
+  if(!c || PFM.busy) return;
+  const q = Number(c.cantitate)||1, are = (c.serii||[]).length;
+  const ids = [...document.querySelectorAll('#cxAloc input:checked')].map(i => i.value);
+  if(!ids.length){ alert('Bifează seria din stoc.'); return; }
+  if(are + ids.length > q && !confirm(`Comanda e pentru ${q} buc. și ar avea ${are + ids.length} serii. Continui?`)) return;
+  PFM.busy = true; renderProformeComenzi();
+  try{
+    const noi = ids.map(id => ((CACHE.unitati||[]).find(u => u.id===id)||{}).serie).filter(Boolean);
+    await unitsToPartner(ids, c.dealer, c.data, c.id);
+    await db.collection('dealeriComenzi').doc(c.id).update({ serii:[...(c.serii||[]), ...noi] });
+    PFM.cxId = null;
+    alert(`Gata ✓ ${noi.join(', ')} ${noi.length===1?'a ieșit':'au ieșit'} din stoc către ${c.dealer}, pe comanda existentă.`);
+    loadAll();
+  }catch(err){ console.error(err); alert('Nu am putut aloca seria.\n\n' + (err && err.message ? err.message : err)); }
+  finally{ PFM.busy = false; renderProformeComenzi(); }
 }
 
 /* ================= DOCUMENTE (PROFORME / FACTURI) ÎN CONTUL PARTENERULUI =================
