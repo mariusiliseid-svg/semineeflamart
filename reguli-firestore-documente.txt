@@ -1,0 +1,13 @@
+REGULI FIRESTORE pentru proformele și facturile din contul partenerului
+=======================================================================
+Unde: Firebase Console -> proiectul bokar-crm -> Firestore Database -> Rules.
+Lipește blocul de mai jos ÎN INTERIORUL lui "match /databases/{database}/documents { ... }",
+lângă celelalte reguli existente (nu șterge nimic din ce ai deja). Apoi apasă Publish.
+
+    match /documentePartener/{id} {
+      // adminul (rol 'admin' în /roles/{uid}) încarcă, vede și șterge orice document
+      allow read, write: if request.auth != null
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin';
+      // partenerul își deschide doar documentele lui (dealerUid = contul lui)
+      allow get: if request.auth != null && resource.data.dealerUid == request.auth.uid;
+    }
