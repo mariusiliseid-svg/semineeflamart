@@ -3085,11 +3085,12 @@ async function pfmCreate(c){
 
 /* ================= DOCUMENTE (PROFORME / FACTURI) ÎN CONTUL PARTENERULUI =================
    Adminul atașează PDF-ul (descărcat din SmartBill) la o comandă. Fișierul stă în colecția
-   „documentePartener” (base64, max ~700 KB), cu dealerUid = contul partenerului; pe comandă rămâne doar lista
+   „documentePartener” (base64; fișierele mari împărțite în bucăți „<id>_p<i>”), cu dealerUid = contul partenerului; pe comandă rămâne doar lista
    (c.documente: id, tip, număr, dată), ca partenerul să le vadă fără să încarce fișierele.
    Reguli Firestore: reguli-firestore-documente.txt. */
 const DP_TIP = { proforma:'Proformă', factura:'Factură', aviz:'Aviz', alt:'Document' };
-const DP_MAX = 700 * 1024;
+const DP_MAX = 8 * 1024 * 1024;   // fișierul se împarte în bucăți de ~600 KB (limita unui document Firestore e 1 MB)
+const DP_CHUNK = 800000;          // caractere base64 pe bucată
 function dpListHtml(c, admin){
   const e = cuEsc;
   return (c.documente||[]).map(d => `<div style="font-size:12px;margin-bottom:4px">📄 <a href="#" data-dpget="${e(d.id)}" data-dpname="${e(d.nume||'document.pdf')}">${e(DP_TIP[d.tip]||'Document')}${d.numar ? ' ' + e(d.numar) : ''}</a>
@@ -3101,7 +3102,7 @@ function dpFormHtml(c){
     ${cont.uid ? '' : `<div style="color:var(--red);font-size:12.5px;margin-bottom:8px">⚠ Nu găsesc contul de portal al lui „${e(c.dealer)}”, deci partenerul n-ar putea vedea documentul. Verifică numele contului din Conturi.</div>`}
     <div class="field-row"><div class="field"><label>Tip document</label><select id="dp-tip">${Object.entries(DP_TIP).map(([k,t]) => `<option value="${k}">${t}</option>`).join('')}</select></div>
       <div class="field"><label>Număr (opțional)</label><input type="text" id="dp-nr" placeholder="ex: ART 0045"></div></div>
-    <div class="field"><label>Fișier PDF (max 700 KB)</label><input type="file" id="dp-file" accept="application/pdf,.pdf"></div>
+    <div class="field"><label>Fișier PDF (max 8 MB)</label><input type="file" id="dp-file" accept="application/pdf,.pdf"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button" id="dpGo" ${PFM.busy||!cont.uid?'disabled':''}>${PFM.busy ? 'Se încarcă…' : '📎 Salvează în contul partenerului'}</button>
       <button class="btn btn-ghost btn-sm" type="button" id="dpClose">Închide</button></div>`;
 }
@@ -3113,14 +3114,17 @@ async function dpUpload(c){
   const f = (document.getElementById('dp-file').files || [])[0];
   if(!f){ alert('Alege fișierul PDF.'); return; }
   if(!/pdf$/i.test(f.type) && !/\.pdf$/i.test(f.name)){ alert('Doar fișiere PDF.'); return; }
-  if(f.size > DP_MAX){ alert(`Fișierul are ${Math.round(f.size/1024)} KB; maxim 700 KB. Proformele și facturile din SmartBill au de obicei sub 200 KB.`); return; }
+  if(f.size > DP_MAX){ alert(`Fișierul are ${(f.size/1048576).toFixed(1)} MB; maxim 8 MB.`); return; }
   const cont = pfmCont(c); if(!cont.uid){ alert('Partenerul nu are cont de portal legat.'); return; }
   const tip = document.getElementById('dp-tip').value, numar = document.getElementById('dp-nr').value.trim().slice(0,40);
   PFM.busy = true; renderProformeComenzi();
   try{
     const data = await dpRead(f);
     const la = new Date().toISOString();
-    const ref = await db.collection('documentePartener').add({ dealerUid:cont.uid, dealer:c.dealer, comandaId:c.id, tip, numar, nume:f.name.slice(0,120), marime:f.size, la, data });
+    const parti = Math.max(1, Math.ceil(data.length / DP_CHUNK));
+    const ref = db.collection('documentePartener').doc();
+    await ref.set({ dealerUid:cont.uid, dealer:c.dealer, comandaId:c.id, tip, numar, nume:f.name.slice(0,120), marime:f.size, la, parti, data: parti===1 ? data : '' });
+    if(parti > 1) for(let i=0;i<parti;i++) await db.collection('documentePartener').doc(`${ref.id}_p${i}`).set({ dealerUid:cont.uid, parinte:ref.id, idx:i, data:data.slice(i*DP_CHUNK, (i+1)*DP_CHUNK) });
     c.documente = [...(c.documente||[]), { id:ref.id, tip, numar, nume:f.name.slice(0,120), la }];
     await db.collection('dealeriComenzi').doc(c.id).update({ documente:c.documente });
     PFM.docId = null;
@@ -3134,7 +3138,9 @@ async function dpDownload(id, nume){
   try{
     const d = await db.collection('documentePartener').doc(id).get();
     if(!d.exists){ alert('Documentul nu mai există.'); return; }
-    const bin = atob(d.data().data || ''); const u8 = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+    const m = d.data(); let b64 = m.data || '';
+    if((m.parti||1) > 1){ const ps = await Promise.all([...Array(m.parti).keys()].map(i => db.collection('documentePartener').doc(`${id}_p${i}`).get())); b64 = ps.map(x => x.exists ? (x.data().data||'') : '').join(''); }
+    const bin = atob(b64); const u8 = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
     const url = URL.createObjectURL(new Blob([u8], { type:'application/pdf' }));
     const a = document.createElement('a'); a.href = url; a.download = nume || 'document.pdf'; a.target = '_blank'; document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
@@ -3146,7 +3152,9 @@ function dpBind(root, comenzi){
     ev.preventDefault();
     const c = (comenzi||[]).find(x => x.id===a.dataset.dpc); if(!c || !confirm('Ștergi documentul din contul partenerului?')) return;
     try{
-      await db.collection('documentePartener').doc(a.dataset.dpdel).delete();
+      const ref = db.collection('documentePartener').doc(a.dataset.dpdel), snap = await ref.get(), n = snap.exists ? (snap.data().parti||1) : 1;
+      if(n > 1) for(let i=0;i<n;i++) await db.collection('documentePartener').doc(`${a.dataset.dpdel}_p${i}`).delete();
+      await ref.delete();
       c.documente = (c.documente||[]).filter(d => d.id!==a.dataset.dpdel);
       await db.collection('dealeriComenzi').doc(c.id).update({ documente:c.documente });
       renderProformeComenzi();
