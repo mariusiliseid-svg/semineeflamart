@@ -3041,13 +3041,27 @@ async function pfmCreate(c){
   if(!client.localitate && !client.judet){ alert('Completează localitatea sau județul (SmartBill le cere pentru client).'); return; }
   const pass = pfmPass(false); if(!pass) return;
   const k = pfmCalc(c);
-  const payload = { client, linii:k.linii, discount:k.discount, discountNume:k.discountNume || 'Discount', pretEur:true, curs:v('curs'), scadenta:v('scad'), mentiuni:v('ment') };
+  /* Curs scris de mână → conversia în lei se face aici, în portal (merge și cu serverul vechi).
+     Fără curs → serverul ia cursul BNR singur (pretEur). */
+  const cs = Number(v('curs').replace(',', '.'));
+  const azi = new Date(), aziRo = `${String(azi.getDate()).padStart(2,'0')}.${String(azi.getMonth()+1).padStart(2,'0')}.${azi.getFullYear()}`;
+  let payload;
+  if(v('curs')){
+    if(!(cs > 3 && cs < 10)){ alert('Cursul EUR nu pare corect (ex: 5,3495). Corectează-l sau lasă câmpul gol.'); return; }
+    const r2 = n => Math.round(n * 100) / 100;
+    payload = { client, linii:k.linii.map(l => ({ ...l, pret:r2(l.pret * cs) })), discount:r2((k.discount||0) * cs), discountNume:k.discountNume || 'Discount',
+      scadenta:v('scad'), mentiuni:[v('ment'), `Prețuri calculate din EUR la cursul BNR de ${cs} lei/EUR din ${aziRo}.`].filter(Boolean).join(' ') };
+  } else {
+    payload = { client, linii:k.linii, discount:k.discount, discountNume:k.discountNume || 'Discount', pretEur:true, scadenta:v('scad'), mentiuni:v('ment') };
+  }
+  const cursLocal = v('curs') ? { valoare:cs, data:aziRo } : null;
   PFM.busy = true; renderProformeComenzi();
   try{
     const res = await fetch(pfmApi(), { method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Key':pass }, body:JSON.stringify(payload) });
     let out = {}; try{ out = await res.json(); }catch(err){}
     if(res.status===401){ try{ localStorage.removeItem('flamart_sb_pass'); }catch(err){} throw new Error((out.error || 'Parolă greșită.') + ' Apasă din nou și introdu parola corectă.'); }
     if(!res.ok || !out.ok) throw new Error(out.error || ('Eroare server ' + res.status));
+    if(cursLocal){ out.curs = cursLocal.valoare; out.cursData = cursLocal.data; }
     const rec = { la:new Date().toISOString(), totalEur:k.total, totalLei:out.total||0, curs:out.curs||null, cursData:out.cursData||'', editUrl:out.editUrl||'', viewUrl:out.viewUrl||'' };
     c.proformaSB = [...(c.proformaSB||[]), rec];
     try{ await db.collection('dealeriComenzi').doc(c.id).update({ proformaSB:c.proformaSB }); }catch(err){ console.error('salvare proformă în comandă', err); }
@@ -3055,7 +3069,7 @@ async function pfmCreate(c){
     if(!out.curs) alert('⚠ Ciorna s-a creat în SmartBill, dar NEconvertită: sumele în euro au fost puse ca lei — serverul SmartBill nu e încă actualizat.\nȘterge ciorna din SmartBill → Proforme și încearcă din nou peste câteva minute.');
     else alert(`Proforma ciornă a fost creată în SmartBill ✓\nTotal ${Number(out.total||0).toLocaleString('ro-RO')} lei cu TVA (curs BNR ${out.curs} lei/EUR din ${out.cursData}).\nO găsești în SmartBill → Proforme (ciorne).`);
   }catch(err){
-    alert('Proforma nu a fost creată.\n\n' + (err && err.message ? err.message : err) + (/Failed to fetch|NetworkError|Load failed/i.test(String(err)) ? '\n\nVerifică internetul sau adresa serverului (Setări conexiune SmartBill).' : ''));
+    alert('Proforma nu a fost creată.\n\n' + (err && err.message ? err.message : err) + (/curs/i.test(String(err && err.message)) && !v('curs') ? '\n\nScrie cursul BNR de azi în câmpul „Curs EUR (lei)” (îl găsești pe bnr.ro sau cursbnr.ro) și apasă din nou.' : '') + (/Failed to fetch|NetworkError|Load failed/i.test(String(err)) ? '\n\nVerifică internetul sau adresa serverului (Setări conexiune SmartBill).' : ''));
   }finally{
     PFM.busy = false; renderProformeComenzi();
   }
