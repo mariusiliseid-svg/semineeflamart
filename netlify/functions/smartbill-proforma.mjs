@@ -35,21 +35,23 @@ const txt = (s, max = 250) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(
 
 // Construiește corpul cererii SmartBill din datele trimise de aplicație.
 // Exportat ca să poată fi testat separat.
-export function buildEstimate(input, env) {
+export function buildEstimate(input, env, curs) {
   const tva = env.TVA_PROCENT === undefined || env.TVA_PROCENT === '' ? 21 : Number(env.TVA_PROCENT);
   const tvaNume = env.TVA_NUME || 'Normala';
   const taxa = tva > 0 ? { isTaxIncluded: true, taxName: tvaNume, taxPercentage: tva } : {};
 
-  // Moneda: RON implicit (generatorul de oferte); EUR pentru comenzile partenerilor din portalul BOKAR.
-  // La EUR, SmartBill ia singur cursul BNR al zilei.
-  const moneda = String(input.moneda || 'RON').toUpperCase() === 'EUR' ? 'EUR' : 'RON';
+  // Proforma iese mereu în lei. Portalul BOKAR trimite prețurile în EUR (pretEur: true):
+  // le convertim aici la cursul BNR al zilei (curs = { valoare, data }, luat în handler).
+  const moneda = 'RON';
+  const k = input.pretEur ? Number(curs && curs.valoare) : 1;
+  if (input.pretEur && !(k > 0)) throw new Error('Nu am cursul BNR pentru conversia din EUR.');
   const c = input.client || {};
   const nume = txt(c.nume, 200);
   if (!nume) throw new Error('Lipsește numele clientului.');
   const cif = txt(c.cif, 20).toUpperCase().replace(/\s/g, '');
 
   const linii = (Array.isArray(input.linii) ? input.linii : [])
-    .map((l) => ({ ...l, cantitate: Number(l.cantitate) || 0, pret: r2(l.pret) }))
+    .map((l) => ({ ...l, cantitate: Number(l.cantitate) || 0, pret: r2((Number(l.pret) || 0) * k) }))
     .filter((l) => txt(l.denumire) && l.cantitate > 0 && l.pret > 0);
   if (!linii.length) throw new Error('Nu există produse cu cantitate și preț pentru proformă.');
   if (linii.length > 200) throw new Error('Prea multe linii (maxim 200).');
@@ -70,7 +72,7 @@ export function buildEstimate(input, env) {
     return p;
   });
 
-  const discount = r2(input.discount);
+  const discount = r2((Number(input.discount) || 0) * k);
   if (discount > 0) {
     products.push({
       name: txt(input.discountNume, 120) || 'Discount',
@@ -104,8 +106,21 @@ export function buildEstimate(input, env) {
   const email = txt(c.email, 120);
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) body.client.email = email;
   if (/^\d{4}-\d{2}-\d{2}$/.test(input.scadenta || '')) body.dueDate = input.scadenta;
-  if (txt(input.mentiuni)) body.mentions = txt(input.mentiuni, 500);
+  const ment = [txt(input.mentiuni)];
+  if (input.pretEur) ment.push(`Prețuri calculate din EUR la cursul BNR de ${k} lei/EUR din ${curs.data}.`);
+  if (ment.filter(Boolean).length) body.mentions = txt(ment.filter(Boolean).join(' '), 500);
   return body;
+}
+
+// Cursul EUR oficial BNR (ultima zi publicată).
+export async function cursBNR() {
+  const res = await fetch('https://www.bnr.ro/nbrfxrates.xml');
+  if (!res.ok) throw new Error('BNR a răspuns ' + res.status);
+  const xml = await res.text();
+  const v = (xml.match(/<Rate currency="EUR">([\d.]+)<\/Rate>/) || [])[1];
+  const d = (xml.match(/<Cube date="(\d{4}-\d{2}-\d{2})"/) || [])[1];
+  if (!v || !d) throw new Error('nu găsesc cursul EUR în răspuns');
+  return { valoare: Number(v), data: d.split('-').reverse().join('.') };
 }
 
 export default async (req) => {
@@ -124,8 +139,13 @@ export default async (req) => {
   let input;
   try { input = await req.json(); } catch { return reply(400, { error: 'Date invalide.' }, origin); }
 
+  let curs = null;
+  if (input && input.pretEur) {
+    try { curs = await cursBNR(); } catch (e) { return reply(502, { error: 'Nu am putut lua cursul EUR de la BNR: ' + e.message }, origin); }
+  }
+
   let body;
-  try { body = buildEstimate(input, env); } catch (e) { return reply(400, { error: e.message }, origin); }
+  try { body = buildEstimate(input, env, curs); } catch (e) { return reply(400, { error: e.message }, origin); }
 
   const auth = Buffer.from(env.SMARTBILL_EMAIL + ':' + env.SMARTBILL_TOKEN).toString('base64');
   let res, out;
@@ -149,10 +169,12 @@ export default async (req) => {
   return reply(200, {
     ok: true,
     moneda: body.currency,
+    curs: curs ? curs.valoare : null,
+    cursData: curs ? curs.data : null,
     serie: out.series || body.seriesName,
     numar: out.number || '',
     editUrl: out.documentUrl || '',
     viewUrl: out.documentViewUrl || '',
-    total: r2(body.products.filter((p) => !p.isDiscount).reduce((s, p) => s + p.quantity * p.price, 0) - r2(input.discount)),
+    total: r2(body.products.filter((p) => !p.isDiscount).reduce((s, p) => s + p.quantity * p.price, 0) + body.products.filter((p) => p.isDiscount).reduce((s, p) => s + p.discountValue, 0)),
   }, origin);
 };
