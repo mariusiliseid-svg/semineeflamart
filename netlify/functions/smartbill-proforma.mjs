@@ -112,15 +112,22 @@ export function buildEstimate(input, env, curs) {
   return body;
 }
 
-// Cursul EUR oficial BNR (ultima zi publicată).
+// Cursul EUR oficial BNR (ultima zi publicată). Încearcă ambele adrese BNR, cu antet de browser
+// (unele servere refuză cererile fără User-Agent), și citește XML-ul tolerant (ordine atribute, spații, virgulă).
 export async function cursBNR() {
-  const res = await fetch('https://www.bnr.ro/nbrfxrates.xml');
-  if (!res.ok) throw new Error('BNR a răspuns ' + res.status);
-  const xml = await res.text();
-  const v = (xml.match(/<Rate currency="EUR">([\d.]+)<\/Rate>/) || [])[1];
-  const d = (xml.match(/<Cube date="(\d{4}-\d{2}-\d{2})"/) || [])[1];
-  if (!v || !d) throw new Error('nu găsesc cursul EUR în răspuns');
-  return { valoare: Number(v), data: d.split('-').reverse().join('.') };
+  const surse = ['https://www.bnr.ro/nbrfxrates.xml', 'https://bnr.ro/nbrfxrates.xml', 'https://www.bnr.ro/nbrfxrates10days.xml'];
+  let ultima = '';
+  for (const url of surse) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Flamart proforma)', Accept: 'application/xml,text/xml,*/*' }, redirect: 'follow' });
+      const xml = await res.text();
+      const m = xml.match(/<Rate[^>]*currency\s*=\s*["']EUR["'][^>]*>\s*([\d.,]+)\s*</i);
+      const d = (xml.match(/<Cube[^>]*date\s*=\s*["'](\d{4}-\d{2}-\d{2})["']/i) || [])[1];
+      if (res.ok && m && d) return { valoare: Number(m[1].replace(',', '.')), data: d.split('-').reverse().join('.') };
+      ultima = `${url} → ${res.status} ${xml.replace(/\s+/g, ' ').slice(0, 120)}`;
+    } catch (e) { ultima = `${url} → ${e.message}`; }
+  }
+  throw new Error('nu găsesc cursul EUR (' + ultima + ')');
 }
 
 export default async (req) => {
@@ -141,7 +148,12 @@ export default async (req) => {
 
   let curs = null;
   if (input && input.pretEur) {
-    try { curs = await cursBNR(); } catch (e) { return reply(502, { error: 'Nu am putut lua cursul EUR de la BNR: ' + e.message }, origin); }
+    const manual = Number(String(input.curs || '').replace(',', '.'));
+    if (manual > 3 && manual < 10) {
+      const t = new Date(); curs = { valoare: Math.round(manual * 10000) / 10000, data: `${String(t.getDate()).padStart(2, '0')}.${String(t.getMonth() + 1).padStart(2, '0')}.${t.getFullYear()}` };
+    } else {
+      try { curs = await cursBNR(); } catch (e) { return reply(502, { error: 'Nu am putut lua cursul EUR de la BNR: ' + e.message + '. Scrie cursul BNR de azi în câmpul „Curs EUR” și încearcă din nou.' }, origin); }
+    }
   }
 
   let body;

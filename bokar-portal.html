@@ -3028,6 +3028,7 @@ function pfmFormHtml(c){
     <div class="field-row">${f('localitate','Localitate','', 'ex: Bacău')}${f('email','E-mail (opțional)',d.mail)}</div>
     <div class="field-row"><div class="field"><label>Scadență</label><input type="date" id="pfm-scad" value="${scad.toISOString().slice(0,10)}"></div>
       ${f('ment','Mențiuni', `Comanda partener din ${fmtDate(c.data)}`)}</div>
+    <div class="field-row">${f('curs','Curs EUR (lei) — opțional', '', 'gol = cursul BNR automat; ex: 5,0855')}<div class="field"></div></div>
     ${(c.proformaSB||[]).length ? `<div style="color:var(--amber);font-size:12.5px;margin-bottom:8px">⚠ Ai creat deja o ciornă pentru comanda asta. Dacă mai apeși, apare a doua ciornă în SmartBill.</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button" id="pfmGo" ${PFM.busy?'disabled':''}>${PFM.busy ? 'Se trimite la SmartBill…' : '🧾 Creează proforma ciornă'}</button>
       <button class="btn btn-ghost btn-sm" type="button" id="pfmClose">Închide</button></div>`;
@@ -3040,7 +3041,7 @@ async function pfmCreate(c){
   if(!client.localitate && !client.judet){ alert('Completează localitatea sau județul (SmartBill le cere pentru client).'); return; }
   const pass = pfmPass(false); if(!pass) return;
   const k = pfmCalc(c);
-  const payload = { client, linii:k.linii, discount:k.discount, discountNume:k.discountNume || 'Discount', pretEur:true, scadenta:v('scad'), mentiuni:v('ment') };
+  const payload = { client, linii:k.linii, discount:k.discount, discountNume:k.discountNume || 'Discount', pretEur:true, curs:v('curs'), scadenta:v('scad'), mentiuni:v('ment') };
   PFM.busy = true; renderProformeComenzi();
   try{
     const res = await fetch(pfmApi(), { method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Key':pass }, body:JSON.stringify(payload) });
