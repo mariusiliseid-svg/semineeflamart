@@ -40,6 +40,9 @@ export function buildEstimate(input, env) {
   const tvaNume = env.TVA_NUME || 'Normala';
   const taxa = tva > 0 ? { isTaxIncluded: true, taxName: tvaNume, taxPercentage: tva } : {};
 
+  // Moneda: RON implicit (generatorul de oferte); EUR pentru comenzile partenerilor din portalul BOKAR.
+  // La EUR, SmartBill ia singur cursul BNR al zilei.
+  const moneda = String(input.moneda || 'RON').toUpperCase() === 'EUR' ? 'EUR' : 'RON';
   const c = input.client || {};
   const nume = txt(c.nume, 200);
   if (!nume) throw new Error('Lipsește numele clientului.');
@@ -56,7 +59,7 @@ export function buildEstimate(input, env) {
       name: txt(l.denumire, 250),
       isDiscount: false,
       measuringUnitName: txt(l.um, 20) || 'buc',
-      currency: 'RON',
+      currency: moneda,
       quantity: l.cantitate,
       price: l.pret,
       ...taxa,
@@ -74,7 +77,7 @@ export function buildEstimate(input, env) {
       isDiscount: true,
       numberOfItems: linii.length,
       measuringUnitName: 'buc',
-      currency: 'RON',
+      currency: moneda,
       ...taxa,
       discountType: 1,
       discountValue: -discount,
@@ -95,7 +98,7 @@ export function buildEstimate(input, env) {
     },
     seriesName: env.SMARTBILL_SERIE,
     isDraft: true, // doar ciornă — forțat aici, indiferent ce trimite aplicația
-    currency: 'RON',
+    currency: moneda,
     products,
   };
   const email = txt(c.email, 120);

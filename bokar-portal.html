@@ -2954,7 +2954,109 @@ function renderDealeriTab(){
         </tbody>
       </table>
     </div>
+    <div id="pfmRoot"></div>
   `;
+  renderProformeComenzi();
+}
+
+/* ================= PROFORMĂ SMARTBILL PENTRU COMENZILE PARTENERILOR =================
+   Aceeași funcție Netlify ca în generatorul de oferte: proformă CIORNĂ pe FLAMART PROJECT SRL
+   (seria din SmartBill, setată pe server). Prețurile din portal sunt în EUR cu TVA, deci proforma e în EUR:
+   prețul de listă pe linie + o linie de discount până la valoarea comenzii. */
+const PFM_API_DEFAULT = 'https://flamart-api.netlify.app/.netlify/functions/smartbill-proforma';
+const PFM = { openId:null, busy:false, showAll:false };
+function pfmApi(){ try{ return (localStorage.getItem('flamart_sb_api')||'').trim() || PFM_API_DEFAULT; }catch(e){ return PFM_API_DEFAULT; } }
+function pfmPass(force){
+  let p = ''; try{ p = localStorage.getItem('flamart_sb_pass') || ''; }catch(e){}
+  if(!p || force){
+    p = (prompt('Parola aplicației de oferte (aceeași ca la generator; se cere o singură dată pe acest dispozitiv):') || '').trim();
+    if(!p) return '';
+    try{ localStorage.setItem('flamart_sb_pass', p); }catch(e){}
+  }
+  return p;
+}
+function pfmCont(c){
+  const conturi = CACHE.parteneriConturi || [];
+  return conturi.find(x => c.dealerUid && x.uid===c.dealerUid) || conturi.find(x => String(x.nume||'').trim()===String(c.dealer||'').trim()) || { nume:c.dealer };
+}
+function pfmCalc(c){
+  const q = Number(c.cantitate) || 1, val = Number(c.valoare) || 0;
+  const rrp = (RRP_FOCAR[c.model] || {})[c.varianta || 'White'] || 0;
+  const denumire = `Focar BOKAR ${c.model}${c.varianta ? ' ' + c.varianta : ''}`;
+  if(rrp > 0 && rrp * q > val + 0.01){
+    const disc = Math.round((rrp * q - val) * 100) / 100;
+    return { linii:[{ denumire, um:'buc', cantitate:q, pret:rrp, nota:(c.serii||[]).length ? 'Serii: ' + c.serii.join(', ') : '' }],
+      discount:disc, discountNume:`Discount partener ${Math.round(disc / (rrp * q) * 100)}%`, total:val };
+  }
+  return { linii:[{ denumire, um:'buc', cantitate:q, pret:Math.round(val / q * 100) / 100, nota:(c.serii||[]).length ? 'Serii: ' + c.serii.join(', ') : '' }], discount:0, total:val };
+}
+function renderProformeComenzi(){
+  const el = document.getElementById('pfmRoot'); if(!el) return;
+  const e = cuEsc, eur = n => (Number(n)||0).toLocaleString('ro-RO', { maximumFractionDigits:2 }) + ' €';
+  const toate = [...(CACHE.dealeriComenzi||[])].sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')));
+  const lista = PFM.showAll ? toate : toate.slice(0, 15);
+  el.innerHTML = `<div class="card"><h2>Comenzi parteneri · proformă SmartBill</h2>
+    <div class="hint">Creează proforma ca <b>ciornă</b> în SmartBill, pe FLAMART PROJECT SRL. O verifici și o emiți tu din SmartBill. Prețurile sunt în EUR, cu TVA.</div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Dată</th><th>Partener</th><th>Produs</th><th>Buc.</th><th>Valoare</th><th>Proformă</th></tr></thead><tbody>
+    ${lista.map(c => { const pf = c.proformaSB || [];
+      return `<tr><td>${fmtDate(c.data)}</td><td>${e(c.dealer)}</td><td>${e(c.model)} ${e(c.varianta||'')}</td><td>${e(c.cantitate)}</td><td>${eur(c.valoare)}</td>
+      <td style="white-space:nowrap">${pf.map(x => `<div style="font-size:12px;color:var(--green)">✓ Ciornă ${fmtDate(String(x.la||'').slice(0,10))}${x.editUrl ? ` · <a href="${e(x.editUrl)}" target="_blank" rel="noopener">Deschide</a>` : ''}</div>`).join('')}
+        <button class="btn btn-secondary cu-sm" type="button" data-pfm="${e(c.id)}">🧾 ${pf.length ? 'Încă o proformă' : 'Proformă SmartBill'}</button></td></tr>
+      ${PFM.openId===c.id ? `<tr><td colspan="6" style="background:var(--bg-soft)">${pfmFormHtml(c)}</td></tr>` : ''}`; }).join('')}
+    </tbody></table></div>
+    ${toate.length > 15 ? `<button class="btn btn-ghost btn-sm" type="button" id="pfmAll">${PFM.showAll ? 'Arată doar ultimele 15' : `Arată toate (${toate.length})`}</button>` : ''}
+    <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" type="button" id="pfmSet">Setări conexiune SmartBill</button></div></div>`;
+  el.querySelectorAll('[data-pfm]').forEach(b => b.onclick = () => { PFM.openId = PFM.openId===b.dataset.pfm ? null : b.dataset.pfm; renderProformeComenzi(); });
+  const all = document.getElementById('pfmAll'); if(all) all.onclick = () => { PFM.showAll = !PFM.showAll; renderProformeComenzi(); };
+  document.getElementById('pfmSet').onclick = () => {
+    const u = prompt('Adresa serverului SmartBill (lasă gol pentru cea implicită):', pfmApi()===PFM_API_DEFAULT ? '' : pfmApi());
+    if(u===null) return;
+    try{ if(u.trim()) localStorage.setItem('flamart_sb_api', u.trim()); else localStorage.removeItem('flamart_sb_api'); }catch(err){}
+    pfmPass(true);
+  };
+  const go = document.getElementById('pfmGo'); if(go) go.onclick = () => pfmCreate(toate.find(c => c.id===PFM.openId));
+  const cl = document.getElementById('pfmClose'); if(cl) cl.onclick = () => { PFM.openId = null; renderProformeComenzi(); };
+}
+function pfmFormHtml(c){
+  const e = cuEsc, d = partnerCompanyData(pfmCont(c)), k = pfmCalc(c);
+  const scad = new Date(); scad.setDate(scad.getDate() + 7);
+  const f = (id, t, v, ph) => `<div class="field"><label>${t}</label><input type="text" id="pfm-${id}" value="${e(v||'')}" placeholder="${e(ph||'')}"></div>`;
+  return `<div style="font-size:12.5px;font-weight:700;margin-bottom:8px">Proformă ciornă pentru ${e(c.dealer)} · ${e(k.linii[0].denumire)} × ${e(k.linii[0].cantitate)}
+      · listă ${(k.linii[0].pret * k.linii[0].cantitate).toLocaleString('ro-RO')} €${k.discount ? ` − ${e(k.discountNume)}` : ''} = <b>${(Number(k.total)||0).toLocaleString('ro-RO')} €</b> cu TVA</div>
+    <div class="field-row">${f('firma','Firma partenerului',d.firma)}${f('cui','CUI / CIF',d.cui,'ex: RO12345678')}</div>
+    <div class="field-row">${f('adresa','Adresa (sediul)',d.sediu)}${f('judet','Județ',d.judet)}</div>
+    <div class="field-row">${f('localitate','Localitate','', 'ex: Bacău')}${f('email','E-mail (opțional)',d.mail)}</div>
+    <div class="field-row"><div class="field"><label>Scadență</label><input type="date" id="pfm-scad" value="${scad.toISOString().slice(0,10)}"></div>
+      ${f('ment','Mențiuni', `Comanda partener din ${fmtDate(c.data)}`)}</div>
+    ${(c.proformaSB||[]).length ? `<div style="color:var(--amber);font-size:12.5px;margin-bottom:8px">⚠ Ai creat deja o ciornă pentru comanda asta. Dacă mai apeși, apare a doua ciornă în SmartBill.</div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" type="button" id="pfmGo" ${PFM.busy?'disabled':''}>${PFM.busy ? 'Se trimite la SmartBill…' : '🧾 Creează proforma ciornă'}</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="pfmClose">Închide</button></div>`;
+}
+async function pfmCreate(c){
+  if(!c || PFM.busy) return;
+  const v = id => ((document.getElementById('pfm-'+id)||{}).value || '').trim();
+  const client = { nume:v('firma'), cif:v('cui'), adresa:v('adresa'), localitate:v('localitate'), judet:v('judet'), email:v('email') };
+  if(!client.nume){ alert('Completează numele firmei partenerului.'); return; }
+  if(!client.localitate && !client.judet){ alert('Completează localitatea sau județul (SmartBill le cere pentru client).'); return; }
+  const pass = pfmPass(false); if(!pass) return;
+  const k = pfmCalc(c);
+  const payload = { client, linii:k.linii, discount:k.discount, discountNume:k.discountNume || 'Discount', moneda:'EUR', scadenta:v('scad'), mentiuni:v('ment') };
+  PFM.busy = true; renderProformeComenzi();
+  try{
+    const res = await fetch(pfmApi(), { method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Key':pass }, body:JSON.stringify(payload) });
+    let out = {}; try{ out = await res.json(); }catch(err){}
+    if(res.status===401){ try{ localStorage.removeItem('flamart_sb_pass'); }catch(err){} throw new Error((out.error || 'Parolă greșită.') + ' Apasă din nou și introdu parola corectă.'); }
+    if(!res.ok || !out.ok) throw new Error(out.error || ('Eroare server ' + res.status));
+    const rec = { la:new Date().toISOString(), total:k.total, moneda:'EUR', editUrl:out.editUrl||'', viewUrl:out.viewUrl||'' };
+    c.proformaSB = [...(c.proformaSB||[]), rec];
+    try{ await db.collection('dealeriComenzi').doc(c.id).update({ proformaSB:c.proformaSB }); }catch(err){ console.error('salvare proformă în comandă', err); }
+    PFM.openId = null;
+    alert('Proforma ciornă a fost creată în SmartBill ✓\nO găsești în SmartBill → Proforme (ciorne).');
+  }catch(err){
+    alert('Proforma nu a fost creată.\n\n' + (err && err.message ? err.message : err) + (/Failed to fetch|NetworkError|Load failed/i.test(String(err)) ? '\n\nVerifică internetul sau adresa serverului (Setări conexiune SmartBill).' : ''));
+  }finally{
+    PFM.busy = false; renderProformeComenzi();
+  }
 }
 
 function renderOferteTab(){
