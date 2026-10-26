@@ -148,6 +148,7 @@ export default async (req) => {
 
   return reply(200, {
     ok: true,
+    moneda: body.currency,
     serie: out.series || body.seriesName,
     numar: out.number || '',
     editUrl: out.documentUrl || '',

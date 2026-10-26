@@ -3051,7 +3051,8 @@ async function pfmCreate(c){
     c.proformaSB = [...(c.proformaSB||[]), rec];
     try{ await db.collection('dealeriComenzi').doc(c.id).update({ proformaSB:c.proformaSB }); }catch(err){ console.error('salvare proformă în comandă', err); }
     PFM.openId = null;
-    alert('Proforma ciornă a fost creată în SmartBill ✓\nO găsești în SmartBill → Proforme (ciorne).');
+    if(out.moneda !== 'EUR') alert('⚠ Ciorna s-a creat în SmartBill, dar în LEI, cu sumele în euro — serverul SmartBill nu e încă actualizat.\nȘterge ciorna din SmartBill → Proforme și încearcă din nou peste câteva minute.');
+    else alert('Proforma ciornă a fost creată în SmartBill ✓ (în EUR)\nO găsești în SmartBill → Proforme (ciorne).');
   }catch(err){
     alert('Proforma nu a fost creată.\n\n' + (err && err.message ? err.message : err) + (/Failed to fetch|NetworkError|Load failed/i.test(String(err)) ? '\n\nVerifică internetul sau adresa serverului (Setări conexiune SmartBill).' : ''));
   }finally{
