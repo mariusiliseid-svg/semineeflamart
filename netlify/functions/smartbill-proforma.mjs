@@ -10,6 +10,7 @@
 //   TVA_PROCENT       opțional, implicit 21; pune 0 dacă firma nu e plătitoare de TVA
 //   TVA_NUME          opțional, implicit "Normala"
 
+const VERSIUNE = 'v4-curs-cursbnr';
 const SB_URL = 'https://ws.smartbill.ro/SBORO/api/estimate/v2';
 const ALLOWED_ORIGINS = ['https://configurator.flamart.ro', 'http://localhost:8080', 'http://127.0.0.1:8080'];
 
@@ -127,12 +128,23 @@ export async function cursBNR() {
       ultima = `${url} → ${res.status} ${xml.replace(/\s+/g, ' ').slice(0, 120)}`;
     } catch (e) { ultima = `${url} → ${e.message}`; }
   }
+  // Rezervă: cursbnr.ro (publică același curs BNR, ca pagină HTML).
+  try {
+    const res = await fetch('https://www.cursbnr.ro/curs-bnr-azi', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130 Safari/537.36', Accept: 'text/html' } });
+    const text = (await res.text()).replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+    const m = text.match(/\bEUR\b\s+Euro\s+(\d[.,]\d{2,4})/i) || text.match(/\bEUR\b[^0-9]{0,30}(\d[.,]\d{4})/);
+    const d = (text.match(/cursul BNR din\s+(\d{2}\.\d{2}\.\d{4})/i) || text.match(/(\d{2}\.\d{2}\.20\d{2})/) || [])[1];
+    const v = m ? Number(m[1].replace(',', '.')) : 0;
+    if (res.ok && v > 3 && v < 10 && d) return { valoare: v, data: d };
+    ultima += ` | cursbnr.ro → ${res.status} ${v ? 'fără dată' : 'fără EUR'}`;
+  } catch (e) { ultima += ` | cursbnr.ro → ${e.message}`; }
   throw new Error('nu găsesc cursul EUR (' + ultima + ')');
 }
 
 export default async (req) => {
   const origin = req.headers.get('origin') || '';
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
+  if (req.method === 'GET') return reply(200, { ok: true, versiune: VERSIUNE }, origin);
   if (req.method !== 'POST') return reply(405, { error: 'Doar POST.' }, origin);
 
   const env = process.env;
@@ -152,7 +164,7 @@ export default async (req) => {
     if (manual > 3 && manual < 10) {
       const t = new Date(); curs = { valoare: Math.round(manual * 10000) / 10000, data: `${String(t.getDate()).padStart(2, '0')}.${String(t.getMonth() + 1).padStart(2, '0')}.${t.getFullYear()}` };
     } else {
-      try { curs = await cursBNR(); } catch (e) { return reply(502, { error: 'Nu am putut lua cursul EUR de la BNR: ' + e.message + '. Scrie cursul BNR de azi în câmpul „Curs EUR” și încearcă din nou.' }, origin); }
+      try { curs = await cursBNR(); } catch (e) { return reply(502, { error: 'Nu am putut lua cursul EUR de la BNR: ' + e.message + '. Scrie cursul BNR de azi în câmpul „Curs EUR” și încearcă din nou. [' + VERSIUNE + ']' }, origin); }
     }
   }
 
