@@ -2966,7 +2966,7 @@ function renderDealeriTab(){
    (seria din SmartBill, setată pe server). Prețurile din portal sunt în EUR cu TVA; serverul le convertește
    în lei la cursul BNR al zilei (pretEur). Pe linie: prețul de listă + o linie de discount până la valoarea comenzii. */
 const PFM_API_DEFAULT = 'https://flamart-api.netlify.app/.netlify/functions/smartbill-proforma';
-const PFM = { openId:null, docId:null, busy:false, showAll:false };
+const PFM = { openId:null, docId:null, cxId:null, busy:false, showAll:false };
 function pfmApi(){ try{ return (localStorage.getItem('flamart_sb_api')||'').trim() || PFM_API_DEFAULT; }catch(e){ return PFM_API_DEFAULT; } }
 function pfmPass(force){
   let p = ''; try{ p = localStorage.getItem('flamart_sb_pass') || ''; }catch(e){}
@@ -2997,16 +2997,18 @@ function renderProformeComenzi(){
   const e = cuEsc, eur = n => (Number(n)||0).toLocaleString('ro-RO', { maximumFractionDigits:2 }) + ' €';
   const toate = [...(CACHE.dealeriComenzi||[])].sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')));
   const lista = PFM.showAll ? toate : toate.slice(0, 15);
-  el.innerHTML = `<div class="card"><h2>Comenzi parteneri · proformă SmartBill</h2>
+  el.innerHTML = `<div class="card"><h2>Comenzi parteneri · proformă, documente, corectare</h2>
     <div class="hint">Creează proforma ca <b>ciornă</b> în SmartBill, pe FLAMART PROJECT SRL. O verifici și o emiți tu din SmartBill. Prețurile din portal sunt în EUR cu TVA; pe proformă se convertesc în lei la cursul BNR al zilei.</div>
     <div style="overflow-x:auto"><table><thead><tr><th>Dată</th><th>Partener</th><th>Produs</th><th>Buc.</th><th>Valoare</th><th>Proformă</th><th>Documente partener</th></tr></thead><tbody>
     ${lista.map(c => { const pf = c.proformaSB || [];
       return `<tr><td>${fmtDate(c.data)}</td><td>${e(c.dealer)}</td><td>${e(c.model)} ${e(c.varianta||'')}</td><td>${e(c.cantitate)}</td><td>${eur(c.valoare)}</td>
       <td style="white-space:nowrap">${pf.map(x => `<div style="font-size:12px;color:var(--green)">✓ Ciornă ${fmtDate(String(x.la||'').slice(0,10))}${x.totalLei ? ` · ${Number(x.totalLei).toLocaleString('ro-RO')} lei` : ''}${x.editUrl ? ` · <a href="${e(x.editUrl)}" target="_blank" rel="noopener">Deschide</a>` : ''}</div>`).join('')}
         <button class="btn btn-secondary cu-sm" type="button" data-pfm="${e(c.id)}">🧾 ${pf.length ? 'Încă o proformă' : 'Proformă SmartBill'}</button></td>
-      <td style="white-space:nowrap">${dpListHtml(c, true)}<button class="btn btn-secondary cu-sm" type="button" data-dpopen="${e(c.id)}">📎 Atașează PDF</button></td></tr>
+      <td style="white-space:nowrap">${dpListHtml(c, true)}<button class="btn btn-secondary cu-sm" type="button" data-dpopen="${e(c.id)}">📎 Atașează PDF</button>
+        <br><button class="btn btn-ghost cu-sm" type="button" data-cxopen="${e(c.id)}" style="margin-top:4px">↩ Corectează / anulează</button></td></tr>
       ${PFM.openId===c.id ? `<tr><td colspan="7" style="background:var(--bg-soft)">${pfmFormHtml(c)}</td></tr>` : ''}
-      ${PFM.docId===c.id ? `<tr><td colspan="7" style="background:var(--bg-soft)">${dpFormHtml(c)}</td></tr>` : ''}`; }).join('')}
+      ${PFM.docId===c.id ? `<tr><td colspan="7" style="background:var(--bg-soft)">${dpFormHtml(c)}</td></tr>` : ''}
+      ${PFM.cxId===c.id ? `<tr><td colspan="7" style="background:var(--bg-soft)">${cxFormHtml(c)}</td></tr>` : ''}`; }).join('')}
     </tbody></table></div>
     ${toate.length > 15 ? `<button class="btn btn-ghost btn-sm" type="button" id="pfmAll">${PFM.showAll ? 'Arată doar ultimele 15' : `Arată toate (${toate.length})`}</button>` : ''}
     <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" type="button" id="pfmSet">Setări conexiune SmartBill</button></div></div>`;
@@ -3023,6 +3025,10 @@ function renderProformeComenzi(){
   const dg = document.getElementById('dpGo'); if(dg) dg.onclick = () => dpUpload(toate.find(c => c.id===PFM.docId));
   const dc = document.getElementById('dpClose'); if(dc) dc.onclick = () => { PFM.docId = null; renderProformeComenzi(); };
   dpBind(el, toate);
+  el.querySelectorAll('[data-cxopen]').forEach(b => b.onclick = () => { PFM.cxId = PFM.cxId===b.dataset.cxopen ? null : b.dataset.cxopen; renderProformeComenzi(); });
+  const cxc = document.getElementById('cxClose'); if(cxc) cxc.onclick = () => { PFM.cxId = null; renderProformeComenzi(); };
+  const cxs = document.getElementById('cxScoate'); if(cxs) cxs.onclick = () => cxApply(toate.find(c => c.id===PFM.cxId), false);
+  const cxa = document.getElementById('cxTot'); if(cxa) cxa.onclick = () => cxApply(toate.find(c => c.id===PFM.cxId), true);
   const cl = document.getElementById('pfmClose'); if(cl) cl.onclick = () => { PFM.openId = null; renderProformeComenzi(); };
 }
 function pfmFormHtml(c){
@@ -3081,6 +3087,59 @@ async function pfmCreate(c){
   }finally{
     PFM.busy = false; renderProformeComenzi();
   }
+}
+
+/* ================= CORECTARE / ANULARE VÂNZARE CĂTRE PARTENER =================
+   Scoate din comandă una sau mai multe serii (unitățile revin în stoc, în depozit) sau anulează toată comanda.
+   Cantitatea și valoarea comenzii scad proporțional; o comandă rămasă fără bucăți se șterge. */
+const cxNorm = x => String(x||'').trim().toUpperCase();
+function cxUnits(c){
+  const serii = new Set((c.serii||[]).map(cxNorm));
+  return (CACHE.unitati||[]).filter(u => u.status==='vandut' && (u.comandaDealerId===c.id || serii.has(cxNorm(u.serie))));
+}
+function cxFormHtml(c){
+  const e = cuEsc, us = cxUnits(c), q = Number(c.cantitate)||1;
+  const garantie = s => (CACHE.garantii||[]).some(g => cxNorm(g.serie)===cxNorm(s));
+  return `<div style="font-size:12.5px;font-weight:700;margin-bottom:8px">Corectează vânzarea către ${e(c.dealer)} · ${e(c.model)} ${e(c.varianta||'')} × ${q} din ${fmtDate(c.data)}</div>
+    ${us.length ? `<div style="font-size:12.5px;margin-bottom:6px">Bifează seriile care <b>revin în stoc</b> (în depozit):</div>
+      <div class="sp-list" id="cxSerii">${us.map(u => `<label><input type="checkbox" value="${e(u.id)}">${e(u.serie)}${garantie(u.serie) ? ' <small style="color:var(--red)">are garanție înregistrată</small>' : ''}</label>`).join('')}</div>`
+    : `<div class="field" style="max-width:260px"><label>Câte bucăți scoți din comandă? (comanda nu are serii alocate)</label><input type="number" id="cxBuc" min="1" max="${q}" value="1"></div>`}
+    ${(c.documente||[]).length || (c.proformaSB||[]).length ? `<div style="color:var(--amber);font-size:12.5px;margin:8px 0">⚠ Comanda are proformă sau documente. Dacă a fost emisă în SmartBill, anuleaz-o / stornează și acolo.</div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn btn-primary btn-sm" type="button" id="cxScoate" ${PFM.busy?'disabled':''}>↩ Scoate din comandă</button>
+      <button class="btn btn-secondary btn-sm" type="button" id="cxTot" ${PFM.busy?'disabled':''} style="color:var(--red)">Anulează toată comanda</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="cxClose">Închide</button></div>`;
+}
+async function cxApply(c, tot){
+  if(!c || PFM.busy) return;
+  const q = Number(c.cantitate)||1, us = cxUnits(c);
+  let ids, scot;
+  if(tot){ ids = us.map(u => u.id); scot = q; }
+  else if(us.length){ ids = [...document.querySelectorAll('#cxSerii input:checked')].map(i => i.value); scot = ids.length;
+    if(!scot){ alert('Bifează seria (seriile) care revin în stoc.'); return; } }
+  else { ids = []; scot = Math.min(q, Math.max(1, Number((document.getElementById('cxBuc')||{}).value)||1)); }
+  const rest = Math.max(0, q - scot);
+  const serieDe = id => ((CACHE.unitati||[]).find(u => u.id===id)||{}).serie;
+  const txtSerii = ids.map(serieDe).filter(Boolean).join(', ');
+  if(!confirm(rest ? `Scot ${scot} ${scot===1?'bucată':'bucăți'}${txtSerii?` (${txtSerii})`:''} din comanda lui ${c.dealer}. Rămân ${rest}.${ids.length?' Seriile revin în stoc, în depozit.':''} Continui?`
+    : `Anulez toată comanda lui ${c.dealer} (${c.model} ${c.varianta||''} × ${q}).${ids.length?` Seriile ${txtSerii} revin în stoc, în depozit.`:''} Continui?`)) return;
+  PFM.busy = true; renderProformeComenzi();
+  try{
+    const b = db.batch(), del = firebase.firestore.FieldValue.delete();
+    ids.forEach(id => b.update(db.collection('unitati').doc(id), { status:'custodie', partener:del, dataVanzare:del, comandaDealerId:del }));
+    const ref = db.collection('dealeriComenzi').doc(c.id);
+    if(rest > 0){
+      const scoase = new Set(ids.map(id => cxNorm(serieDe(id))));
+      b.update(ref, { cantitate:rest, valoare:Math.round((Number(c.valoare)||0) * rest / q * 100) / 100, serii:(c.serii||[]).filter(x => !scoase.has(cxNorm(x))) });
+    } else b.delete(ref);
+    await b.commit();
+    PFM.cxId = null;
+    alert(rest ? `Gata ✓ Comanda are acum ${rest} ${rest===1?'bucată':'bucăți'}.` : 'Gata ✓ Comanda a fost anulată.');
+    loadAll();
+  }catch(err){
+    console.error(err);
+    alert('Nu am putut corecta comanda.\n\n' + (err && err.message ? err.message : err));
+  }finally{ PFM.busy = false; renderProformeComenzi(); }
 }
 
 /* ================= DOCUMENTE (PROFORME / FACTURI) ÎN CONTUL PARTENERULUI =================
