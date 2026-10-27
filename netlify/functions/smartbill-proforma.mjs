@@ -6,12 +6,68 @@
 //   SMARTBILL_TOKEN   tokenul din SmartBill Cloud → Contul Meu → Integrări → API
 //   SMARTBILL_CIF     CIF-ul Flamart exact ca în SmartBill (ex: RO47523170 sau 47523170)
 //   SMARTBILL_SERIE   numele seriei de proforme din SmartBill (ex: FLP)
-//   APP_PASSWORD      parola aplicației de oferte (aceeași cu care o deblochezi)
+//   APP_PASSWORD      parola aplicației de oferte (oferta-contract-pasi / generator) — NU o scrie în nicio pagină
+//
+// Acces: fie parola aplicației de oferte (antet X-App-Key), fie un cont de ADMIN din portalul BOKAR
+// (antet Authorization: Bearer <token Firebase>). Tokenul Firebase e verificat criptografic aici, iar rolul
+// se citește din Firestore /roles/{uid} (proiectul bokar-crm). Partenerii nu pot crea proforme.
 //   TVA_PROCENT       opțional, implicit 21; pune 0 dacă firma nu e plătitoare de TVA
 //   TVA_NUME          opțional, implicit "Normala"
 
-const VERSIUNE = 'v4-curs-cursbnr';
+const VERSIUNE = 'v5-admin-firebase';
 const SB_URL = 'https://ws.smartbill.ro/SBORO/api/estimate/v2';
+const FIREBASE_PROJECT = 'bokar-crm';
+const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+let jwksCache = { keys: null, until: 0 };
+
+const b64u = (s) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+
+async function cheiaGoogle(kid) {
+  if (!jwksCache.keys || Date.now() > jwksCache.until) {
+    const res = await fetch(JWKS_URL);
+    if (!res.ok) throw new Error('jwks ' + res.status);
+    jwksCache = { keys: (await res.json()).keys || [], until: Date.now() + 3600e3 };
+  }
+  return jwksCache.keys.find((k) => k.kid === kid);
+}
+
+// Verifică semnătura și datele tokenului Firebase (fără biblioteci externe). Întoarce uid-ul sau null.
+async function uidFirebase(token) {
+  const parts = String(token).split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const header = JSON.parse(b64u(parts[0]).toString('utf8'));
+    const p = JSON.parse(b64u(parts[1]).toString('utf8'));
+    if (header.alg !== 'RS256' || !header.kid) return null;
+    const jwk = await cheiaGoogle(header.kid);
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey('jwk', { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true },
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64u(parts[2]), Buffer.from(parts[0] + '.' + parts[1]));
+    const now = Math.floor(Date.now() / 1000);
+    if (!ok || p.aud !== FIREBASE_PROJECT || p.iss !== 'https://securetoken.google.com/' + FIREBASE_PROJECT) return null;
+    if (!(p.exp > now - 60) || !(p.iat < now + 60) || !p.sub) return null;
+    return String(p.sub);
+  } catch { return null; }
+}
+
+// True doar pentru un token Firebase valid din bokar-crm al unui cont cu rolul admin (Firestore /roles/{uid}).
+async function esteAdminFirebase(authHeader) {
+  const m = /^Bearer\s+(.+)$/i.exec(authHeader || '');
+  if (!m) return false;
+  const token = m[1].trim();
+  const uid = await uidFirebase(token);
+  if (!uid || !/^[A-Za-z0-9]{1,128}$/.test(uid)) return false;
+  try {
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/roles/${uid}`, {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!res.ok) return false;
+    const doc = await res.json();
+    return doc?.fields?.role?.stringValue === 'admin';
+  } catch { return false; }
+}
+
 const ALLOWED_ORIGINS = ['https://configurator.flamart.ro', 'http://localhost:8080', 'http://127.0.0.1:8080'];
 
 function cors(origin) {
@@ -19,7 +75,7 @@ function cors(origin) {
   return {
     'Access-Control-Allow-Origin': ok ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-App-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, X-App-Key, Authorization',
     'Vary': 'Origin',
   };
 }
@@ -151,8 +207,9 @@ export default async (req) => {
   const lipsa = ['SMARTBILL_EMAIL', 'SMARTBILL_TOKEN', 'SMARTBILL_CIF', 'SMARTBILL_SERIE', 'APP_PASSWORD'].filter((k) => !env[k]);
   if (lipsa.length) return reply(500, { error: 'Lipsesc setări pe server: ' + lipsa.join(', ') }, origin);
 
-  if ((req.headers.get('x-app-key') || '') !== env.APP_PASSWORD) {
-    return reply(401, { error: 'Parola aplicației nu e corectă.', auth: false }, origin);
+  const cuParola = (req.headers.get('x-app-key') || '') === env.APP_PASSWORD;
+  if (!cuParola && !(await esteAdminFirebase(req.headers.get('authorization')))) {
+    return reply(401, { error: 'Acces refuzat: parola aplicației nu e corectă sau contul nu e de admin.', auth: false }, origin);
   }
 
   let input;

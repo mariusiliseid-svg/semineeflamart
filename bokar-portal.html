@@ -2968,14 +2968,11 @@ function renderDealeriTab(){
 const PFM_API_DEFAULT = 'https://flamart-api.netlify.app/.netlify/functions/smartbill-proforma';
 const PFM = { openId:null, docId:null, cxId:null, busy:false, showAll:false };
 function pfmApi(){ try{ return (localStorage.getItem('flamart_sb_api')||'').trim() || PFM_API_DEFAULT; }catch(e){ return PFM_API_DEFAULT; } }
-function pfmPass(force){
-  let p = ''; try{ p = localStorage.getItem('flamart_sb_pass') || ''; }catch(e){}
-  if(!p || force){
-    p = (prompt('Parola aplicației de oferte (aceeași ca la generator; se cere o singură dată pe acest dispozitiv):') || '').trim();
-    if(!p) return '';
-    try{ localStorage.setItem('flamart_sb_pass', p); }catch(e){}
-  }
-  return p;
+/* Acces la server: tokenul Firebase al contului logat. Serverul acceptă doar conturile cu rol admin. */
+async function pfmToken(){
+  const u = auth && auth.currentUser;
+  if(!u) throw new Error('Nu ești logat. Reintră în portal.');
+  return await u.getIdToken();
 }
 function pfmCont(c){
   const conturi = CACHE.parteneriConturi || [];
@@ -3018,7 +3015,6 @@ function renderProformeComenzi(){
     const u = prompt('Adresa serverului SmartBill (lasă gol pentru cea implicită):', pfmApi()===PFM_API_DEFAULT ? '' : pfmApi());
     if(u===null) return;
     try{ if(u.trim()) localStorage.setItem('flamart_sb_api', u.trim()); else localStorage.removeItem('flamart_sb_api'); }catch(err){}
-    pfmPass(true);
   };
   const go = document.getElementById('pfmGo'); if(go) go.onclick = () => pfmCreate(toate.find(c => c.id===PFM.openId));
   el.querySelectorAll('[data-dpopen]').forEach(b => b.onclick = () => { PFM.docId = PFM.docId===b.dataset.dpopen ? null : b.dataset.dpopen; renderProformeComenzi(); });
@@ -3054,7 +3050,6 @@ async function pfmCreate(c){
   const client = { nume:v('firma'), cif:v('cui'), adresa:v('adresa'), localitate:v('localitate'), judet:v('judet'), email:v('email') };
   if(!client.nume){ alert('Completează numele firmei partenerului.'); return; }
   if(!client.localitate && !client.judet){ alert('Completează localitatea sau județul (SmartBill le cere pentru client).'); return; }
-  const pass = pfmPass(false); if(!pass) return;
   const k = pfmCalc(c);
   /* Curs scris de mână → conversia în lei se face aici, în portal (merge și cu serverul vechi).
      Fără curs → serverul ia cursul BNR singur (pretEur). */
@@ -3072,9 +3067,10 @@ async function pfmCreate(c){
   const cursLocal = v('curs') ? { valoare:cs, data:aziRo } : null;
   PFM.busy = true; renderProformeComenzi();
   try{
-    const res = await fetch(pfmApi(), { method:'POST', headers:{ 'Content-Type':'application/json', 'X-App-Key':pass }, body:JSON.stringify(payload) });
+    const token = await pfmToken();
+    const res = await fetch(pfmApi(), { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body:JSON.stringify(payload) });
     let out = {}; try{ out = await res.json(); }catch(err){}
-    if(res.status===401){ try{ localStorage.removeItem('flamart_sb_pass'); }catch(err){} throw new Error((out.error || 'Parolă greșită.') + ' Apasă din nou și introdu parola corectă.'); }
+    if(res.status===401) throw new Error('Serverul a refuzat accesul: doar conturile de admin pot crea proforme. (Dacă ești admin, ieși și reintră în portal.)');
     if(!res.ok || !out.ok) throw new Error(out.error || ('Eroare server ' + res.status));
     if(cursLocal){ out.curs = cursLocal.valoare; out.cursData = cursLocal.data; }
     const rec = { la:new Date().toISOString(), totalEur:k.total, totalLei:out.total||0, curs:out.curs||null, cursData:out.cursData||'', editUrl:out.editUrl||'', viewUrl:out.viewUrl||'' };

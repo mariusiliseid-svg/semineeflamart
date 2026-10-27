@@ -1158,31 +1158,41 @@ document.getElementById('resetBtn').onclick = ()=>{
   renderEditor(); renderActiveSheet();
 };
 
-/* ---------------- ACCESS GATE ---------------- */
+/* ---------------- ACCESS GATE ----------------
+   Parola NU mai stă în pagină: o verifică serverul (funcția Netlify „documente”, variabila APP_PASSWORD).
+   E aceeași parolă ca în aplicația de oferte și se ține minte pe dispozitiv. */
 (function(){
-  const PASSWORD = "Dreambig2026";
-  const STORAGE_KEY = "flamartGenAuthOk";
+  const API = 'https://flamart-api.netlify.app/.netlify/functions/documente';
+  const PASS_KEY = 'flamart_sb_pass';
   const gate = document.getElementById('authGate');
   const logo = document.getElementById('authLogo');
   if(logo) logo.src = LOGO_URI;
+  try{ localStorage.removeItem('flamartGenAuthOk'); }catch(e){}
 
-  if(localStorage.getItem(STORAGE_KEY) === '1'){
-    gate.style.display = 'none';
-  } else {
-    document.body.classList.add('locked');
+  async function check(p){
+    try{
+      const r = await fetch(API, { headers:{ 'X-App-Key': p } });
+      return r.ok ? 'ok' : (r.status === 401 ? 'bad' : 'err');
+    }catch(e){ return 'err'; }
   }
+  function unlock(){ gate.style.display = 'none'; document.body.classList.remove('locked'); }
 
-  document.getElementById('authForm').onsubmit = function(e){
+  document.body.classList.add('locked');
+  let saved = ''; try{ saved = localStorage.getItem(PASS_KEY) || ''; }catch(e){}
+  if(saved) check(saved).then(r => { if(r === 'ok') unlock(); else if(r === 'bad'){ try{ localStorage.removeItem(PASS_KEY); }catch(e){} } });
+
+  document.getElementById('authForm').onsubmit = async function(e){
     e.preventDefault();
-    const val = document.getElementById('authPass').value;
-    if(val === PASSWORD){
-      localStorage.setItem(STORAGE_KEY, '1');
-      gate.style.display = 'none';
-      document.body.classList.remove('locked');
+    const inp = document.getElementById('authPass');
+    const val = inp.value.trim();
+    const r = await check(val);
+    if(r === 'ok'){
+      try{ localStorage.setItem(PASS_KEY, val); }catch(err){}
+      unlock();
     } else {
+      if(r === 'err') alert('Nu pot verifica parola acum (fără internet sau server indisponibil). Încearcă din nou.');
       gate.classList.add('error');
-      document.getElementById('authPass').value = '';
-      document.getElementById('authPass').focus();
+      inp.value = ''; inp.focus();
     }
   };
 })();
