@@ -1,0 +1,6 @@
+# Proiectul Netlify „bokar-romania” (bokar.ro) publică doar acest folder (Base directory: _bokar-ro).
+[build]
+  publish = "."
+  command = ""
+  # Republică doar când se schimbă ceva în _bokar-ro, nu la fiecare modificare din restul repo-ului.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
