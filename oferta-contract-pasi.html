@@ -577,6 +577,7 @@ function fmtNum(n){
   if(Number.isInteger(n)) return String(n);
   return String(n).replace(".", ",");
 }
+function addDaysIso(iso,n){ try{ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+(parseInt(n,10)||0)); return d.toISOString().slice(0,10); }catch(e){ return iso; } }
 function fmtDate(iso){
   if(!iso) return "";
   const [y,m,d] = iso.split("-");
@@ -774,7 +775,7 @@ function renderContractSheet(){
       <div class="c-section-title">Termeni</div>
       <div class="c-section-body">
         <ol>
-          <li>Această ofertă este valabilă până la ${fmtDate(data.data)}.</li>
+          <li>Această ofertă este valabilă până la ${fmtDate(addDaysIso(data.data, data.valabilitate))} (${data.valabilitate||0} zile calendaristice de la emitere).</li>
           <li>Datele scadente de plată pot fi modificate pentru a corespunde cu datele produselor finale.</li>
           <li>Termenul de livrare a echipamentelor și execuție a lucrărilor este: <b>${fmtDate(data.contract.termenLivrare) || "—"}</b></li>
         </ol>
