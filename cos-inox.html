@@ -34,6 +34,8 @@ h1{font-size:26px;font-weight:600;margin:0 0 4px}
 .mode:not(.on) .ill{opacity:.85}
 @media (max-width:520px){.ill{width:84px;height:84px}}
 .mode.on{border-color:var(--ember);box-shadow:inset 0 0 0 1px var(--ember)}
+a.mode{text-decoration:none}a.mode:hover{border-color:var(--ink)}
+.mode .go{display:block;font-style:normal;font-weight:600;font-size:13.5px;color:var(--ember);margin-top:6px}
 .grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
 .steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
 .steps button{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;cursor:pointer;color:var(--stone)}
@@ -94,10 +96,10 @@ form.send.done .ok{display:block}form.send.done .fields{display:none}
 <body>
 <div class="wrap">
  <h1>Configurator coș de fum inox</h1>
- <p class="sub">Alege un sistem complet sau construiește-l element cu element. Prețurile includ TVA.</p>
+ <p class="sub">Alege un sistem gata făcut sau construiește-l element cu element. Prețurile includ TVA.</p>
 
  <div class="modes">
-  <button class="mode on" data-mode="complet"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
+  <a class="mode" href="https://www.flamart.ro/cosuridefuminox" target="_top"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
  <line x1="6" y1="113" x2="114" y2="113" class="gr"/>
  <path d="M58 6 l12 0 l4 9 l-20 0 z" class="st"/>
  <rect x="56" y="15" width="16" height="22" class="st"/><rect x="56" y="37" width="16" height="22" class="st"/><rect x="56" y="59" width="16" height="12" class="st"/>
@@ -110,8 +112,8 @@ form.send.done .ok{display:block}form.send.done .fields{display:none}
  <path d="M27 101 c-4 -3 -3 -7 0 -10 c1 3 4 4 3 7 c2 -1 2 -3 2 -3 c2 3 0 6 -5 6z" class="fl"/>
  <rect x="27" y="75" width="13" height="8" class="st"/>
  <rect x="84" y="20" width="8" height="93" class="wl"/><path d="M72 30 h12 M72 52 h12 M72 92 h12" class="br"/>
-</svg><span class="mt"><b>Sistem complet</b><span>Dai înălțimea și tipul de pornire, iar lista de elemente se face automat.</span></span></button>
-  <button class="mode" data-mode="pasi"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
+</svg><span class="mt"><b>Sistem complet</b><span>Alege unul dintre sistemele gata făcute din magazin: KaminInox, Schiedel ICS, ICS ECO, Permeter și altele.</span><em class="go">Vezi sistemele →</em></span></a>
+  <button class="mode on" data-mode="pasi"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
  <line x1="60" y1="4" x2="60" y2="116" class="ax"/>
  <path d="M50 6 l20 0 l5 9 l-30 0 z" class="st"/>
  <rect x="48" y="22" width="24" height="18" class="st"/><line x1="48" y1="22" x2="72" y2="22" class="jt"/>
@@ -121,7 +123,7 @@ form.send.done .ok{display:block}form.send.done .fields{display:none}
  <rect x="45" y="104" width="30" height="10" class="st"/>
  <path d="M86 26 h10 M86 31 h10" class="br"/><circle cx="91" cy="52" r="5" class="cl"/><circle cx="91" cy="52" r="2.2" class="cl"/>
  <text x="15" y="14" class="nm">1</text><text x="15" y="34" class="nm">2</text><text x="15" y="56" class="nm">3</text><text x="15" y="96" class="nm">4</text><text x="15" y="113" class="nm">5</text>
-</svg><span class="mt"><b>Sistem configurat pe pași</b><span>Alegi tu fiecare element: pornire, racord, segmente, devieri, prinderi, terminal.</span></span></button>
+</svg><span class="mt"><b>Configurator pe elemente</b><span>Configurația ta nu se potrivește cu un sistem standard? Alegi pas cu pas pornirea, racordul, segmentele, devierile, prinderile și terminalul.</span></span></button>
  </div>
 
  <div class="grid">
@@ -152,7 +154,7 @@ var PORN_LABEL={baza0:{b:'Bază la nivel 0',s:'Bază cu colector de condens + el
  consola:{b:'Pe consolă',s:'Placă de descărcare + consolă de perete, coșul pornește de la etaj / din pod'},
  practic:{b:'Practic (pe placă)',s:'Placă de descărcare + capac scurgere condens'}};
 var DEVS=[{v:'none',b:'Fără deviație',s:'Coș drept'},{v:'45',b:'Deviație cu 2 coturi 45°',s:'Ocolești o streașină / grindă'},{v:'90',b:'Deviație cu 2 coturi 90°'}];
-var S={mode:'complet',step:0,sys:0,dia:200,pornire:'baza0',racord:'rac90',h:6,dev:'none',terminal:'con',hat:'',qty:{},touched:false,showAll:false};
+var S={mode:'pasi',step:0,sys:0,dia:200,pornire:'baza0',racord:'rac90',h:6,dev:'none',terminal:'con',hat:'',qty:{},touched:false,showAll:false};
 function SYS(){return SYSTEMS[S.sys]}
 function KIT(){return SYS().kit}
 function item(id){var a=SYS().items;for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i]}
@@ -215,7 +217,6 @@ function sistemFields(){
 function heightField(){return '<div><label class="f" for="h">Înălțime totală coș (m)</label><input type="number" id="h" min="2" max="20" step="0.5" value="'+S.h+'"></div>'}
 function render(){
  var st=document.getElementById('steps'),pn=document.getElementById('panel'),h='';
- document.querySelectorAll('.mode').forEach(function(b){b.classList.toggle('on',b.dataset.mode===(S.mode==='pasi'?'pasi':'complet'))});
  if(S.mode==='complet'){
   st.innerHTML='';
   h='<h2>Sistem complet</h2><p class="hint">Completează datele de bază. Lista de elemente se calculează automat și o poți ajusta la pasul următor.</p>'+sistemFields()+
@@ -281,7 +282,7 @@ function setSys(i){
 // ---- evenimente ----
 document.addEventListener('click',function(e){
  var b=e.target.closest('button');if(!b)return;
- if(b.dataset.mode){S.mode=b.dataset.mode;S.step=0;render();return}
+ if(b.dataset.mode){S.mode='pasi';S.step=0;render();return}
  if(b.dataset.set){S[b.dataset.set]=b.dataset.v;S.touched=false;recalc();render();return}
  if(b.dataset.step!=null){S.step=+b.dataset.step;render();return}
  if(b.hasAttribute('data-next')){S.step=Math.min(STEPS.length-1,S.step+1);render();window.scrollTo({top:0,behavior:'smooth'});return}
