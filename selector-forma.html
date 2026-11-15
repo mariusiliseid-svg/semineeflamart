@@ -80,7 +80,7 @@
       '</svg>';
   }
 
-  var row = document.getElementById('row'), desc = document.getElementById('desc');
+  var row = document.getElementById('row'), desc = document.getElementById('desc'), activeEl = null;
   SHAPES.forEach(function(s){
     var on = s.id === active;
     var a = document.createElement('a');
@@ -91,8 +91,15 @@
     a.addEventListener('mouseenter', function(){ desc.innerHTML = '<strong>' + s.name + ':</strong> ' + s.d; });
     a.addEventListener('mouseleave', show);
     row.appendChild(a);
-    if (on) setTimeout(function(){ row.scrollLeft = Math.max(0, a.offsetLeft - (row.clientWidth - a.offsetWidth) / 2); }, 50);
+    if (on) activeEl = a;
   });
+  function center(){
+    if (!activeEl) return;
+    var x = activeEl.offsetLeft - row.offsetLeft - (row.clientWidth - activeEl.offsetWidth) / 2;
+    row.scrollLeft = Math.max(0, x);
+  }
+  setTimeout(center, 50);
+  window.addEventListener('resize', center);
   function show(){
     var s = SHAPES.filter(function(x){ return x.id === active; })[0];
     desc.innerHTML = s ? '<strong>' + s.name + ':</strong> ' + s.d : 'Alege o formă ca să vezi focarele potrivite.';
