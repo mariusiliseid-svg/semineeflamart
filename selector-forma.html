@@ -106,24 +106,6 @@
 
   var row = document.getElementById('row'), desc = document.getElementById('desc'), activeEl = null;
 
-  // Navigare rapidă: cerem paginii Wix să schimbe pagina intern (fără reîncărcare completă).
-  // Dacă pagina nu răspunde (nu are codul), deschidem legătura normal.
-  var acked = false;
-  window.addEventListener('message', function(e){
-    if (e.data && e.data.type === 'flamart-forma-ok') acked = true;
-  });
-  function go(ev, s, a){
-    if (window.parent === window || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return;
-    ev.preventDefault();
-    if (s.id === active) return;
-    [].forEach.call(row.children, function(x){ x.classList.remove('on'); });
-    a.classList.add('on');
-    desc.innerHTML = '<strong>' + s.name + ':</strong> se încarcă focarele…';
-    acked = false;
-    var path = decodeURIComponent(new URL(s.url).pathname);
-    window.parent.postMessage({ type: 'flamart-forma', path: path, url: s.url }, '*');
-    setTimeout(function(){ if (!acked) window.top.location.href = s.url; }, 700);
-  }
   SHAPES.forEach(function(s){
     var on = s.id === active;
     var a = document.createElement('a');
@@ -133,7 +115,6 @@
     a.innerHTML = icon(s, on) + '<b>' + s.name + '</b><span>' + s.sub + '</span>';
     a.addEventListener('mouseenter', function(){ desc.innerHTML = '<strong>' + s.name + ':</strong> ' + s.d; });
     a.addEventListener('mouseleave', show);
-    a.addEventListener('click', function(ev){ go(ev, s, a); });
     row.appendChild(a);
     if (on) activeEl = a;
   });
