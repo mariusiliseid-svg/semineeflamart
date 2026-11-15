@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alege forma focarului – Flamart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#16171a;--card:#1e1f23;--card-on:#26272c;--line:#2e2f35;--wall:#5c5d64;--glow:#f29a52;--txt:#fff;--muted:#a7a8ae}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font-family:Manrope,system-ui,sans-serif;overflow:hidden}
+  .wrap{max-width:1100px;margin:0 auto;padding:22px 20px 18px}
+  .q{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+  .q h2{margin:0;font-size:19px;font-weight:800}
+  .q p{margin:0;font-size:13px;color:var(--muted)}
+  .row{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .row::-webkit-scrollbar{display:none}
+  a.opt{flex:1 0 132px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:14px 10px 12px;border-radius:6px;
+    background:var(--card);border:1.5px solid var(--line);color:var(--txt);text-decoration:none;transition:border-color .15s,background .15s}
+  a.opt:hover{border-color:#4a4b52}
+  a.opt.on{background:var(--card-on);border-color:var(--glow)}
+  a.opt b{font-size:14px;font-weight:700}
+  a.opt span{font-size:11.5px;color:var(--muted);text-align:center}
+  a.opt.on span{color:#dcdce0}
+  svg{display:block}
+  .desc{margin:12px 0 0;font-size:13.5px;color:#d6d6da;min-height:19px}
+  .desc strong{color:var(--glow);font-weight:700}
+  @media (max-width:600px){
+    .wrap{padding:16px 12px 14px}
+    .q h2{font-size:16px}
+    .q p{display:none}
+    a.opt{flex:0 0 112px;padding:11px 8px 10px}
+    a.opt b{font-size:13px}
+    a.opt span{font-size:10.5px}
+    svg{width:72px;height:48px}
+    .desc{font-size:12.5px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="q">
+    <h2>Câte laturi de sticlă vrei să vezi?</h2>
+    <p>Liniile aprinse arată unde e sticla, privind focarul de sus.</p>
+  </div>
+  <nav class="row" id="row" aria-label="Forma focarului"></nav>
+  <p class="desc" id="desc"></p>
+</div>
+<script>
+(function(){
+  var SHAPES = [
+    { id:'frontal', name:'Frontal', sub:'sticlă în față', g:{b:1}, url:'https://www.flamart.ro/semineu-cu-geam-drept',
+      d:'Sticlă doar în față. Potrivit pentru un perete drept și cea mai simplă placare.' },
+    { id:'colt', name:'Pe colț', sub:'față + o latură', g:{b:1,l:1}, url:'https://www.flamart.ro/semineu-cu-sticla-pe-colt',
+      d:'Sticlă în față și pe o latură, stânga sau dreapta. Se montează în colțul camerei.' },
+    { id:'trei', name:'3 laturi', sub:'față + ambele laturi', g:{b:1,l:1,r:1}, url:'https://www.flamart.ro/seminee-cu-sticl%C4%83-pe-3-laturi',
+      d:'Sticlă în față și pe ambele laturi. Focul devine piesa centrală a camerei.' },
+    { id:'tunel', name:'Tunel', sub:'față + spate', g:{b:1,t:1}, url:'https://www.flamart.ro/semineu-tip-tunel',
+      d:'Sticlă în față și în spate. Vezi focul din două camere deodată.' },
+    { id:'peninsula', name:'Peninsulă', sub:'față, spate + o latură', g:{b:1,t:1,r:1}, url:'https://www.flamart.ro/seminee-cu-sticla-pe-3-laturi-tipu',
+      d:'Sticlă în față, în spate și pe o latură. Pentru un perete care desparte spațiul.' }
+  ];
+  var params = new URLSearchParams(location.search);
+  var active = params.get('activ') || '';
+  var glow = getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() || '#f29a52';
+  var wall = '#5c5d64';
+
+  function icon(s, on){
+    var c = function(k){ return s.g[k] ? glow : wall; };
+    var w = function(k){ return s.g[k] ? 5 : 2; };
+    return '<svg width="88" height="58" viewBox="0 0 96 64" fill="none" aria-hidden="true">' +
+      '<rect x="14" y="10" width="68" height="44" rx="3" fill="#232428"/>' +
+      '<line x1="14" y1="10" x2="82" y2="10" stroke="'+c('t')+'" stroke-width="'+w('t')+'" stroke-linecap="round"/>' +
+      '<line x1="14" y1="54" x2="82" y2="54" stroke="'+c('b')+'" stroke-width="'+w('b')+'" stroke-linecap="round"/>' +
+      '<line x1="14" y1="10" x2="14" y2="54" stroke="'+c('l')+'" stroke-width="'+w('l')+'" stroke-linecap="round"/>' +
+      '<line x1="82" y1="10" x2="82" y2="54" stroke="'+c('r')+'" stroke-width="'+w('r')+'" stroke-linecap="round"/>' +
+      '<path d="M44 40c-4-4-2-9 2-12-1 3 1 5 3 6 0-4 2-7 5-9-1 4 2 7 2 10 0 4-3 7-6 7s-5-1-6-2z" fill="'+(on?glow:'#3c3d42')+'"/>' +
+      '</svg>';
+  }
+
+  var row = document.getElementById('row'), desc = document.getElementById('desc');
+  SHAPES.forEach(function(s){
+    var on = s.id === active;
+    var a = document.createElement('a');
+    a.className = 'opt' + (on ? ' on' : '');
+    a.href = s.url; a.target = '_top';
+    if (on) a.setAttribute('aria-current', 'page');
+    a.innerHTML = icon(s, on) + '<b>' + s.name + '</b><span>' + s.sub + '</span>';
+    a.addEventListener('mouseenter', function(){ desc.innerHTML = '<strong>' + s.name + ':</strong> ' + s.d; });
+    a.addEventListener('mouseleave', show);
+    row.appendChild(a);
+    if (on) setTimeout(function(){ row.scrollLeft = Math.max(0, a.offsetLeft - (row.clientWidth - a.offsetWidth) / 2); }, 50);
+  });
+  function show(){
+    var s = SHAPES.filter(function(x){ return x.id === active; })[0];
+    desc.innerHTML = s ? '<strong>' + s.name + ':</strong> ' + s.d : 'Alege o formă ca să vezi focarele potrivite.';
+  }
+  show();
+})();
+</script>
+</body>
+</html>
