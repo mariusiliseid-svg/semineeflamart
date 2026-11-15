@@ -21,15 +21,22 @@
   h1{font-size:clamp(24px,3.2vw,34px);line-height:1.15;margin:0 0 8px;font-weight:800}
   .lead{color:var(--muted);margin:0 0 22px;line-height:1.55;font-size:15px}
 
-  .stage{background:var(--stage);border-radius:18px;aspect-ratio:1/0.92;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-  .box{position:relative;display:flex;align-items:center;justify-content:center}
-  .glass{position:absolute;left:0;top:0;border:3px solid #fff;border-radius:2px;
-    background:linear-gradient(135deg,#f3ecd6 0%,#fbf8ee 38%,#efe6cc 62%,#f8f3e3 100%);
-    box-shadow:0 18px 40px rgba(0,0,0,.45);transition:width .25s ease,height .25s ease}
-  .glass::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.55) 45%,transparent 60%)}
-  .dim{position:absolute;color:#fff;font-weight:700;font-size:15px;white-space:nowrap}
-  .dim.w{left:50%;transform:translateX(-50%)}
-  .dim.h{top:50%;transform:translateY(-50%) rotate(90deg);transform-origin:center}
+  .stage{--bg:#f6f4f1;background-color:var(--bg);background-image:radial-gradient(#e0dad3 1px,transparent 1.2px);background-size:16px 16px;border:1px solid #ebe7e2;border-radius:18px;aspect-ratio:1/0.92;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .box{position:relative;transform:translate(-10px,-10px)}
+  .glass{position:absolute;left:0;top:0;border:2px solid #2a2a2d;border-radius:3px;overflow:hidden;
+    background:radial-gradient(ellipse 90% 70% at 50% 108%,rgba(240,132,52,.55) 0%,rgba(126,42,44,.22) 45%,transparent 72%),linear-gradient(165deg,rgba(60,52,48,.06),rgba(60,52,48,.20));
+    box-shadow:0 12px 26px rgba(40,30,25,.14),inset 0 0 0 3px rgba(255,255,255,.55);transition:width .25s ease,height .25s ease}
+  .glass::after{content:"";position:absolute;inset:0;background:linear-gradient(118deg,transparent 28%,rgba(255,255,255,.45) 40%,transparent 52%,transparent 64%,rgba(255,255,255,.22) 70%,transparent 76%)}
+  .dl{position:absolute;color:var(--accent)}
+  .dl.w{left:0;height:0;border-top:1.5px solid currentColor}
+  .dl.w::before,.dl.w::after{content:"";position:absolute;top:-6px;height:11px;border-left:1.5px solid currentColor}
+  .dl.w::before{left:-1px}.dl.w::after{right:-1px}
+  .dl.h{top:0;width:0;border-left:1.5px solid currentColor}
+  .dl.h::before,.dl.h::after{content:"";position:absolute;left:-6px;width:11px;border-top:1.5px solid currentColor}
+  .dl.h::before{top:-1px}.dl.h::after{bottom:-1px}
+  .dl span{position:absolute;font-weight:700;font-size:13px;white-space:nowrap;background:var(--bg);padding:1px 6px;border-radius:4px}
+  .dl.w span{left:50%;top:0;transform:translate(-50%,-50%)}
+  .dl.h span{top:50%;left:0;transform:translate(-50%,-50%) rotate(-90deg)}
 
   .card{border:1px solid var(--line);border-radius:18px;padding:22px}
   .card h2{font-size:20px;margin:0 0 16px;font-weight:800}
@@ -77,7 +84,8 @@
     h1{font-size:19px;margin:0 0 4px}
     .lead{font-size:13px;line-height:1.45;margin:0}
     .stage{aspect-ratio:auto;height:190px;border-radius:12px}
-    .dim{font-size:12px}
+    .dl span{font-size:11px;padding:0 4px}
+    .box{transform:translate(-8px,-8px)}
     .card{padding:14px;border-radius:14px}
     .card h2{font-size:15px;margin:0 0 10px}
     .row{gap:10px}
@@ -109,8 +117,8 @@
       <div class="stage" id="stage">
         <div class="box" id="box">
           <div class="glass" id="glass"></div>
-          <div class="dim w" id="lblW"></div>
-          <div class="dim h" id="lblH"></div>
+          <div class="dl w" id="dlW"><span id="lblW"></span></div>
+          <div class="dl h" id="dlH"><span id="lblH"></span></div>
         </div>
       </div>
     </div>
@@ -200,8 +208,8 @@
     g.style.width = pw + 'px'; g.style.height = ph + 'px';
     $('lblW').textContent = (ok(w) ? w : '–') + ' mm';
     $('lblH').textContent = (ok(h) ? h : '–') + ' mm';
-    $('lblW').style.top = (ph + 14) + 'px';
-    $('lblH').style.left = (pw + 2) + 'px';
+    $('dlW').style.top = (ph + 18) + 'px'; $('dlW').style.width = pw + 'px';
+    $('dlH').style.left = (pw + 18) + 'px'; $('dlH').style.height = ph + 'px';
   }
 
   function update(){
