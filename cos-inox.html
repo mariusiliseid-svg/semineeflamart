@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurator coș de fum inox – Flamart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff;--soft:#f4f4f4;--ink:#232324;--stone:#68686a;--line:rgba(35,35,36,.13);--ember:#7e2a2c;--ember-dim:#5e1f21;--ok:#2f6b3a;--r:3px}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:26px;font-weight:600;margin:0 0 4px}
+.sub{color:var(--stone);margin:0 0 22px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+.mode{border:1px solid var(--line);border-radius:var(--r);padding:16px;cursor:pointer;background:#fff;text-align:left;font:inherit;color:inherit}
+.mode b{display:block;font-size:16px;font-weight:600;margin-bottom:2px}
+.mode span{color:var(--stone);font-size:13.5px}
+.mode.on{border-color:var(--ember);box-shadow:inset 0 0 0 1px var(--ember)}
+.grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.steps button{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;cursor:pointer;color:var(--stone)}
+.steps button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.steps button.done{color:var(--ink)}
+.panel{border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.panel h2{font-size:18px;font-weight:600;margin:0 0 4px}
+.panel .hint{color:var(--stone);font-size:13.5px;margin:0 0 16px}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+.opt{border:1px solid var(--line);border-radius:var(--r);padding:12px;cursor:pointer;background:#fff;font:inherit;text-align:left;color:inherit}
+.opt b{display:block;font-weight:600;font-size:14.5px}
+.opt small{color:var(--stone);font-size:12.5px;display:block;margin-top:2px}
+.opt.on{border-color:var(--ember);box-shadow:inset 0 0 0 1px var(--ember)}
+.opt[disabled]{opacity:.45;cursor:not-allowed}
+label.f{display:block;font-size:13px;color:var(--stone);margin-bottom:4px}
+select,input[type=number],input[type=text],input[type=tel]{font:inherit;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;background:#fff;color:var(--ink);width:100%}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.lines{width:100%;border-collapse:collapse;font-size:14px}
+.lines td{padding:7px 4px;border-top:1px solid var(--line);vertical-align:middle}
+.lines td.q{width:86px}
+.lines td.pr{width:110px;text-align:right;white-space:nowrap}
+.lines input{width:70px;padding:5px 6px;text-align:center}
+.lines .cd{color:var(--stone);font-size:12px}
+.lines tr.zero td{color:#9a9a9c}
+.lines tr.zero .cd{color:#b5b5b7}
+.nav{display:flex;justify-content:space-between;margin-top:18px;gap:10px}
+.btn{font:inherit;font-weight:600;border-radius:var(--r);padding:10px 16px;cursor:pointer;border:1px solid var(--ink);background:#fff;color:var(--ink)}
+.btn.pri{background:var(--ember);border-color:var(--ember);color:#fff}
+.btn.pri:hover{background:var(--ember-dim)}
+.btn:disabled{opacity:.4;cursor:default}
+aside{position:sticky;top:12px;border:1px solid var(--line);border-radius:var(--r);padding:18px;background:var(--soft)}
+aside h3{margin:0 0 8px;font-size:15px;font-weight:600}
+.sum li{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:3px 0}.sum li span:last-child{white-space:nowrap}
+.sum{list-style:none;margin:0 0 10px;padding:0;max-height:300px;overflow:auto}
+.tot{border-top:1px solid var(--line);padding-top:10px;font-size:13.5px}
+.tot div{display:flex;justify-content:space-between}
+.tot .big{font-size:20px;font-weight:700;color:var(--ember);margin-top:4px}
+.meta{font-size:12.5px;color:var(--stone);margin-top:8px}
+.note{background:var(--soft);border-radius:var(--r);padding:10px 12px;font-size:13.5px;margin:12px 0}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px;margin:6px 0 12px;color:var(--stone)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+form.send{margin-top:16px;border-top:1px solid var(--line);padding-top:16px;display:none}
+form.send.show{display:block}
+form.send .ok{display:none;color:var(--ok);font-weight:600}
+form.send.done .ok{display:block}form.send.done .fields{display:none}
+.err{color:var(--ember);font-size:13px;margin-top:6px}
+#printArea{display:none}
+@media (max-width:860px){.grid{grid-template-columns:1fr}aside{position:static}}
+@media (max-width:520px){.modes,.row2{grid-template-columns:1fr}.lines td.pr{width:84px}}
+@media print{
+ body *{visibility:hidden}#printArea,#printArea *{visibility:visible}
+ #printArea{display:block;position:absolute;left:0;top:0;width:100%;padding:0 6mm;font-size:12px}
+ #printArea table{width:100%;border-collapse:collapse}#printArea th,#printArea td{border-bottom:1px solid #ccc;padding:5px 4px;text-align:left}
+ #printArea td.n{text-align:right}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <h1>Configurator coș de fum inox</h1>
+ <p class="sub">Alege un sistem complet sau construiește-l element cu element. Prețurile includ TVA.</p>
+
+ <div class="modes">
+  <button class="mode on" data-mode="complet"><b>Sistem complet</b><span>Dai înălțimea și tipul de pornire, iar lista de elemente se face automat.</span></button>
+  <button class="mode" data-mode="pasi"><b>Sistem configurat pe pași</b><span>Alegi tu fiecare element: pornire, racord, segmente, devieri, prinderi, terminal.</span></button>
+ </div>
+
+ <div class="grid">
+  <div>
+   <div class="steps" id="steps"></div>
+   <div class="panel" id="panel"></div>
+  </div>
+  <aside>
+   <h3>Configurația ta</h3>
+   <ul class="sum" id="sum"></ul>
+   <div class="tot">
+    <div><span>Total fără TVA</span><span id="tNet">0 lei</span></div>
+    <div><span>TVA 21%</span><span id="tVat">0 lei</span></div>
+    <div class="big"><span>Total</span><span id="tTot">0 lei</span></div>
+   </div>
+   <div class="meta" id="meta"></div>
+  </aside>
+ </div>
+</div>
+<div id="printArea"></div>
+
+<script>
+var DATA={"brand": "KaminInox DP", "upd": "12.01.2026", "dias": [80, 100, 120, 130, 150, 160, 180, 200, 230, 250, 300, 350, 400, 450, 500], "items": [{"id": "palPloaie", "n": "Pălărie anti-ploaie", "g": "terminal", "p": {"80": 164.08, "100": 156.26, "120": 164.08, "130": 164.08, "150": 171.9, "160": 179.71, "180": 187.51, "200": 195.33, "230": 237.92, "250": 283.62, "300": 350.43, "350": 413.51, "400": 516.88, "450": 594.42, "500": 683.59}, "c": {"80": "ABL1598", "100": "ABL1599", "120": "ABL1600", "130": "ABL1601", "150": "ABL1603", "160": "ABL1604", "180": "ABL1608", "200": "ABL1611", "230": "ABL1616", "250": "ABL1618", "300": "ABL1620", "350": "ABL1621", "400": "ABL1622", "450": "ABL1623", "500": "ABL2424"}}, {"id": "palVant", "n": "Pălărie anti-vânt", "g": "terminal", "p": {"80": 226.59, "100": 218.76, "120": 226.59, "130": 226.59, "150": 234.4, "160": 250.02, "180": 265.64, "200": 281.29, "230": 344.57, "250": 378.15, "300": 494.19, "350": 583.13, "400": 728.93, "450": 838.26, "500": 964.01}, "c": {"80": "ABL1627", "100": "ABL1628", "120": "ABL1629", "130": "ABL1631", "150": "ABL1632", "160": "ABL1633", "180": "ABL1635", "200": "ABL1637", "230": "ABL1640", "250": "ABL1641", "300": "ABL1644", "350": "ABL1647", "400": "ABL1646", "450": "ABL1626", "500": "ABL2425"}}, {"id": "con", "n": "Con terminal coș de fum inox DP", "g": "terminal", "p": {"80": 211.26, "100": 203.44, "120": 211.26, "130": 211.26, "150": 219.07, "160": 226.88, "180": 258.14, "200": 281.57, "230": 310.09, "250": 340.18, "300": 380.79, "350": 449.33, "400": 561.67, "450": 645.92, "500": 742.8}, "c": {"80": "ABL1221", "100": "ABL1222", "120": "ABL1223", "130": "ABL1224", "150": "ABL1225", "160": "ABL1226", "180": "ABL1227", "200": "ABL1228", "230": "ABL1231", "250": "ABL1232", "300": "ABL1233", "350": "ABL1234", "400": "ABL1235", "450": "ABL1236", "500": "ABL2404"}}, {"id": "seg1", "n": "Segment coș de fum DP 1,0 m", "g": "elemente", "p": {"80": 318.88, "100": 295.43, "120": 318.88, "130": 318.88, "150": 342.32, "160": 350.12, "180": 381.38, "200": 404.82, "230": 498.58, "250": 573.59, "300": 671.25, "350": 792.07, "400": 990.08, "450": 1138.61, "500": 1309.4}, "c": {"80": "ABL1686", "100": "ABL1689", "120": "ABL1691", "130": "ABL1694", "150": "ABL1698", "160": "ABL1701", "180": "ABL1705", "200": "ABL1711", "230": "ABL1715", "250": "ABL1717", "300": "ABL1722", "350": "ABL1724", "400": "ABL1726", "450": "ABL1728", "500": "ABL1995"}}, {"id": "seg05", "n": "Segment coș de fum DP 0,5 m", "g": "elemente", "p": {"80": 187.51, "100": 164.08, "120": 187.51, "130": 187.51, "150": 203.15, "160": 218.76, "180": 242.21, "200": 257.84, "230": 303.54, "250": 360.97, "300": 413.33, "350": 487.72, "400": 609.65, "450": 701.11, "500": 806.26}, "c": {"80": "ABL1685", "100": "ABL1688", "120": "ABL1690", "130": "ABL1692", "150": "ABL1697", "160": "ABL1700", "180": "ABL1704", "200": "ABL1709", "230": "ABL1714", "250": "ABL1716", "300": "ABL1720", "350": "ABL1723", "400": "ABL1725", "450": "ABL1727", "500": "ABL2427"}}, {"id": "rac90", "n": "Element racord de fum 90° DP", "g": "racord", "p": {"80": 381.38, "100": 373.57, "120": 381.38, "130": 381.38, "150": 397.01, "160": 412.63, "180": 482.95, "200": 506.39, "230": 580.63, "250": 650.94, "300": 761.1, "350": 898.1, "400": 1122.62, "450": 1291.01, "500": 1484.67}, "c": {"80": "ABL1327", "100": "ABL1329", "120": "ABL2226", "130": "ABL1331", "150": "ABL1333", "160": "ABL1335", "180": "ABL1337", "200": "ABL1339", "230": "ABL1342", "250": "ABL1343", "300": "ABL2416", "350": "ABL2417", "400": "ABL2418", "450": "ABL2419", "500": "ABL2420"}}, {"id": "rac45", "n": "Element racord de fum 45° DP", "g": "racord", "p": {"80": 475.14, "100": 467.32, "120": 475.14, "130": 475.14, "150": 490.77, "160": 506.39, "180": 545.45, "200": 568.9, "230": 662.65, "250": 831.43, "300": 1048.62, "350": 1237.38, "400": 1546.72, "450": 1778.73, "500": 2045.54}, "c": {"80": "ABL1326", "100": "ABL1328", "120": "ABL5145", "130": "ABL1330", "150": "ABL1332", "160": "ABL1334", "180": "ABL1336", "200": "ABL1338", "230": "ABL1340", "250": "ABL2329", "300": "ABL2411", "350": "ABL2412", "400": "ABL2413", "450": "ABL2414", "500": "ABL2415"}}, {"id": "usa", "n": "Element ușă de curățare rotundă DP", "g": "pornire", "p": {"80": 412.43, "100": 404.63, "120": 412.43, "130": 412.43, "150": 420.26, "160": 428.07, "180": 514.0, "200": 570.99, "230": 703.08, "250": 770.27, "300": 930.45, "350": 1097.94, "400": 1372.42, "450": 1578.28, "500": 1815.02}, "c": {"80": "ABL1390", "100": "ABL1391", "120": "ABL2231", "130": "ABL1392", "150": "ABL1393", "160": "ABL1394", "180": "ABL1396", "200": "ABL1397", "230": "ABL2202", "250": "ABL1399", "300": "ABL1400", "350": "ABL2421", "400": "ABL1402", "450": "ABL2422", "500": "ABL2423"}}, {"id": "baza0", "n": "Bază condens nivel 0 DP", "g": "pornire", "p": {"80": 305.21, "100": 297.39, "120": 305.21, "130": 305.21, "150": 313.03, "160": 320.83, "180": 336.45, "200": 359.9, "230": 425.53, "250": 513.04, "300": 660.71, "350": 779.64, "400": 974.55, "450": 1120.73, "500": 1288.84}, "c": {"80": "ABL1038", "100": "ABL1039", "120": "ABL1040", "130": "ABL1041", "150": "ABL1042", "160": "ABL1043", "180": "ABL1044", "200": "ABL1045", "230": "ABL1047", "250": "ABL1048", "300": "ABL1049", "350": "ABL1050", "400": "ABL1051", "450": "ABL1052", "500": "ABL2393"}}, {"id": "bazaC", "n": "Bază condens consolă DP", "g": "pornire", "p": {"80": 500.54, "100": 453.65, "120": 500.54, "130": 500.54, "150": 531.79, "160": 563.04, "180": 586.48, "200": 609.92, "230": 753.67, "250": 805.25, "300": 948.24, "350": 1118.91, "400": 1398.64, "450": 1608.44, "500": 1849.7}, "c": {"80": "ABL1008", "100": "ABL1009", "120": "ABL1010", "130": "ABL1011", "150": "ABL1012", "160": "ABL1013", "180": "ABL1014", "200": "ABL1015", "230": "ABL1017", "250": "ABL1018", "300": "ABL1019", "350": "ABL1020", "400": "ABL1021", "450": "ABL1022", "500": "ABL2394"}}, {"id": "colInt", "n": "Colier intermediar segment DP", "g": "prinderi", "p": {"80": 32.82, "100": 32.04, "120": 32.82, "130": 32.82, "150": 33.6, "160": 34.36, "180": 35.16, "200": 39.08, "230": 49.22, "250": 60.16, "300": 80.87, "350": 95.43, "400": 119.29, "450": 137.18, "500": 157.76}, "c": {"80": "ABL2133", "100": "ABL1172", "120": "ABL5146", "130": "ABL1176", "150": "ABL1178", "160": "ABL3665", "180": "ABL3666", "200": "ABL3667", "230": "ABL1188", "250": "ABL1190", "300": "ABL1192", "350": "ABL2030", "400": "ABL1195", "450": "ABL2031", "500": "ABL1196"}}, {"id": "colAnc", "n": "Colier intermediar ancorare statică DP", "g": "prinderi", "p": {"80": 45.38, "100": 44.61, "120": 45.38, "130": 45.38, "150": 46.17, "160": 46.95, "180": 47.74, "200": 51.64, "230": 61.8, "250": 72.73, "300": 93.44, "350": 110.27, "400": 137.83, "450": 158.51, "500": 182.28}, "c": {"80": "ABL2065", "100": "ABL2211", "120": "ABL2212", "130": "ABL2213", "150": "ABL2214", "160": "ABL2215", "180": "ABL2216", "200": "ABL2217", "230": "ABL2224", "250": "ABL2218", "300": "ABL2219", "350": "ABL2367", "400": "ABL2220", "450": "ABL2402", "500": "ABL2403"}}, {"id": "colFix", "n": "Colier suport prindere perete DP fix", "g": "prinderi", "p": {"80": 85.94, "100": 78.13, "120": 85.94, "130": 85.94, "150": 85.94, "160": 101.58, "180": 109.38, "200": 117.2, "230": 188.69, "250": 197.68, "300": 242.59, "350": 286.27, "400": 357.84, "450": 411.5, "500": 473.23}, "c": {"80": "ABL1899", "100": "ABL1134", "120": "ABL2227", "130": "ABL1135", "150": "ABL1136", "160": "ABL1137", "180": "ABL1138", "200": "ABL1139", "230": "ABL1141", "250": "ABL1142", "300": "ABL1143", "350": "ABL1144", "400": "ABL2148", "450": "ABL2395", "500": "ABL2396"}}, {"id": "colReg", "n": "Colier suport prindere perete DP reglabil", "g": "prinderi", "p": {"80": 171.9, "100": 164.08, "120": 171.9, "130": 171.9, "150": 171.9, "160": 171.9, "180": 210.95, "200": 226.59, "230": 311.74, "250": 326.59, "300": 413.33, "350": 487.71, "400": 609.65, "450": 701.11, "500": 806.26}, "c": {"80": "ABL2397", "100": "ABL1145", "120": "ABL3636", "130": "ABL1146", "150": "ABL1147", "160": "ABL1148", "180": "ABL1149", "200": "ABL1150", "230": "ABL2398", "250": "ABL1152", "300": "ABL2301", "350": "ABL2399", "400": "ABL1153", "450": "ABL2400", "500": "ABL2401"}}, {"id": "placa", "n": "Placă de descărcare consolă", "g": "pornire", "p": {"80": 470.31, "100": 423.41, "120": 470.31, "130": 470.31, "150": 501.56, "160": 532.8, "180": 556.23, "200": 579.69, "230": 723.45, "250": 775.02, "300": 918.01, "350": 1088.68, "400": 1368.41, "450": 1578.2, "500": 1819.47}, "c": {"80": "ABL1953", "100": "ABL1954", "120": "ABL1955", "130": "ABL1956", "150": "ABL1957", "160": "ABL1958", "180": "ABL1959", "200": "ABL1960", "230": "ABL1961", "250": "ABL1962", "300": "ABL1963", "350": "ABL1964", "400": "ABL1965", "450": "ABL1966", "500": "ABL2426"}}, {"id": "cot45", "n": "Deviație – cot 45° DP", "g": "devieri", "p": {"80": 187.51, "100": 179.71, "120": 187.51, "130": 187.51, "150": 195.33, "160": 203.15, "180": 234.4, "200": 242.21, "230": 278.93, "250": 360.97, "300": 413.33, "350": 487.71, "400": 609.65, "450": 701.11, "500": 806.26}, "c": {"80": "ABL1271", "100": "ABL1275", "120": "ABL2487", "130": "ABL1283", "150": "ABL1288", "160": "ABL1293", "180": "ABL1297", "200": "ABL1301", "230": "ABL1310", "250": "ABL1311", "300": "ABL1315", "350": "ABL1319", "400": "ABL2405", "450": "ABL1322", "500": "ABL2406"}}, {"id": "cot90", "n": "Deviație – cot 90° DP", "g": "devieri", "p": {"80": 343.77, "100": 335.97, "120": 343.77, "130": 343.77, "150": 351.6, "160": 390.66, "180": 429.73, "200": 458.78, "230": 492.23, "250": 567.24, "300": 664.9, "350": 784.59, "400": 980.74, "450": 1127.84, "500": 1297.02}, "c": {"80": "ABL1272", "100": "ABL1276", "120": "ABL3624", "130": "ABL1284", "150": "ABL1289", "160": "ABL1294", "180": "ABL1298", "200": "ABL1302", "230": "ABL2407", "250": "ABL1312", "300": "ABL1316", "350": "ABL2019", "400": "ABL2408", "450": "ABL2409", "500": "ABL2410"}}, {"id": "reductie", "n": "Reducție DP", "g": "racord", "p": {"80": 196.89, "100": 196.89, "120": 196.89, "130": 196.89, "150": 230.39, "160": 230.39, "180": 230.39, "200": 247.65, "230": 247.65, "250": 280.36, "300": 280.36, "350": 330.81, "400": 413.53, "450": 475.55, "500": 546.88}, "c": {"80": "ABL2861", "100": "ABL2862", "120": "ABL5147", "130": "ABL2863", "150": "ABL2864", "160": "ABL2865", "180": "ABL2866", "200": "ABL2867", "230": "ABL2868", "250": "ABL2869", "300": "ABL2870", "350": "ABL2871", "400": "ABL2872", "450": "ABL2873", "500": "ABL2874"}}, {"id": "col3p", "n": "Colier 3 puncte – suport prindere perete", "g": "prinderi", "p": {"80": 85.94, "100": 78.13, "120": 85.94, "130": 85.94, "150": 85.94, "160": 101.58, "180": 109.38, "200": 117.2, "230": 188.69, "250": 197.68, "300": 242.59, "350": 286.27, "400": 357.84, "450": 411.5, "500": 473.23}, "c": {"80": null, "100": "ABL3743", "120": "ABL5148", "130": "ABL3744", "150": "ABL3745", "160": "ABL3746", "180": "ABL3747", "200": "ABL3748", "230": null, "250": null, "300": null, "350": null, "400": null, "450": null, "500": null}}, {"id": "capac", "n": "Capac scurgere condens inox DP", "g": "pornire", "p": {"80": 85.94, "100": 78.13, "120": 85.94, "130": 85.94, "150": 85.94, "160": 101.58, "180": 109.38, "200": 117.2, "230": 188.69, "250": 197.68, "300": 242.59, "350": 286.27, "400": 357.84, "450": 411.5, "500": 473.23}, "c": {"80": null, "100": "ABL1105", "120": "ABL1106", "130": "ABL1116", "150": "ABL1117", "160": "ABL1118", "180": "ABL1107", "200": "ABL1119", "230": "ABL1108", "250": "ABL1109", "300": "ABL1110", "350": "ABL1111", "400": "ABL1112", "450": "ABL1113", "500": "ABL3659"}}, {"id": "palCon", "n": "Pălărie conică din inox DP", "g": "terminal", "p": {"80": 228.9, "100": 251.98, "120": 276.99, "130": 276.99, "150": 304.88, "160": 335.66, "180": 370.28, "200": 405.86, "230": 447.22, "250": 492.42, "300": 754.13, "350": 889.85, "400": 1112.34, "450": 1279.19, "500": 1471.08}, "c": {"80": null, "100": "ABL1654", "120": "ABL1655", "130": "ABL1656", "150": "ABL1650", "160": "ABL1657", "180": "ABL1651", "200": "ABL1652", "230": "ABL1659", "250": "ABL1660", "300": "ABL1661", "350": "ABL1662", "400": "ABL1663", "450": "ABL1664", "500": "ABL1994"}}]};
+var VAT=0.21;
+// lungimi utile (mm) pentru calculul înălțimii montate
+var LEN={con:150,seg1:950,seg05:450,rac90:450,rac45:450,placa:100,baza0:300,usa:350,bazaC:200,capac:0};
+var STEPS=[
+ {id:'sistem',t:'Sistem'},{id:'pornire',t:'Pornire'},{id:'racord',t:'Racord'},{id:'inaltime',t:'Înălțime'},
+ {id:'devieri',t:'Devieri'},{id:'prinderi',t:'Prinderi'},{id:'terminal',t:'Terminal'},{id:'rezumat',t:'Listă finală'}];
+var S={mode:'complet',step:0,dia:200,pornire:'baza0',racord:'rac90',h:6,dev:'none',terminal:'con',hat:'',qty:{},touched:false,showAll:false};
+
+function item(id){for(var i=0;i<DATA.items.length;i++)if(DATA.items[i].id===id)return DATA.items[i];}
+function price(id){var it=item(id);return it&&it.p[S.dia]!=null?it.p[S.dia]:null}
+function code(id){var it=item(id);return it&&it.c[S.dia]||''}
+function lei(x){return Math.round(x).toLocaleString('ro-RO')+' lei'}
+function lei2(x){return x.toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+// ---- calcul automat (sistem complet) ----
+function autoQty(){
+ var q={};
+ q.con=S.terminal==='con'||S.terminal==='conHat'?1:0;
+ if(S.terminal==='palCon')q.palCon=1;
+ if(S.hat)q[S.hat]=1;
+ q[S.racord]=1;
+ if(S.pornire==='baza0'){q.baza0=1;q.usa=1}
+ else if(S.pornire==='consola'){q.placa=1;q.bazaC=1}
+ else {q.placa=1;q.capac=1}
+ var fixed=0;for(var k in q)fixed+=(LEN[k]||0)*q[k];
+ if(q.palCon)fixed+=LEN.con;
+ var target=S.h*1000,best=null;
+ for(var n1=0;n1<=40;n1++)for(var n5=0;n5<=1;n5++){
+  var tot=fixed+n1*950+n5*450,d=Math.abs(tot-target);
+  if(!best||d<best.d-1||(Math.abs(d-best.d)<1&&n5<best.n5))best={d:d,n1:n1,n5:n5,tot:tot};}
+ q.seg1=best.n1;q.seg05=best.n5;
+ if(S.dev==='45')q.cot45=2;if(S.dev==='90')q.cot90=2;
+ var stack=0;['con','palCon','seg1','seg05','rac90','rac45','usa','baza0','bazaC','cot45','cot90'].forEach(function(k){stack+=q[k]||0});
+ q.colInt=Math.max(0,stack-1);
+ q.colReg=Math.max(1,Math.round(S.h/2));
+ return q;
+}
+function mounted(){var t=0;for(var k in S.qty)t+=(LEN[k]||0)*(S.qty[k]||0);if(S.qty.palCon)t+=LEN.con;return t}
+function recalc(){if(!S.touched)S.qty=autoQty()}
+
+// ---- randare ----
+function lineRows(ids,opt){
+ opt=opt||{};
+ return '<table class="lines">'+ids.filter(function(id){return price(id)!=null}).map(function(id){
+  var q=S.qty[id]||0,p=price(id)*(1+VAT);
+  return '<tr class="'+(q?'':'zero')+'"><td>'+esc(item(id).n)+'<br><span class="cd">'+esc(code(id))+' · '+lei(p)+' / buc</span></td>'+
+   '<td class="q"><input type="number" min="0" step="1" value="'+q+'" data-id="'+id+'"></td>'+
+   '<td class="pr">'+(q?lei(p*q):'–')+'</td></tr>'}).join('')+'</table>';
+}
+function opts(name,list){
+ return '<div class="opts">'+list.map(function(o){
+  return '<button class="opt'+(S[name]===o.v?' on':'')+'" data-set="'+name+'" data-v="'+o.v+'"'+(o.dis?' disabled':'')+'><b>'+o.b+'</b>'+(o.s?'<small>'+o.s+'</small>':'')+'</button>'}).join('')+'</div>';
+}
+function sistemFields(){
+ return '<div class="row2"><div><label class="f">Sistem</label><select id="brand"><option>'+DATA.brand+' (dublu perete)</option><option disabled>Jeremias DW ECO – în curând</option><option disabled>Jeremias DW Black – în curând</option><option disabled>Poujoulat – în curând</option></select></div>'+
+  '<div><label class="f">Diametru interior</label><select id="dia">'+DATA.dias.map(function(d){return '<option value="'+d+'"'+(d==S.dia?' selected':'')+'>Ø '+d+' mm</option>'}).join('')+'</select></div></div>';
+}
+var PORNIRI=[{v:'baza0',b:'Bază la nivel 0',s:'Bază condens + ușă de curățare, coșul pornește de jos'},
+ {v:'consola',b:'Pe consolă',s:'Placă de descărcare + bază condens pe consolă'},
+ {v:'practic',b:'Practic (pe placă)',s:'Placă de descărcare + capac scurgere condens'}];
+var RACORDURI=[{v:'rac90',b:'Racord 90°',s:'Intrare laterală, la orizontală'},{v:'rac45',b:'Racord 45°',s:'Intrare oblică'}];
+var DEVS=[{v:'none',b:'Fără deviație',s:'Coș drept'},{v:'45',b:'Deviație cu 2 coturi 45°',s:'Ocolești o streașină / grindă'},{v:'90',b:'Deviație cu 2 coturi 90°'}];
+var TERMS=[{v:'con',b:'Con terminal',s:'Varianta standard'},{v:'palCon',b:'Pălărie conică inox'}];
+var HATS=[{v:'',b:'Fără pălărie'},{v:'palPloaie',b:'Pălărie anti-ploaie'},{v:'palVant',b:'Pălărie anti-vânt'}];
+
+function render(){
+ var st=document.getElementById('steps'),pn=document.getElementById('panel'),h='';
+ if(S.mode==='complet'){
+  st.innerHTML='';
+  h='<h2>Sistem complet</h2><p class="hint">Completează datele de bază. Lista de elemente se calculează automat, iar la pasul următor o poți ajusta.</p>'+sistemFields()+
+   '<div class="row2"><div><label class="f">Înălțime totală coș (m)</label><input type="number" id="h" min="2" max="20" step="0.5" value="'+S.h+'"></div>'+
+   '<div><label class="f">Racord</label><select id="racSel"><option value="rac90"'+(S.racord==='rac90'?' selected':'')+'>90°</option><option value="rac45"'+(S.racord==='rac45'?' selected':'')+'>45°</option></select></div></div>'+
+   '<label class="f">Pornire</label>'+opts('pornire',PORNIRI)+'<label class="f">Deviație</label>'+opts('dev',DEVS)+
+   '<div class="nav"><span></span><button class="btn pri" data-go="final">Vezi lista de elemente →</button></div>';
+ } else if(S.mode==='final'){st.innerHTML='';h=finalHtml();
+ } else {
+  st.innerHTML=STEPS.map(function(s,i){return '<button data-step="'+i+'" class="'+(i===S.step?'on':i<S.step?'done':'')+'">'+(i+1)+'. '+s.t+'</button>'}).join('');
+  var id=STEPS[S.step].id;
+  if(id==='sistem')h='<h2>1. Sistem și diametru</h2><p class="hint">Diametrul interior trebuie să fie cel puțin cât ieșirea de fum a focarului.</p>'+sistemFields();
+  if(id==='pornire')h='<h2>2. Pornire</h2><p class="hint">Cum pornește coșul: de la sol sau suspendat pe consolă.</p>'+opts('pornire',PORNIRI)+lineRows(['baza0','usa','placa','bazaC','capac']);
+  if(id==='racord')h='<h2>3. Racord</h2><p class="hint">Elementul care primește burlanul de la focar.</p>'+opts('racord',RACORDURI)+lineRows(['rac90','rac45','reductie']);
+  if(id==='inaltime')h='<h2>4. Înălțime și segmente</h2><p class="hint">Dă înălțimea dorită: segmentele se calculează automat, apoi poți modifica cantitățile.</p>'+
+   '<div class="row2"><div><label class="f">Înălțime totală coș (m)</label><input type="number" id="h" min="2" max="20" step="0.5" value="'+S.h+'"></div><div><label class="f">Înălțime montată estimată</label><input type="text" disabled value="'+(mounted()/1000).toFixed(2).replace('.',',')+' m"></div></div>'+lineRows(['seg1','seg05']);
+  if(id==='devieri')h='<h2>5. Devieri</h2><p class="hint">Dacă trebuie ocolit un obstacol (streașină, grindă), coșul se deviază cu două coturi.</p>'+opts('dev',DEVS)+lineRows(['cot45','cot90']);
+  if(id==='prinderi')h='<h2>6. Prinderi</h2><p class="hint">Coliere intermediare la fiecare îmbinare și coliere de perete aproximativ la fiecare 2 m.</p>'+lineRows(['colInt','colAnc','colReg','colFix','col3p']);
+  if(id==='terminal')h='<h2>7. Terminal</h2><p class="hint">Capătul de sus al coșului, cu protecție opțională.</p>'+opts('terminal',TERMS)+'<label class="f">Protecție</label>'+opts('hat',HATS)+lineRows(['con','palCon','palPloaie','palVant']);
+  if(id==='rezumat')h=finalHtml();
+  if(id!=='rezumat')h+='<div class="nav"><button class="btn" data-prev'+(S.step?'':' disabled')+'>← Înapoi</button><button class="btn pri" data-next>Mai departe →</button></div>';
+ }
+ pn.innerHTML=h;
+ summary();
+}
+function finalHtml(){
+ var ids=DATA.items.map(function(i){return i.id});
+ var shown=S.showAll?ids:ids.filter(function(id){return S.qty[id]});
+ return '<h2>Lista de elemente</h2><p class="hint">Modifică orice cantitate, ca într-un tabel Excel. Bifează „Toate elementele” ca să adaugi piese care lipsesc.</p>'+
+  '<label class="chk"><input type="checkbox" id="showAll"'+(S.showAll?' checked':'')+'> Toate elementele pentru Ø '+S.dia+' mm</label>'+lineRows(shown)+
+  '<div class="meta">Înălțime montată estimată: '+(mounted()/1000).toFixed(2).replace('.',',')+' m · Prețuri '+DATA.brand+', actualizate '+DATA.upd+'. Transportul nu este inclus.</div>'+
+  '<div class="actions"><button class="btn pri" data-order>Trimite comanda</button><button class="btn" data-print>Ofertă PDF / tipărire</button><button class="btn" data-copy>Copiază lista</button>'+
+  (S.mode==='final'?'<button class="btn" data-back>← Modifică datele</button>':'')+'</div>'+
+  '<form class="send" id="send"><div class="fields"><div class="row2"><div><label class="f">Nume</label><input type="text" name="n" required></div><div><label class="f">Telefon</label><input type="tel" name="t" required></div></div>'+
+  '<label class="f">Observații (opțional)</label><input type="text" name="o" style="margin-bottom:12px"><button class="btn pri" type="submit">Trimite comanda</button><div class="err" id="err"></div></div>'+
+  '<div class="ok">Mulțumim! Te sunăm în curând pentru confirmare.</div></form>';
+}
+function totals(){var n=0;for(var k in S.qty){var p=price(k);if(p!=null&&S.qty[k])n+=p*S.qty[k]}return {net:n,vat:n*VAT,tot:Math.round(n*(1+VAT))}}
+function summary(){
+ var ul=document.getElementById('sum'),h='';
+ DATA.items.forEach(function(it){var q=S.qty[it.id];if(q&&price(it.id)!=null)h+='<li><span>'+q+' × '+esc(it.n)+'</span><span>'+lei(price(it.id)*q*(1+VAT))+'</span></li>'});
+ ul.innerHTML=h||'<li>Nicio componentă încă.</li>';
+ var t=totals();
+ document.getElementById('tNet').textContent=lei(t.net);document.getElementById('tVat').textContent=lei(t.vat);document.getElementById('tTot').textContent=lei(t.tot);
+ document.getElementById('meta').textContent=DATA.brand+' · Ø '+S.dia+' mm · '+(mounted()/1000).toFixed(2).replace('.',',')+' m montat';
+}
+function listText(){
+ var out=[];DATA.items.forEach(function(it){var q=S.qty[it.id];if(q&&price(it.id)!=null)out.push(q+' x '+it.n+' ['+code(it.id)+'] = '+lei(price(it.id)*q*(1+VAT)))});
+ var t=totals();out.push('TOTAL: '+lei(t.tot)+' cu TVA ('+lei2(t.net)+' lei fără TVA)');return DATA.brand+' Ø'+S.dia+' mm\n'+out.join('\n');
+}
+function printOffer(){
+ var t=totals(),d=new Date().toLocaleDateString('ro-RO'),rows='';
+ DATA.items.forEach(function(it){var q=S.qty[it.id],p=price(it.id);if(q&&p!=null)rows+='<tr><td>'+esc(code(it.id))+'</td><td>'+esc(it.n)+'</td><td class="n">'+q+'</td><td class="n">'+lei2(p)+'</td><td class="n">'+lei2(p*q)+'</td></tr>'});
+ document.getElementById('printArea').innerHTML='<h2 style="margin:0">FLAMART – Ofertă coș de fum inox</h2><p>'+d+' · '+DATA.brand+' · Ø '+S.dia+' mm · înălțime montată estimată '+(mounted()/1000).toFixed(2).replace('.',',')+' m</p>'+
+  '<table><thead><tr><th>Cod</th><th>Element</th><th class="n">Cant.</th><th class="n">Preț unitar fără TVA</th><th class="n">Valoare fără TVA</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+  '<p style="text-align:right">Total fără TVA: <b>'+lei2(t.net)+' lei</b><br>TVA 21%: '+lei2(t.vat)+' lei<br>Total cu TVA: <b>'+lei(t.tot)+'</b></p><p>Transportul și montajul nu sunt incluse. flamart.ro · 0757 355 813 · contact@flamart.ro</p>';
+ window.print();
+}
+
+// ---- evenimente ----
+document.addEventListener('click',function(e){
+ var b=e.target.closest('button');if(!b)return;
+ if(b.dataset.mode){S.mode=b.dataset.mode;S.step=0;document.querySelectorAll('.mode').forEach(function(m){m.classList.toggle('on',m===b)});render();return}
+ if(b.dataset.set){S[b.dataset.set]=b.dataset.v;S.touched=false;recalc();render();return}
+ if(b.dataset.step!=null){S.step=+b.dataset.step;render();return}
+ if(b.hasAttribute('data-next')){S.step=Math.min(STEPS.length-1,S.step+1);render();window.scrollTo({top:0,behavior:'smooth'});return}
+ if(b.hasAttribute('data-prev')){S.step=Math.max(0,S.step-1);render();return}
+ if(b.dataset.go==='final'){S.mode='final';render();window.scrollTo({top:0,behavior:'smooth'});return}
+ if(b.hasAttribute('data-back')){S.mode='complet';render();return}
+ if(b.hasAttribute('data-print')){printOffer();return}
+ if(b.hasAttribute('data-copy')){navigator.clipboard&&navigator.clipboard.writeText(listText());b.textContent='Copiat ✓';return}
+ if(b.hasAttribute('data-order')){var f=document.getElementById('send');f.classList.add('show');f.querySelector('input').focus();return}
+});
+document.addEventListener('change',function(e){
+ var el=e.target;
+ if(el.id==='dia'){S.dia=+el.value;recalc();render()}
+ else if(el.id==='h'){S.h=Math.max(1,+el.value||0);S.touched=false;recalc();render()}
+ else if(el.id==='racSel'){S.racord=el.value;S.touched=false;recalc();render()}
+ else if(el.id==='showAll'){S.showAll=el.checked;render()}
+ else if(el.dataset.id){S.qty[el.dataset.id]=Math.max(0,parseInt(el.value)||0);S.touched=true;render()}
+});
+document.addEventListener('submit',function(e){
+ if(e.target.id!=='send')return;e.preventDefault();
+ var f=e.target,btn=f.querySelector('button[type=submit]'),err=document.getElementById('err'),n=f.n.value.trim(),t=f.t.value.trim();
+ btn.disabled=true;btn.textContent='Se trimite…';err.textContent='';
+ fetch('https://formsubmit.co/ajax/contact@flamart.ro',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+  body:JSON.stringify({_subject:'Comandă coș de fum inox '+DATA.brand+' Ø'+S.dia+' — '+n,_template:'table',_captcha:'false',
+   Nume:n,Telefon:t,Observatii:f.o.value,Total:totals().tot+' lei cu TVA',Configuratie:listText(),Pagina:location.href})})
+ .then(function(r){return r.json().then(function(j){if(!r.ok||String(j.success)!=='true')throw 0})})
+ .then(function(){f.classList.add('done')})
+ .catch(function(){err.innerHTML='Comanda nu a putut fi trimisă. Încearcă din nou sau sună la <a href="tel:+40757355813">0757 355 813</a>.'})
+ .then(function(){btn.disabled=false;btn.textContent='Trimite comanda'});
+});
+recalc();render();
+</script>
+</body>
+</html>
