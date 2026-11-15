@@ -16,7 +16,23 @@ h1{font-size:26px;font-weight:600;margin:0 0 4px}
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
 .mode{border:1px solid var(--line);border-radius:var(--r);padding:16px;cursor:pointer;background:#fff;text-align:left;font:inherit;color:inherit}
 .mode b{display:block;font-size:16px;font-weight:600;margin-bottom:2px}
-.mode span{color:var(--stone);font-size:13.5px}
+.mode{display:flex;gap:16px;align-items:center}
+.mode .mt{display:block;min-width:0}.mode .mt span{color:var(--stone);font-size:13.5px}
+.ill{width:120px;height:120px;flex:none}
+.ill .wl{fill:#f4f4f4;stroke:#b9b9bb;stroke-width:1}
+.ill .st{fill:#eceef0;stroke:#68686a;stroke-width:1.2}
+.ill .jt{stroke:var(--ember);stroke-width:2}
+.ill .dr{fill:#fff;stroke:#68686a;stroke-width:1}
+.ill .sv{fill:#3a3a3c;stroke:#232324;stroke-width:1}
+.ill .gl{fill:#1d1d1e;stroke:#68686a;stroke-width:.8}
+.ill .fl{fill:var(--ember)}
+.ill .gr{stroke:#b9b9bb;stroke-width:1.2}
+.ill .br{stroke:#68686a;stroke-width:1.6;stroke-linecap:round}
+.ill .ax{stroke:#c7c7c9;stroke-width:1;stroke-dasharray:3 3}
+.ill .cl{fill:none;stroke:#68686a;stroke-width:1.2}
+.ill .nm{font:600 10px Manrope,sans-serif;fill:var(--ember)}
+.mode:not(.on) .ill{opacity:.85}
+@media (max-width:520px){.ill{width:84px;height:84px}}
 .mode.on{border-color:var(--ember);box-shadow:inset 0 0 0 1px var(--ember)}
 .grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
 .steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
@@ -81,8 +97,31 @@ form.send.done .ok{display:block}form.send.done .fields{display:none}
  <p class="sub">Alege un sistem complet sau construiește-l element cu element. Prețurile includ TVA.</p>
 
  <div class="modes">
-  <button class="mode on" data-mode="complet"><b>Sistem complet</b><span>Dai înălțimea și tipul de pornire, iar lista de elemente se face automat.</span></button>
-  <button class="mode" data-mode="pasi"><b>Sistem configurat pe pași</b><span>Alegi tu fiecare element: pornire, racord, segmente, devieri, prinderi, terminal.</span></button>
+  <button class="mode on" data-mode="complet"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
+ <line x1="6" y1="113" x2="114" y2="113" class="gr"/>
+ <path d="M58 6 l12 0 l4 9 l-20 0 z" class="st"/>
+ <rect x="56" y="15" width="16" height="22" class="st"/><rect x="56" y="37" width="16" height="22" class="st"/><rect x="56" y="59" width="16" height="12" class="st"/>
+ <line x1="56" y1="37" x2="72" y2="37" class="jt"/><line x1="56" y1="59" x2="72" y2="59" class="jt"/><line x1="56" y1="71" x2="72" y2="71" class="jt"/>
+ <rect x="56" y="71" width="16" height="16" class="st"/><path d="M40 75 h16 v8 h-16 z" class="st"/>
+ <line x1="56" y1="87" x2="72" y2="87" class="jt"/>
+ <rect x="56" y="87" width="16" height="12" class="st"/><rect x="60" y="90" width="8" height="6" rx="1" class="dr"/>
+ <rect x="54" y="99" width="20" height="14" class="st"/>
+ <rect x="14" y="83" width="26" height="30" class="sv"/><rect x="18" y="88" width="18" height="15" class="gl"/>
+ <path d="M27 101 c-4 -3 -3 -7 0 -10 c1 3 4 4 3 7 c2 -1 2 -3 2 -3 c2 3 0 6 -5 6z" class="fl"/>
+ <rect x="27" y="75" width="13" height="8" class="st"/>
+ <rect x="84" y="20" width="8" height="93" class="wl"/><path d="M72 30 h12 M72 52 h12 M72 92 h12" class="br"/>
+</svg><span class="mt"><b>Sistem complet</b><span>Dai înălțimea și tipul de pornire, iar lista de elemente se face automat.</span></span></button>
+  <button class="mode" data-mode="pasi"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
+ <line x1="60" y1="4" x2="60" y2="116" class="ax"/>
+ <path d="M50 6 l20 0 l5 9 l-30 0 z" class="st"/>
+ <rect x="48" y="22" width="24" height="18" class="st"/><line x1="48" y1="22" x2="72" y2="22" class="jt"/>
+ <rect x="48" y="47" width="24" height="10" class="st"/><line x1="48" y1="47" x2="72" y2="47" class="jt"/>
+ <rect x="48" y="64" width="24" height="14" class="st"/><path d="M26 67 h22 v8 h-22 z" class="st"/><line x1="48" y1="64" x2="72" y2="64" class="jt"/>
+ <rect x="48" y="85" width="24" height="12" class="st"/><rect x="54" y="88" width="12" height="6" rx="1" class="dr"/>
+ <rect x="45" y="104" width="30" height="10" class="st"/>
+ <path d="M86 26 h10 M86 31 h10" class="br"/><circle cx="91" cy="52" r="5" class="cl"/><circle cx="91" cy="52" r="2.2" class="cl"/>
+ <text x="15" y="14" class="nm">1</text><text x="15" y="34" class="nm">2</text><text x="15" y="56" class="nm">3</text><text x="15" y="96" class="nm">4</text><text x="15" y="113" class="nm">5</text>
+</svg><span class="mt"><b>Sistem configurat pe pași</b><span>Alegi tu fiecare element: pornire, racord, segmente, devieri, prinderi, terminal.</span></span></button>
  </div>
 
  <div class="grid">
