@@ -124,20 +124,21 @@ const FAMILII = {
   soba:{ nume:'Sobe', scurt:'De sine stătătoare, fără construcție', foto:'/img/int-soba.jpg' }
 };
 
-/* Grile de ventilație Luft Urban și firide — prețuri fără TVA, din lista oficială */
+/* Grile de ventilație Luft Urban și firide — prețuri în EUR fără TVA.
+   Grile: din lista Flamart în lei (nov. 2026), convertite la 5,35 lei/€; mărimile fără corespondent: Kaminhorn −10% sau estimate. */
 const GRILE = {
   linear:{ nume:'Luft Urban Linear', poza:'/img/p-grila-linear.jpg', desen:'/img/d-grila-linear.jpg',
     foto:{ Alb:'Вентиляційні решітки/Прямі 60/60_600_90w0000', Negru:'Вентиляційні решітки/Прямі 60/60_600_90b0000', Cream:'Вентиляційні решітки/Прямі 60/60_600_90y0000' },
     cote:'A, B: dimensiunile ramei vizibile · C × D × E: decupajul din placare (adâncime × înălțime × lungime)', nuante:['Alb','Negru','Cream'], col:['Suprafața fluxului de aer','Decupaj C × D × E'],
-    rows:[['Urban 60×200',72,'130 × 40 × 180',17],['Urban 90×200',126,'130 × 70 × 180',26],['Urban 60×400',252,'130 × 40 × 380',21],['Urban 90×400',266,'130 × 70 × 380',28],
-      ['Urban 60×600',232,'130 × 40 × 580',23],['Urban 90×600',406,'130 × 70 × 580',31],['Urban 60×700',272,'130 × 40 × 680',25],['Urban 90×700',476,'130 × 70 × 680',32],
-      ['Urban 60×800',312,'130 × 40 × 780',27],['Urban 90×800',546,'130 × 70 × 780',33],['Urban 60×1000',392,'130 × 40 × 980',28],['Urban 90×1000',686,'130 × 70 × 980',38]] },
+    rows:[['Urban 60×200',72,'130 × 40 × 180',18],['Urban 90×200',126,'130 × 70 × 180',24],['Urban 60×400',252,'130 × 40 × 380',20],['Urban 90×400',266,'130 × 70 × 380',26],
+      ['Urban 60×600',232,'130 × 40 × 580',22],['Urban 90×600',406,'130 × 70 × 580',29],['Urban 60×700',272,'130 × 40 × 680',22],['Urban 90×700',476,'130 × 70 × 680',30],
+      ['Urban 60×800',312,'130 × 40 × 780',24],['Urban 90×800',546,'130 × 70 × 780',32],['Urban 60×1000',392,'130 × 40 × 980',31],['Urban 90×1000',686,'130 × 70 × 980',36]] },
   colt:{ nume:'Luft Urban Colț', poza:'/img/p-grila-colt.jpg', desen:'/img/d-grila-colt.jpg',
     foto:{ Alb:'Вентиляційні решітки кутові/400_650_60w0000', Negru:'Вентиляційні решітки кутові/400_750_60b0000', Cream:'Вентиляційні решітки кутові/400_650_60bg0000' },
     cote:'A, B: laturile ramei vizibile · G × C × F × E: decupajul din placare · L sau R: latura pe care vine colțul', nuante:['Alb','Negru','Cream'], col:['Suprafața fluxului de aer','Decupaj G × C × F × E'], lr:true,
-    rows:[['Urban 60×650×450',432,'130 × 40 × 640 × 440',17],['Urban 90×650×450',756,'130 × 70 × 640 × 440',26],['Urban 60×750×450',472,'130 × 40 × 740 × 440',21],['Urban 90×750×450',826,'130 × 70 × 740 × 440',28],
-      ['Urban 60×850×450',512,'130 × 40 × 840 × 440',23],['Urban 90×850×450',896,'130 × 70 × 840 × 440',31],['Urban 60×600×400',392,'130 × 40 × 590 × 390',25],['Urban 90×600×400',686,'130 × 70 × 590 × 390',32],
-      ['Urban 60×700×400',432,'130 × 40 × 690 × 390',27],['Urban 90×700×400',756,'130 × 70 × 690 × 390',33],['Urban 60×800×400',472,'130 × 40 × 790 × 390',28],['Urban 90×800×400',826,'130 × 70 × 790 × 390',38]] }
+    rows:[['Urban 60×650×450',432,'130 × 40 × 640 × 440',52],['Urban 90×650×450',756,'130 × 70 × 640 × 440',59],['Urban 60×750×450',472,'130 × 40 × 740 × 440',63],['Urban 90×750×450',826,'130 × 70 × 740 × 440',70],
+      ['Urban 60×850×450',512,'130 × 40 × 840 × 440',70],['Urban 90×850×450',896,'130 × 70 × 840 × 440',75],['Urban 60×600×400',392,'130 × 40 × 590 × 390',49],['Urban 90×600×400',686,'130 × 70 × 590 × 390',54],
+      ['Urban 60×700×400',432,'130 × 40 × 690 × 390',63],['Urban 90×700×400',756,'130 × 70 × 690 × 390',70],['Urban 60×800×400',472,'130 × 40 × 790 × 390',70],['Urban 90×800×400',826,'130 × 70 × 790 × 390',75]] }
 };
 const FIRIDE_INFO = { poza:'/img/p-firide.jpg', desen:'/img/d-firida.jpg', cote:'A: lățime · B: adâncime · C: înălțime (mm)' };
 const FIRIDE = [
