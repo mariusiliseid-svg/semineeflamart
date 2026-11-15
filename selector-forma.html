@@ -56,11 +56,11 @@
     { id:'colt', name:'Pe colț', sub:'față + o latură', g:{b:1,l:1}, url:'https://www.flamart.ro/semineu-cu-sticla-pe-colt',
       d:'Sticlă în față și pe o latură, stânga sau dreapta. Se montează în colțul camerei.' },
     { id:'trei', name:'3 laturi', sub:'față + ambele laturi', g:{b:1,l:1,r:1}, url:'https://www.flamart.ro/seminee-cu-sticl%C4%83-pe-3-laturi',
-      d:'Sticlă în față și pe ambele laturi. Focul devine piesa centrală a camerei.' },
+      d:'Trei geamuri drepte: în față și pe ambele laturi. Focul devine piesa centrală a camerei.' },
     { id:'tunel', name:'Tunel', sub:'față + spate', g:{b:1,t:1}, url:'https://www.flamart.ro/semineu-tip-tunel',
       d:'Sticlă în față și în spate. Vezi focul din două camere deodată.' },
-    { id:'peninsula', name:'Peninsulă', sub:'față, spate + o latură', g:{b:1,t:1,r:1}, url:'https://www.flamart.ro/seminee-cu-sticla-pe-3-laturi-tipu',
-      d:'Sticlă în față, în spate și pe o latură. Pentru un perete care desparte spațiul.' }
+    { id:'u', name:'Formă U', sub:'geam curbat', g:{b:1,l:1,r:1}, round:true, url:'https://www.flamart.ro/seminee-cu-sticla-pe-3-laturi-tipu',
+      d:'Sticlă pe trei laturi, cu geam curbat sau în prismă. Focul se vede larg, din trei direcții.' }
   ];
   var params = new URLSearchParams(location.search);
   var active = params.get('activ') || '';
@@ -70,14 +70,21 @@
   function icon(s, on){
     var c = function(k){ return s.g[k] ? glow : wall; };
     var w = function(k){ return s.g[k] ? 5 : 2; };
+    var flame = '<path d="M44 40c-4-4-2-9 2-12-1 3 1 5 3 6 0-4 2-7 5-9-1 4 2 7 2 10 0 4-3 7-6 7s-5-1-6-2z" fill="'+(on?glow:'#3c3d42')+'"/>';
+    if (s.round) {
+      return '<svg width="88" height="58" viewBox="0 0 96 64" fill="none" aria-hidden="true">' +
+        '<path d="M14 10V40Q14 54 28 54H68Q82 54 82 40V10Z" fill="#232428"/>' +
+        '<line x1="14" y1="10" x2="82" y2="10" stroke="'+wall+'" stroke-width="2" stroke-linecap="round"/>' +
+        '<path d="M14 10V40Q14 54 28 54H68Q82 54 82 40V10" stroke="'+glow+'" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>' +
+        flame + '</svg>';
+    }
     return '<svg width="88" height="58" viewBox="0 0 96 64" fill="none" aria-hidden="true">' +
       '<rect x="14" y="10" width="68" height="44" rx="3" fill="#232428"/>' +
       '<line x1="14" y1="10" x2="82" y2="10" stroke="'+c('t')+'" stroke-width="'+w('t')+'" stroke-linecap="round"/>' +
       '<line x1="14" y1="54" x2="82" y2="54" stroke="'+c('b')+'" stroke-width="'+w('b')+'" stroke-linecap="round"/>' +
       '<line x1="14" y1="10" x2="14" y2="54" stroke="'+c('l')+'" stroke-width="'+w('l')+'" stroke-linecap="round"/>' +
       '<line x1="82" y1="10" x2="82" y2="54" stroke="'+c('r')+'" stroke-width="'+w('r')+'" stroke-linecap="round"/>' +
-      '<path d="M44 40c-4-4-2-9 2-12-1 3 1 5 3 6 0-4 2-7 5-9-1 4 2 7 2 10 0 4-3 7-6 7s-5-1-6-2z" fill="'+(on?glow:'#3c3d42')+'"/>' +
-      '</svg>';
+      flame + '</svg>';
   }
 
   var row = document.getElementById('row'), desc = document.getElementById('desc'), activeEl = null;
