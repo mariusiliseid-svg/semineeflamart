@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configurator coș de fum inox – Flamart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff;--soft:#f4f4f4;--ink:#232324;--stone:#68686a;--line:rgba(35,35,36,.13);--ember:#7e2a2c;--ember-dim:#5e1f21;--ok:#2f6b3a;--r:3px}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 60px}
+h1{font-size:26px;font-weight:600;margin:0 0 4px}
+.sub{color:var(--stone);margin:0 0 22px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+.mode{border:1px solid var(--line);border-radius:var(--r);padding:16px;cursor:pointer;background:#fff;text-align:left;font:inherit;color:inherit}
+.mode b{display:block;font-size:16px;font-weight:600;margin-bottom:2px}
+.mode{display:flex;gap:16px;align-items:center}
+.mode .mt{display:block;min-width:0}.mode .mt span{color:var(--stone);font-size:13.5px}
+.ill{width:120px;height:120px;flex:none}
+.ill .wl{fill:#f4f4f4;stroke:#b9b9bb;stroke-width:1}
+.ill .st{fill:#eceef0;stroke:#68686a;stroke-width:1.2}
+.ill .jt{stroke:var(--ember);stroke-width:2}
+.ill .dr{fill:#fff;stroke:#68686a;stroke-width:1}
+.ill .sv{fill:#3a3a3c;stroke:#232324;stroke-width:1}
+.ill .gl{fill:#1d1d1e;stroke:#68686a;stroke-width:.8}
+.ill .fl{fill:var(--ember)}
+.ill .gr{stroke:#b9b9bb;stroke-width:1.2}
+.ill .br{stroke:#68686a;stroke-width:1.6;stroke-linecap:round}
+.ill .ax{stroke:#c7c7c9;stroke-width:1;stroke-dasharray:3 3}
+.ill .cl{fill:none;stroke:#68686a;stroke-width:1.2}
+.ill .nm{font:600 10px Manrope,sans-serif;fill:var(--ember)}
+.mode:not(.on) .ill{opacity:.85}
+@media (max-width:520px){.ill{width:84px;height:84px}}
+.mode.on{border-color:var(--ember);box-shadow:inset 0 0 0 1px var(--ember)}
+a.mode{text-decoration:none}a.mode:hover{border-color:var(--ink)}
+.mode .go{display:block;font-style:normal;font-weight:600;font-size:13.5px;color:var(--ember);margin-top:6px}
+.grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.steps button{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;cursor:pointer;color:var(--stone)}
+.steps button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.steps button.done{color:var(--ink)}
+.panel{border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.panel h2{font-size:18px;font-weight:600;margin:0 0 4px}
+.panel .hint{color:var(--stone);font-size:13.5px;margin:0 0 16px}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+.opt{border:1px solid var(--line);border-radius:var(--r);padding:12px;cursor:pointer;background:#fff;font:inherit;text-align:left;color:inherit}
+.opt b{display:block;font-weight:600;font-size:14.5px}
+.opt small{color:var(--stone);font-size:12.5px;display:block;margin-top:2px}
+.opt.on{border-color:var(--ember);box-shadow:inset 0 0 0 1px var(--ember)}
+.opt[disabled]{opacity:.45;cursor:not-allowed}
+label.f{display:block;font-size:13px;color:var(--stone);margin-bottom:4px}
+select,input[type=number],input[type=text],input[type=tel]{font:inherit;border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;background:#fff;color:var(--ink);width:100%}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.lines{width:100%;border-collapse:collapse;font-size:14px}
+.lines td{padding:7px 4px;border-top:1px solid var(--line);vertical-align:middle}
+.lines td.q{width:86px}
+.lines td.pr{width:110px;text-align:right;white-space:nowrap}
+.lines input{width:70px;padding:5px 6px;text-align:center}
+.lines .cd{color:var(--stone);font-size:12px}
+.lines tr.zero td{color:#9a9a9c}
+.lines tr.zero .cd{color:#b5b5b7}
+.nav{display:flex;justify-content:space-between;margin-top:18px;gap:10px}
+.btn{font:inherit;font-weight:600;border-radius:var(--r);padding:10px 16px;cursor:pointer;border:1px solid var(--ink);background:#fff;color:var(--ink)}
+.btn.pri{background:var(--ember);border-color:var(--ember);color:#fff}
+.btn.pri:hover{background:var(--ember-dim)}
+.btn:disabled{opacity:.4;cursor:default}
+aside{position:sticky;top:12px;border:1px solid var(--line);border-radius:var(--r);padding:18px;background:var(--soft)}
+aside h3{margin:0 0 8px;font-size:15px;font-weight:600}
+.sum li{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:3px 0}.sum li span:last-child{white-space:nowrap}
+.sum{list-style:none;margin:0 0 10px;padding:0;max-height:300px;overflow:auto}
+.tot{border-top:1px solid var(--line);padding-top:10px;font-size:13.5px}
+.tot div{display:flex;justify-content:space-between}
+.tot .big{font-size:20px;font-weight:700;color:var(--ember);margin-top:4px}
+.meta{font-size:12.5px;color:var(--stone);margin-top:8px}
+.note{background:var(--soft);border-radius:var(--r);padding:10px 12px;font-size:13.5px;margin:12px 0}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px;margin:6px 0 12px;color:var(--stone)}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+form.send{margin-top:16px;border-top:1px solid var(--line);padding-top:16px;display:none}
+form.send.show{display:block}
+form.send .ok{display:none;color:var(--ok);font-weight:600}
+form.send.done .ok{display:block}form.send.done .fields{display:none}
+.err{color:var(--ember);font-size:13px;margin-top:6px}
+#printArea{display:none}
+@media (max-width:860px){.grid{grid-template-columns:1fr}aside{position:static}}
+@media (max-width:520px){.modes,.row2{grid-template-columns:1fr}.lines td.pr{width:84px}}
+@media print{
+ body *{visibility:hidden}#printArea,#printArea *{visibility:visible}
+ #printArea{display:block;position:absolute;left:0;top:0;width:100%;padding:0 6mm;font-size:12px}
+ #printArea table{width:100%;border-collapse:collapse}#printArea th,#printArea td{border-bottom:1px solid #ccc;padding:5px 4px;text-align:left}
+ #printArea td.n{text-align:right}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <h1>Configurator coș de fum inox</h1>
+ <p class="sub">Alege un sistem gata făcut sau construiește-l element cu element. Prețurile includ TVA.</p>
+
+ <div class="modes">
+  <a class="mode" href="https://www.flamart.ro/cosuridefuminox" target="_top"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
+ <line x1="6" y1="113" x2="114" y2="113" class="gr"/>
+ <path d="M58 6 l12 0 l4 9 l-20 0 z" class="st"/>
+ <rect x="56" y="15" width="16" height="22" class="st"/><rect x="56" y="37" width="16" height="22" class="st"/><rect x="56" y="59" width="16" height="12" class="st"/>
+ <line x1="56" y1="37" x2="72" y2="37" class="jt"/><line x1="56" y1="59" x2="72" y2="59" class="jt"/><line x1="56" y1="71" x2="72" y2="71" class="jt"/>
+ <rect x="56" y="71" width="16" height="16" class="st"/><path d="M40 75 h16 v8 h-16 z" class="st"/>
+ <line x1="56" y1="87" x2="72" y2="87" class="jt"/>
+ <rect x="56" y="87" width="16" height="12" class="st"/><rect x="60" y="90" width="8" height="6" rx="1" class="dr"/>
+ <rect x="54" y="99" width="20" height="14" class="st"/>
+ <rect x="14" y="83" width="26" height="30" class="sv"/><rect x="18" y="88" width="18" height="15" class="gl"/>
+ <path d="M27 101 c-4 -3 -3 -7 0 -10 c1 3 4 4 3 7 c2 -1 2 -3 2 -3 c2 3 0 6 -5 6z" class="fl"/>
+ <rect x="27" y="75" width="13" height="8" class="st"/>
+ <rect x="84" y="20" width="8" height="93" class="wl"/><path d="M72 30 h12 M72 52 h12 M72 92 h12" class="br"/>
+</svg><span class="mt"><b>Sistem complet</b><span>Alege unul dintre sistemele gata făcute din magazin: KaminInox, Schiedel ICS, ICS ECO, Permeter și altele.</span><em class="go">Vezi sistemele →</em></span></a>
+  <button class="mode on" data-mode="pasi"><svg class="ill" viewBox="0 0 120 120" aria-hidden="true">
+ <line x1="60" y1="4" x2="60" y2="116" class="ax"/>
+ <path d="M50 6 l20 0 l5 9 l-30 0 z" class="st"/>
+ <rect x="48" y="22" width="24" height="18" class="st"/><line x1="48" y1="22" x2="72" y2="22" class="jt"/>
+ <rect x="48" y="47" width="24" height="10" class="st"/><line x1="48" y1="47" x2="72" y2="47" class="jt"/>
+ <rect x="48" y="64" width="24" height="14" class="st"/><path d="M26 67 h22 v8 h-22 z" class="st"/><line x1="48" y1="64" x2="72" y2="64" class="jt"/>
+ <rect x="48" y="85" width="24" height="12" class="st"/><rect x="54" y="88" width="12" height="6" rx="1" class="dr"/>
+ <rect x="45" y="104" width="30" height="10" class="st"/>
+ <path d="M86 26 h10 M86 31 h10" class="br"/><circle cx="91" cy="52" r="5" class="cl"/><circle cx="91" cy="52" r="2.2" class="cl"/>
+ <text x="15" y="14" class="nm">1</text><text x="15" y="34" class="nm">2</text><text x="15" y="56" class="nm">3</text><text x="15" y="96" class="nm">4</text><text x="15" y="113" class="nm">5</text>
+</svg><span class="mt"><b>Configurator pe elemente</b><span>Configurația ta nu se potrivește cu un sistem standard? Alegi pas cu pas pornirea, racordul, segmentele, devierile, prinderile și terminalul.</span></span></button>
+ </div>
+
+ <div class="grid">
+  <div>
+   <div class="steps" id="steps"></div>
+   <div class="panel" id="panel"></div>
+  </div>
+  <aside>
+   <h3>Configurația ta</h3>
+   <ul class="sum" id="sum"></ul>
+   <div class="tot">
+    <div><span>Total fără TVA</span><span id="tNet">0 lei</span></div>
+    <div><span>TVA 21%</span><span id="tVat">0 lei</span></div>
+    <div class="big"><span>Total</span><span id="tTot">0 lei</span></div>
+   </div>
+   <div class="meta" id="meta"></div>
+  </aside>
+ </div>
+</div>
+<div id="printArea"></div>
+
+<script>
+var SYSTEMS=[{"id":"kamininox","name":"KaminInox DP (dublu perete)","brand":"KaminInox","upd":"12.01.2026","items":[{"id":"palPloaie","n":"Pălărie anti-ploaie","g":"terminal","p":{"80":164.08,"100":156.26,"120":164.08,"130":164.08,"150":171.9,"160":179.71,"180":187.51,"200":195.33,"230":237.92,"250":283.62,"300":350.43,"350":413.51,"400":516.88,"450":594.42,"500":683.59},"c":{"80":"ABL1598","100":"ABL1599","120":"ABL1600","130":"ABL1601","150":"ABL1603","160":"ABL1604","180":"ABL1608","200":"ABL1611","230":"ABL1616","250":"ABL1618","300":"ABL1620","350":"ABL1621","400":"ABL1622","450":"ABL1623","500":"ABL2424"}},{"id":"palVant","n":"Pălărie anti-vânt","g":"terminal","p":{"80":226.59,"100":218.76,"120":226.59,"130":226.59,"150":234.4,"160":250.02,"180":265.64,"200":281.29,"230":344.57,"250":378.15,"300":494.19,"350":583.13,"400":728.93,"450":838.26,"500":964.01},"c":{"80":"ABL1627","100":"ABL1628","120":"ABL1629","130":"ABL1631","150":"ABL1632","160":"ABL1633","180":"ABL1635","200":"ABL1637","230":"ABL1640","250":"ABL1641","300":"ABL1644","350":"ABL1647","400":"ABL1646","450":"ABL1626","500":"ABL2425"}},{"id":"con","n":"Con terminal coș de fum inox DP","g":"terminal","p":{"80":211.26,"100":203.44,"120":211.26,"130":211.26,"150":219.07,"160":226.88,"180":258.14,"200":281.57,"230":310.09,"250":340.18,"300":380.79,"350":449.33,"400":561.67,"450":645.92,"500":742.8},"c":{"80":"ABL1221","100":"ABL1222","120":"ABL1223","130":"ABL1224","150":"ABL1225","160":"ABL1226","180":"ABL1227","200":"ABL1228","230":"ABL1231","250":"ABL1232","300":"ABL1233","350":"ABL1234","400":"ABL1235","450":"ABL1236","500":"ABL2404"}},{"id":"seg1","n":"Segment coș de fum DP 1,0 m","g":"elemente","p":{"80":318.88,"100":295.43,"120":318.88,"130":318.88,"150":342.32,"160":350.12,"180":381.38,"200":404.82,"230":498.58,"250":573.59,"300":671.25,"350":792.07,"400":990.08,"450":1138.61,"500":1309.4},"c":{"80":"ABL1686","100":"ABL1689","120":"ABL1691","130":"ABL1694","150":"ABL1698","160":"ABL1701","180":"ABL1705","200":"ABL1711","230":"ABL1715","250":"ABL1717","300":"ABL1722","350":"ABL1724","400":"ABL1726","450":"ABL1728","500":"ABL1995"}},{"id":"seg05","n":"Segment coș de fum DP 0,5 m","g":"elemente","p":{"80":187.51,"100":164.08,"120":187.51,"130":187.51,"150":203.15,"160":218.76,"180":242.21,"200":257.84,"230":303.54,"250":360.97,"300":413.33,"350":487.72,"400":609.65,"450":701.11,"500":806.26},"c":{"80":"ABL1685","100":"ABL1688","120":"ABL1690","130":"ABL1692","150":"ABL1697","160":"ABL1700","180":"ABL1704","200":"ABL1709","230":"ABL1714","250":"ABL1716","300":"ABL1720","350":"ABL1723","400":"ABL1725","450":"ABL1727","500":"ABL2427"}},{"id":"rac90","n":"Element racord de fum 90° DP","g":"racord","p":{"80":381.38,"100":373.57,"120":381.38,"130":381.38,"150":397.01,"160":412.63,"180":482.95,"200":506.39,"230":580.63,"250":650.94,"300":761.1,"350":898.1,"400":1122.62,"450":1291.01,"500":1484.67},"c":{"80":"ABL1327","100":"ABL1329","120":"ABL2226","130":"ABL1331","150":"ABL1333","160":"ABL1335","180":"ABL1337","200":"ABL1339","230":"ABL1342","250":"ABL1343","300":"ABL2416","350":"ABL2417","400":"ABL2418","450":"ABL2419","500":"ABL2420"}},{"id":"rac45","n":"Element racord de fum 45° DP","g":"racord","p":{"80":475.14,"100":467.32,"120":475.14,"130":475.14,"150":490.77,"160":506.39,"180":545.45,"200":568.9,"230":662.65,"250":831.43,"300":1048.62,"350":1237.38,"400":1546.72,"450":1778.73,"500":2045.54},"c":{"80":"ABL1326","100":"ABL1328","120":"ABL5145","130":"ABL1330","150":"ABL1332","160":"ABL1334","180":"ABL1336","200":"ABL1338","230":"ABL1340","250":"ABL2329","300":"ABL2411","350":"ABL2412","400":"ABL2413","450":"ABL2414","500":"ABL2415"}},{"id":"usa","n":"Element ușă de curățare rotundă DP","g":"pornire","p":{"80":412.43,"100":404.63,"120":412.43,"130":412.43,"150":420.26,"160":428.07,"180":514.0,"200":570.99,"230":703.08,"250":770.27,"300":930.45,"350":1097.94,"400":1372.42,"450":1578.28,"500":1815.02},"c":{"80":"ABL1390","100":"ABL1391","120":"ABL2231","130":"ABL1392","150":"ABL1393","160":"ABL1394","180":"ABL1396","200":"ABL1397","230":"ABL2202","250":"ABL1399","300":"ABL1400","350":"ABL2421","400":"ABL1402","450":"ABL2422","500":"ABL2423"}},{"id":"baza0","n":"Bază condens nivel 0 DP","g":"pornire","p":{"80":305.21,"100":297.39,"120":305.21,"130":305.21,"150":313.03,"160":320.83,"180":336.45,"200":359.9,"230":425.53,"250":513.04,"300":660.71,"350":779.64,"400":974.55,"450":1120.73,"500":1288.84},"c":{"80":"ABL1038","100":"ABL1039","120":"ABL1040","130":"ABL1041","150":"ABL1042","160":"ABL1043","180":"ABL1044","200":"ABL1045","230":"ABL1047","250":"ABL1048","300":"ABL1049","350":"ABL1050","400":"ABL1051","450":"ABL1052","500":"ABL2393"}},{"id":"bazaC","n":"Bază condens consolă DP","g":"pornire","p":{"80":500.54,"100":453.65,"120":500.54,"130":500.54,"150":531.79,"160":563.04,"180":586.48,"200":609.92,"230":753.67,"250":805.25,"300":948.24,"350":1118.91,"400":1398.64,"450":1608.44,"500":1849.7},"c":{"80":"ABL1008","100":"ABL1009","120":"ABL1010","130":"ABL1011","150":"ABL1012","160":"ABL1013","180":"ABL1014","200":"ABL1015","230":"ABL1017","250":"ABL1018","300":"ABL1019","350":"ABL1020","400":"ABL1021","450":"ABL1022","500":"ABL2394"}},{"id":"colInt","n":"Colier intermediar segment DP","g":"elemente","p":{"80":32.82,"100":32.04,"120":32.82,"130":32.82,"150":33.6,"160":34.36,"180":35.16,"200":39.08,"230":49.22,"250":60.16,"300":80.87,"350":95.43,"400":119.29,"450":137.18,"500":157.76},"c":{"80":"ABL2133","100":"ABL1172","120":"ABL5146","130":"ABL1176","150":"ABL1178","160":"ABL3665","180":"ABL3666","200":"ABL3667","230":"ABL1188","250":"ABL1190","300":"ABL1192","350":"ABL2030","400":"ABL1195","450":"ABL2031","500":"ABL1196"}},{"id":"colAnc","n":"Colier intermediar ancorare statică DP","g":"prinderi","p":{"80":45.38,"100":44.61,"120":45.38,"130":45.38,"150":46.17,"160":46.95,"180":47.74,"200":51.64,"230":61.8,"250":72.73,"300":93.44,"350":110.27,"400":137.83,"450":158.51,"500":182.28},"c":{"80":"ABL2065","100":"ABL2211","120":"ABL2212","130":"ABL2213","150":"ABL2214","160":"ABL2215","180":"ABL2216","200":"ABL2217","230":"ABL2224","250":"ABL2218","300":"ABL2219","350":"ABL2367","400":"ABL2220","450":"ABL2402","500":"ABL2403"}},{"id":"colFix","n":"Colier suport prindere perete DP fix","g":"prinderi","p":{"80":85.94,"100":78.13,"120":85.94,"130":85.94,"150":85.94,"160":101.58,"180":109.38,"200":117.2,"230":188.69,"250":197.68,"300":242.59,"350":286.27,"400":357.84,"450":411.5,"500":473.23},"c":{"80":"ABL1899","100":"ABL1134","120":"ABL2227","130":"ABL1135","150":"ABL1136","160":"ABL1137","180":"ABL1138","200":"ABL1139","230":"ABL1141","250":"ABL1142","300":"ABL1143","350":"ABL1144","400":"ABL2148","450":"ABL2395","500":"ABL2396"}},{"id":"colReg","n":"Colier suport prindere perete DP reglabil","g":"prinderi","p":{"80":171.9,"100":164.08,"120":171.9,"130":171.9,"150":171.9,"160":171.9,"180":210.95,"200":226.59,"230":311.74,"250":326.59,"300":413.33,"350":487.71,"400":609.65,"450":701.11,"500":806.26},"c":{"80":"ABL2397","100":"ABL1145","120":"ABL3636","130":"ABL1146","150":"ABL1147","160":"ABL1148","180":"ABL1149","200":"ABL1150","230":"ABL2398","250":"ABL1152","300":"ABL2301","350":"ABL2399","400":"ABL1153","450":"ABL2400","500":"ABL2401"}},{"id":"placa","n":"Placă de descărcare consolă","g":"pornire","p":{"80":470.31,"100":423.41,"120":470.31,"130":470.31,"150":501.56,"160":532.8,"180":556.23,"200":579.69,"230":723.45,"250":775.02,"300":918.01,"350":1088.68,"400":1368.41,"450":1578.2,"500":1819.47},"c":{"80":"ABL1953","100":"ABL1954","120":"ABL1955","130":"ABL1956","150":"ABL1957","160":"ABL1958","180":"ABL1959","200":"ABL1960","230":"ABL1961","250":"ABL1962","300":"ABL1963","350":"ABL1964","400":"ABL1965","450":"ABL1966","500":"ABL2426"}},{"id":"cot45","n":"Deviație – cot 45° DP","g":"devieri","p":{"80":187.51,"100":179.71,"120":187.51,"130":187.51,"150":195.33,"160":203.15,"180":234.4,"200":242.21,"230":278.93,"250":360.97,"300":413.33,"350":487.71,"400":609.65,"450":701.11,"500":806.26},"c":{"80":"ABL1271","100":"ABL1275","120":"ABL2487","130":"ABL1283","150":"ABL1288","160":"ABL1293","180":"ABL1297","200":"ABL1301","230":"ABL1310","250":"ABL1311","300":"ABL1315","350":"ABL1319","400":"ABL2405","450":"ABL1322","500":"ABL2406"}},{"id":"cot90","n":"Deviație – cot 90° DP","g":"devieri","p":{"80":343.77,"100":335.97,"120":343.77,"130":343.77,"150":351.6,"160":390.66,"180":429.73,"200":458.78,"230":492.23,"250":567.24,"300":664.9,"350":784.59,"400":980.74,"450":1127.84,"500":1297.02},"c":{"80":"ABL1272","100":"ABL1276","120":"ABL3624","130":"ABL1284","150":"ABL1289","160":"ABL1294","180":"ABL1298","200":"ABL1302","230":"ABL2407","250":"ABL1312","300":"ABL1316","350":"ABL2019","400":"ABL2408","450":"ABL2409","500":"ABL2410"}},{"id":"reductie","n":"Reducție DP","g":"racord","p":{"80":196.89,"100":196.89,"120":196.89,"130":196.89,"150":230.39,"160":230.39,"180":230.39,"200":247.65,"230":247.65,"250":280.36,"300":280.36,"350":330.81,"400":413.53,"450":475.55,"500":546.88},"c":{"80":"ABL2861","100":"ABL2862","120":"ABL5147","130":"ABL2863","150":"ABL2864","160":"ABL2865","180":"ABL2866","200":"ABL2867","230":"ABL2868","250":"ABL2869","300":"ABL2870","350":"ABL2871","400":"ABL2872","450":"ABL2873","500":"ABL2874"}},{"id":"col3p","n":"Colier 3 puncte – suport prindere perete","g":"prinderi","p":{"80":85.94,"100":78.13,"120":85.94,"130":85.94,"150":85.94,"160":101.58,"180":109.38,"200":117.2,"230":188.69,"250":197.68,"300":242.59,"350":286.27,"400":357.84,"450":411.5,"500":473.23},"c":{"80":"","100":"ABL3743","120":"ABL5148","130":"ABL3744","150":"ABL3745","160":"ABL3746","180":"ABL3747","200":"ABL3748","230":"","250":"","300":"","350":"","400":"","450":"","500":""}},{"id":"capac","n":"Capac scurgere condens inox DP","g":"pornire","p":{"80":85.94,"100":78.13,"120":85.94,"130":85.94,"150":85.94,"160":101.58,"180":109.38,"200":117.2,"230":188.69,"250":197.68,"300":242.59,"350":286.27,"400":357.84,"450":411.5,"500":473.23},"c":{"80":"","100":"ABL1105","120":"ABL1106","130":"ABL1116","150":"ABL1117","160":"ABL1118","180":"ABL1107","200":"ABL1119","230":"ABL1108","250":"ABL1109","300":"ABL1110","350":"ABL1111","400":"ABL1112","450":"ABL1113","500":"ABL3659"}},{"id":"palCon","n":"Pălărie conică din inox DP","g":"terminal","p":{"80":228.9,"100":251.98,"120":276.99,"130":276.99,"150":304.88,"160":335.66,"180":370.28,"200":405.86,"230":447.22,"250":492.42,"300":754.13,"350":889.85,"400":1112.34,"450":1279.19,"500":1471.08},"c":{"80":"","100":"ABL1654","120":"ABL1655","130":"ABL1656","150":"ABL1650","160":"ABL1657","180":"ABL1651","200":"ABL1652","230":"ABL1659","250":"ABL1660","300":"ABL1661","350":"ABL1662","400":"ABL1663","450":"ABL1664","500":"ABL1994"}}],"kit":{"segs":[["seg1",950],["seg05",450,1]],"porniri":{"baza0":{"items":["baza0","usa"],"fixed":1250},"consola":{"items":["placa","bazaC"],"fixed":900},"practic":{"items":["placa","capac"],"fixed":700}},"rac":{"rac90":"rac90","rac45":"rac45"},"cot":{"45":"cot45","90":"cot90"},"terms":[{"v":"con","b":"Con terminal","s":"Varianta standard","items":["con"]},{"v":"palCon","b":"Pălărie conică inox","items":["palCon"]}],"hats":[{"v":"","b":"Fără pălărie"},{"v":"palPloaie","b":"Pălărie anti-ploaie"},{"v":"palVant","b":"Pălărie anti-vânt"}],"wall":{"id":"colReg","rule":"per2m"},"joint":{"id":"colInt","count":["con","palCon","seg1","seg05","rac90","rac45","usa","baza0","bazaC","cot45","cot90"]}},"dias":[80,100,120,130,150,160,180,200,230,250,300,350,400,450,500]},{"id":"ics25","name":"Schiedel ICS 25 (dublu perete)","brand":"Schiedel","upd":"28.05.2026","items":[{"n":"Cot ICS 25 45°","g":"devieri","p":{"250":641.6,"150":437.3,"180":455.38,"200":530.9,"300":809.8,"350":1491.58},"c":{"250":"S0122","150":"S0185","180":"S0186","200":"S0187","300":"S0189","350":"S0879"},"id":"s0"},{"n":"Cot ICS 25 90°","g":"devieri","p":{"150":496.1,"180":543.97,"200":623.65,"250":777.5,"300":954.9,"350":1923.95,"500":3256.6},"c":{"150":"S0190","180":"S0191","200":"S0192","250":"S0194","300":"S0195","350":"S0878","500":"S1032"},"id":"s1"},{"n":"Cot ICS 25 15°","g":"devieri","p":{"150":434.1,"180":461.9,"200":513.1},"c":{"150":"S0309","180":"S0310","200":"S0311"},"id":"s2"},{"n":"Cot ICS 25 30°","g":"devieri","p":{"150":392.2,"180":462.96,"200":523.08,"250":641.6,"300":1221.5,"350":1414.5},"c":{"150":"S0316","180":"S0317","200":"S0318","250":"S0320","300":"S0321","350":"S1039"},"id":"s3"},{"n":"Cot ICS 25 85°","g":"devieri","p":{"250":787.7},"c":{"250":"S0465"},"id":"s4"},{"n":"Element de compensație ICS 25 270-375 mm","g":"alte","p":{"150":622.09,"200":692.82,"250":781.53,"300":951,"180":697.39,"350":1094.6},"c":{"150":"S0197","200":"S0199","250":"S0201","300":"S0202","180":"S0408","350":"S0741"},"id":"s5"},{"n":"Element de compensație ICS 25 375-585 mm","g":"alte","p":{"200":834.06,"300":1163,"180":799.38,"150":737.92,"250":1056.3,"350":1336.4},"c":{"200":"S0385","300":"S0395","180":"S0397","150":"S0407","250":"S0464","350":"S0686"},"id":"s6"},{"n":"Element de compensație ICS 25 195-250 mm","g":"alte","p":{"150":571.12,"180":583.02,"200":608.59,"250":764.5,"300":817.3,"350":924.6},"c":{"150":"S0466","180":"S0467","200":"S0468","250":"S0471","300":"S0472","350":"S0685"},"id":"s7"},{"n":"Element de compensație ICS 25 275-375 mm","g":"alte","p":{"500":2533.39},"c":{"500":"S1231"},"id":"s8"},{"n":"Element de trecere simplu/dublu perete ICS 25 DW→SW","g":"alte","p":{"150":270.44,"180":377.24,"200":387.65,"250":411.92,"300":429.72,"350":625.4},"c":{"150":"S0330","180":"S0331","200":"S0332","250":"S0334","300":"S0335","350":"S0667"},"id":"s9"},{"n":"Element de trecere simplu/dublu perete ICS 25 SW→DW","g":"alte","p":{"150":393.5,"180":416,"250":483.2,"300":529.4,"350":650.5},"c":{"150":"S0337","180":"S0338","250":"S0341","300":"S0342","350":"S0677"},"id":"s10"},{"n":"Element cu ștuț pentru analizorul de gaze ICS 25 1 ștuț","g":"alte","p":{"150":527.51,"180":543.94,"200":556.14,"250":587.69,"300":617.64,"350":798.6},"c":{"150":"S0302","180":"S0303","200":"S0304","250":"S0306","300":"S0307","350":"S0652"},"id":"s11"},{"n":"Element cu ștuț pentru analizorul de gaze ICS 25 3 ștuțuri","g":"alte","p":{"250":939.6},"c":{"250":"S1026"},"id":"s12"},{"n":"Racord de fum 90° cu ușă de vizitare ICS 25","g":"racord","p":{"150":910.7,"180":1001,"200":1015.4,"250":1266,"300":1409},"c":{"150":"S0290","180":"S0291","200":"S0292","250":"S0293","300":"S0294"},"id":"s13"},{"n":"Racord de fum 90° ICS 25","g":"racord","p":{"150":708.47,"180":713.86,"200":723,"250":1603.44,"300":1774.77,"400":4709.7,"350":2599.7,"500":6162.95},"c":{"150":"S0145","180":"S0146","200":"S0147","250":"S0149","300":"S0150","400":"S0225","350":"S0838","500":"S1224"},"id":"s14"},{"n":"Racord de fum 90° ICS 25 (85°)","g":"racord","p":{"350":2368.67},"c":{"350":"S0399"},"id":"s15"},{"n":"Racord de fum 45° ICS 25","g":"racord","p":{"150":1155.61,"180":1438.19,"200":1426,"250":1683.03,"300":2168.4,"350":2603.18},"c":{"150":"S0158","180":"S0159","200":"S0160","250":"S0162","300":"S0163","350":"S0871"},"id":"s16"},{"n":"Element de tubulatură 250 ICS 25","g":"elemente","p":{"150":215.5,"180":233.4,"200":244.6,"250":312.9,"300":309.58,"400":936.1,"350":841.82,"500":1101.55},"c":{"150":"S0175","180":"S0176","200":"S0177","250":"S0178","300":"S0179","400":"S0588","350":"S0851","500":"S4543"},"id":"s17"},{"n":"Element de tubulatură 500 ICS 25","g":"elemente","p":{"400":1177.94,"150":309.8,"180":342.5,"200":364,"300":527.7,"250":425.37,"350":1100.49,"500":1433.75},"c":{"400":"S0119","150":"S0170","180":"S0171","200":"S0172","300":"S0174","250":"S0256","350":"S0882","500":"S5157"},"id":"s18"},{"n":"Element de tubulatură 1000 ICS 25","g":"elemente","p":{"400":1724.57,"150":472.3,"180":533.4,"200":573.9,"300":862.6,"250":677.81,"350":1277.45,"500":2057.77},"c":{"400":"S0127","150":"S0165","180":"S0166","200":"S0167","300":"S0169","250":"S0255","350":"S0874","500":"S1015"},"id":"s19"},{"n":"Element terminal conic ICS 25","g":"terminal","p":{"250":501.96,"400":1292.72,"150":336.66,"180":377.8,"200":396.75,"300":605.3,"500":1769.19},"c":{"250":"S0121","400":"S0124","150":"S0180","180":"S0181","200":"S0182","300":"S0184","500":"S1215"},"id":"s20"},{"n":"Placă de descărcare + colector de condens ICS 25","g":"pornire","p":{"150":468.92,"180":524.51,"200":565.01,"250":740.9,"300":893.4,"350":1061.3},"c":{"150":"S0128","180":"S0129","200":"S0130","250":"S0132","300":"S0133","350":"S0683"},"id":"s21"},{"n":"Placă de descărcare ICS 25","g":"pornire","p":{"250":985.1,"400":1725.98,"150":629.84,"180":671.7,"200":685.52,"300":1083.2,"350":1269.57,"500":2363.89},"c":{"250":"S0120","400":"S0125","150":"S0135","180":"S0136","200":"S0137","300":"S0139","350":"S0875","500":"S1219"},"id":"s22"},{"n":"Consolă de descărcare ICS 25","g":"pornire","p":{"150":360.13,"200":437.5,"250":513.16,"300":473.43,"400":1294.82,"180":411.6,"350":1203.89},"c":{"150":"S0271","200":"S0272","250":"S0274","300":"S0275","400":"S0276","180":"S0382","350":"S0730"},"id":"s23"},{"n":"Colector de condens ICS 25","g":"pornire","p":{"150":339.53,"180":407.17,"200":427.26,"250":456.87,"300":527.57,"400":1575.55,"350":1038.67,"500":2024.28},"c":{"150":"S0264","180":"S0265","200":"S0266","250":"S0268","300":"S0269","400":"S0270","350":"S0729","500":"S1213"},"id":"s24"},{"n":"Ușiță de vizitare suprapresiune ICS 25","g":"pornire","p":{"150":864.06,"180":976.91,"200":1100.09,"300":2193.3,"250":1628.51,"350":2992.58},"c":{"150":"S0140","180":"S0141","200":"S0142","300":"S0144","250":"S0224","350":"S0873"},"id":"s25"},{"n":"Element cu ușiță de curățare depresiune ICS 25","g":"pornire","p":{"150":927.17,"180":1040.05,"200":1146.61,"250":1340.56,"300":2246.4},"c":{"150":"S0277","180":"S0278","200":"S0279","250":"S0281","300":"S0282"},"id":"s26"},{"n":"Element de bază + colector de condens ICS 25","g":"pornire","p":{"200":622.9,"300":844.56,"250":700.33,"150":500.37,"180":539.56,"350":919.2},"c":{"200":"S0227","300":"S0229","250":"S0396","150":"S0398","180":"S0400","350":"S0684"},"id":"s27"},{"n":"Element de legătură UNI–ICS ICS 25","g":"alte","p":{"200":665.73,"250":890.5,"300":1054},"c":{"200":"S0234","250":"S0235","300":"S0236"},"id":"s28"},{"n":"Terminal antipluvial cu plasă ICS 25","g":"terminal","p":{"200":650.41,"250":668.81,"150":568.15,"180":602.35,"300":721.51,"350":1177.12},"c":{"200":"S0245","250":"S0247","150":"S0351","180":"S0352","300":"S0356","350":"S0681"},"id":"s29"},{"n":"Element terminal antipluvial universal ICS 25 standard","g":"terminal","p":{"150":352.9,"180":373.89,"250":487},"c":{"150":"S0243","180":"S0244","250":"S0355"},"id":"s30"},{"n":"Element terminal antipluvial universal ICS 25 univ.","g":"terminal","p":{"300":402.9,"200":324,"250":395.2,"180":298.1,"160":262.4,"150":260.7},"c":{"300":"S0248","200":"S0353","250":"S0582","180":"S0584","160":"S1048","150":"S1049"},"id":"s31"},{"n":"Element de etanșare pentru terasă ICS 25","g":"terminal","p":{"150":514.24,"180":582.3,"200":582.3,"250":810.18,"300":810.18,"350":1009.71},"c":{"150":"S0358","180":"S0359","200":"S0359","250":"S0361","300":"S0361","350":"S0778"},"id":"s32"},{"n":"Colier de fixare reglabil 75-300 mm ICS 25","g":"prinderi","p":{"180":193.1,"200":202.85,"150":181.8,"250":242.4,"300":252.7,"350":265},"c":{"180":"S0383","200":"S0386","150":"S0387","250":"S0389","300":"S0390","350":"S0779"},"id":"s33"},{"n":"Colier de fixare ICS 25","g":"prinderi","p":{"150":143.18,"180":153.16,"200":160.35,"250":169.79,"300":282.94,"400":414.63,"350":400.11,"500":498.48},"c":{"150":"S0345","180":"S0346","200":"S0347","250":"S0348","300":"S0349","400":"S0350","350":"S0780","500":"S1217"},"id":"s34"},{"n":"Colier de ancorare ICS 25","g":"prinderi","p":{"150":271.99,"180":273.55,"200":273.59,"250":278.06,"400":327.96,"300":289.99,"350":327.7},"c":{"150":"S0250","180":"S0251","200":"S0252","250":"S0253","400":"S0254","300":"S0462","350":"S0787"},"id":"s35"},{"n":"Colier de îmbinare statică ICS 25","g":"prinderi","p":{"150":76.8,"180":80.1,"200":84,"250":112.2,"300":117.1,"350":121.8},"c":{"150":"S0204","180":"S0205","200":"S0206","250":"S0208","300":"S0209","350":"S0727"},"id":"s36"},{"n":"Colier de îmbinare ICS 25","g":"prinderi","p":{"180":44.2,"350":73.8},"c":{"180":"S0212","350":"S0728"},"id":"s37"},{"n":"Colier antiintemperie ICS 25 (PPL)","g":"terminal","p":{"230":115.77,"250":124.68,"300":139.85,"350":162.34,"200":114.25},"c":{"230":"S0218","250":"S0219","300":"S0221","350":"S0222","200":"S0226"},"id":"s38"},{"n":"Colier antiintemperie ICS 25","g":"terminal","p":{"500":391.4,"350":293.9},"c":{"500":"S0649","350":"S0785"},"id":"s39"},{"n":"Garnitură de etanșare ICS 25 (Viton)","g":"prinderi","p":{"300":130.1},"c":{"300":"S0237"},"id":"s40"},{"n":"Garnitură de etanșare ICS 25","g":"prinderi","p":{"150":26.38,"180":27.9,"200":30.92,"250":48.4,"300":52.89,"350":50.12},"c":{"150":"S0550","180":"S0551","200":"S0552","250":"S0554","300":"S0555","350":"S0755"},"id":"s41"},{"n":"Adaptor ICS 25 250-300","g":"alte","p":{"*":794.9},"c":{"*":"S1013"},"id":"s42"},{"n":"Set suport descărcare SD 200","g":"pornire","p":{"*":75},"c":{"*":"S4529"},"id":"s43"},{"n":"Element cu ușiță de curățare ICS ECO","g":"pornire","p":{"150":817.65,"180":1024.4,"200":919.73,"250":1150.9,"300":1225.78},"c":{"150":"S0616","180":"S0617","200":"S0618","250":"S0619","300":"S1318"},"id":"s44"}],"kit":{"segs":[["s19",1000],["s18",500,1],["s17",250,1]],"porniri":{"baza0":{"items":["s27","s26"],"fixed":1000,"fixedBy":{"250":750,"300":750},"swap":{"250":[["s26","s25"]],"300":[["s26","s44"]]}},"consola":{"items":["s21","s23","s26"],"fixed":1000,"fixedBy":{"250":750,"300":750},"swap":{"250":[["s26","s25"]],"300":[["s26","s44"]]}}},"rac":{"rac90":"s14","rac45":"s16"},"cot":{"45":"s0","90":"s1"},"terms":[{"v":"con","b":"Element terminal conic","s":"Varianta standard","items":["s20"]},{"v":"plasa","b":"Terminal antipluvial cu plasă","items":["s29"]}],"wall":{"id":"s34","rule":"schiedel"}},"dias":[150,180,200,250,300]},{"id":"icseco","name":"Schiedel ICS ECO (dublu perete)","brand":"Schiedel","upd":"28.05.2026","items":[{"n":"Element de tubulatură ICS ECO 1000 mm","g":"elemente","p":{"150":357.67,"180":410.51,"200":426.8,"250":615.36,"300":718.84,"350":978.32},"c":{"150":"S0626","180":"S0629","200":"S0632","250":"S0635","300":"S1019","350":"S1022"},"id":"s0"},{"n":"Element de tubulatură ICS ECO 250 mm","g":"elemente","p":{"150":169.72,"180":188.02,"200":203.05,"250":284.17,"300":285.03},"c":{"150":"S0627","180":"S0630","200":"S0633","250":"S1017","300":"S1020"},"id":"s1"},{"n":"Element de tubulatură ICS ECO 500 mm","g":"elemente","p":{"150":257.08,"180":291.52,"200":274.48,"250":407.3,"300":428.26},"c":{"150":"S0628","180":"S0631","200":"S0634","250":"S1018","300":"S1021"},"id":"s2"},{"n":"Cot ICS ECO 45°","g":"devieri","p":{"150":395.78,"180":479.1,"200":474.57,"250":602.67,"300":621.58},"c":{"150":"S0621","180":"S0623","200":"S0625","250":"S1035","300":"S1037"},"id":"s3"},{"n":"Cot ICS ECO 90°","g":"devieri","p":{"150":515.7,"180":557.7,"200":547.36,"250":569.62,"300":840.7},"c":{"150":"S0622","180":"S0624","200":"S1034","250":"S1036","300":"S1044"},"id":"s4"},{"n":"Racord de fum ICS ECO 90°","g":"racord","p":{"150":633.14,"180":684.66,"200":683.71,"250":1483.05,"300":1800.6},"c":{"150":"S0636","180":"S0638","200":"S0640","250":"S0642","300":"S0644"},"id":"s5"},{"n":"Racord de fum ICS ECO 45°","g":"racord","p":{"150":973.74,"180":1475.8,"200":1700.7,"250":1672.5,"300":1900.4},"c":{"150":"S0637","180":"S0639","200":"S0641","250":"S0643","300":"S0645"},"id":"s6"},{"n":"Element terminal conic ICS ECO","g":"terminal","p":{"150":296.13,"180":308.07,"200":331.93,"250":427.12,"300":446.02},"c":{"150":"S0597","180":"S0598","200":"S0599","250":"S0600","300":"S0601"},"id":"s7"},{"n":"Placă de descărcare ICS ECO","g":"pornire","p":{"300":1022.3,"150":576.21,"180":588.64,"200":642.31,"250":927.46},"c":{"300":"S0539","150":"S0612","180":"S0613","200":"S0614","250":"S0615"},"id":"s8"},{"n":"Element cu ușiță de curățare ICS ECO","g":"pornire","p":{"150":817.65,"180":1024.4,"200":919.73,"250":1150.9,"300":1225.78},"c":{"150":"S0616","180":"S0617","200":"S0618","250":"S0619","300":"S1318"},"id":"s9"},{"n":"Element de compensație 375-585 mm ICS ECO","g":"alte","p":{"150":729,"180":744.3,"200":692.39,"250":752.89,"300":816.16},"c":{"150":"S0602","180":"S0603","200":"S0604","250":"S0605","300":"S0606"},"id":"s10"},{"n":"Colier de îmbinare ICS ECO","g":"prinderi","p":{"200":48.03},"c":{"200":"S0611"},"id":"s11"},{"n":"Placă de descărcare + colector de condens ICS 25","g":"pornire","p":{"150":468.92,"180":524.51,"200":565.01,"250":740.9,"300":893.4,"350":1061.3},"c":{"150":"S0128","180":"S0129","200":"S0130","250":"S0132","300":"S0133","350":"S0683"},"id":"s12"},{"n":"Consolă de descărcare ICS 25","g":"pornire","p":{"150":360.13,"200":437.5,"250":513.16,"300":473.43,"400":1294.82,"180":411.6,"350":1203.89},"c":{"150":"S0271","200":"S0272","250":"S0274","300":"S0275","400":"S0276","180":"S0382","350":"S0730"},"id":"s13"},{"n":"Colector de condens ICS 25","g":"pornire","p":{"150":339.53,"180":407.17,"200":427.26,"250":456.87,"300":527.57,"400":1575.55,"350":1038.67,"500":2024.28},"c":{"150":"S0264","180":"S0265","200":"S0266","250":"S0268","300":"S0269","400":"S0270","350":"S0729","500":"S1213"},"id":"s14"},{"n":"Element de bază + colector de condens ICS 25","g":"pornire","p":{"200":622.9,"300":844.56,"250":700.33,"150":500.37,"180":539.56,"350":919.2},"c":{"200":"S0227","300":"S0229","250":"S0396","150":"S0398","180":"S0400","350":"S0684"},"id":"s15"},{"n":"Terminal antipluvial cu plasă ICS 25","g":"terminal","p":{"200":650.41,"250":668.81,"150":568.15,"180":602.35,"300":721.51,"350":1177.12},"c":{"200":"S0245","250":"S0247","150":"S0351","180":"S0352","300":"S0356","350":"S0681"},"id":"s16"},{"n":"Element de etanșare pentru terasă ICS 25","g":"terminal","p":{"150":514.24,"180":582.3,"200":582.3,"250":810.18,"300":810.18,"350":1009.71},"c":{"150":"S0358","180":"S0359","200":"S0359","250":"S0361","300":"S0361","350":"S0778"},"id":"s17"},{"n":"Colier de fixare reglabil 75-300 mm ICS 25","g":"prinderi","p":{"180":193.1,"200":202.85,"150":181.8,"250":242.4,"300":252.7,"350":265},"c":{"180":"S0383","200":"S0386","150":"S0387","250":"S0389","300":"S0390","350":"S0779"},"id":"s18"},{"n":"Colier de fixare ICS 25","g":"prinderi","p":{"150":143.18,"180":153.16,"200":160.35,"250":169.79,"300":282.94,"400":414.63,"350":400.11,"500":498.48},"c":{"150":"S0345","180":"S0346","200":"S0347","250":"S0348","300":"S0349","400":"S0350","350":"S0780","500":"S1217"},"id":"s19"},{"n":"Colier de ancorare ICS 25","g":"prinderi","p":{"150":271.99,"180":273.55,"200":273.59,"250":278.06,"400":327.96,"300":289.99,"350":327.7},"c":{"150":"S0250","180":"S0251","200":"S0252","250":"S0253","400":"S0254","300":"S0462","350":"S0787"},"id":"s20"},{"n":"Colier de îmbinare statică ICS 25","g":"prinderi","p":{"150":76.8,"180":80.1,"200":84,"250":112.2,"300":117.1,"350":121.8},"c":{"150":"S0204","180":"S0205","200":"S0206","250":"S0208","300":"S0209","350":"S0727"},"id":"s21"},{"n":"Colier antiintemperie ICS 25 (PPL)","g":"terminal","p":{"230":115.77,"250":124.68,"300":139.85,"350":162.34,"200":114.25},"c":{"230":"S0218","250":"S0219","300":"S0221","350":"S0222","200":"S0226"},"id":"s22"},{"n":"Set suport descărcare SD 200","g":"pornire","p":{"*":75},"c":{"*":"S4529"},"id":"s23"}],"kit":{"segs":[["s0",1000],["s2",500,1],["s1",250,1]],"porniri":{"baza0":{"items":["s15","s9"],"fixed":750},"consola":{"items":["s12","s13","s9"],"fixed":750,"swap":{"200":[["s13","s23"]]}}},"rac":{"rac90":"s5","rac45":"s6"},"cot":{"45":"s3","90":"s4"},"terms":[{"v":"con","b":"Element terminal conic","s":"Varianta standard","items":["s7"]},{"v":"plasa","b":"Terminal antipluvial cu plasă","items":["s16"]}],"wall":{"id":"s19","rule":"schiedel"}},"dias":[150,180,200,250,300]},{"id":"permeter","name":"Schiedel Permeter 25 negru","brand":"Schiedel","upd":"28.05.2026","items":[{"n":"Element de tubulatură Permeter 25 negru 500 mm","g":"elemente","p":{"200":366.42,"150":316.34},"c":{"200":"S0478","150":"S0501"},"id":"s0"},{"n":"Element de tubulatură Permeter 25 negru 250 mm","g":"elemente","p":{"200":266.21,"150":240.1},"c":{"200":"S0480","150":"S0502"},"id":"s1"},{"n":"Element de tubulatură Permeter 25 negru 1000 mm","g":"elemente","p":{"150":451.28,"200":530.55},"c":{"150":"S0494","200":"S0500"},"id":"s2"},{"n":"Cot Permeter 25 negru 90°","g":"devieri","p":{"200":628.79,"150":435.98},"c":{"200":"S0481","150":"S0508"},"id":"s3"},{"n":"Cot Permeter 25 negru 30°","g":"devieri","p":{"150":350.13,"200":493.42},"c":{"150":"S0504","200":"S0505"},"id":"s4"},{"n":"Cot Permeter 25 negru 45°","g":"devieri","p":{"150":422.52,"200":515.55},"c":{"150":"S0506","200":"S0507"},"id":"s5"},{"n":"Racord de fum Permeter 25 negru 90°","g":"racord","p":{"200":748.73,"150":688.24},"c":{"200":"S0479","150":"S0493"},"id":"s6"},{"n":"Racord de fum Permeter 25 negru 45°","g":"racord","p":{"150":1228.78,"200":1241.75},"c":{"150":"S0498","200":"S0499"},"id":"s7"},{"n":"Element terminal conic Permeter 25 negru","g":"terminal","p":{"200":359.07,"150":322.1},"c":{"200":"S0477","150":"S0503"},"id":"s8"},{"n":"Element de bază cu colector de condens Permeter 25 negru","g":"pornire","p":{"200":559.65,"150":474.4},"c":{"200":"S0485","150":"S0491"},"id":"s9"},{"n":"Placă de descărcare Permeter 25 negru","g":"pornire","p":{"200":620.23,"150":603.17},"c":{"200":"S0486","150":"S0495"},"id":"s10"},{"n":"Consolă de descărcare Permeter 25 negru","g":"pornire","p":{"200":620.04,"150":403.36},"c":{"200":"S0490","150":"S0533"},"id":"s11"},{"n":"Element cu ușiță de curățare Permeter 25 negru","g":"pornire","p":{"150":881.61,"200":1029.77},"c":{"150":"S0496","200":"S0497"},"id":"s12"},{"n":"Element de compensație Permeter 25 negru","g":"alte","p":{"200":471.31,"150":417.52},"c":{"200":"S0483","150":"S0511"},"id":"s13"},{"n":"Element de legătură PPL–ICS Permeter 25 negru","g":"alte","p":{"200":375.25,"150":326.96},"c":{"200":"S0487","150":"S0514"},"id":"s14"},{"n":"Colector de condens Permeter 25 negru","g":"pornire","p":{"200":396.98,"150":342.23},"c":{"200":"S0488","150":"S0517"},"id":"s15"},{"n":"Colier de fixare Permeter 25 negru","g":"prinderi","p":{"200":323.66,"150":315.5},"c":{"200":"S0482","150":"S0527"},"id":"s16"},{"n":"Colier de îmbinare statică Permeter 25 negru","g":"prinderi","p":{"150":66.87,"200":91.85},"c":{"150":"S0530","200":"S0531"},"id":"s17"},{"n":"Colier antiintemperie Permeter 25 negru","g":"terminal","p":{"150":202.87,"200":214.6},"c":{"150":"S0489","200":"S0532"},"id":"s18"},{"n":"Terminal antipluvial cu plasă Permeter 25 negru","g":"terminal","p":{"150":545.96,"200":821.28},"c":{"150":"S0526","200":"S1060"},"id":"s19"}],"kit":{"segs":[["s2",1000],["s0",500,1],["s1",250,1]],"porniri":{"baza0":{"items":["s9","s12"],"fixed":1000},"consola":{"items":["s10","s11","s15","s12"],"fixed":1000,"wallDelta":-1,"swap":{"150":[["s11",null]]}}},"rac":{"rac90":"s6","rac45":"s7"},"cot":{"45":"s5","90":"s3"},"terms":[{"v":"con","b":"Element terminal conic","s":"Varianta standard","items":["s8"]},{"v":"plasa","b":"Terminal antipluvial cu plasă","items":["s19"]}],"wall":{"id":"s16","rule":"schiedel"}},"dias":[150,200]}];
+var VAT=0.21;
+var STEPS=[{id:'sistem',t:'Sistem'},{id:'pornire',t:'Pornire'},{id:'racord',t:'Racord'},{id:'inaltime',t:'Înălțime'},
+ {id:'devieri',t:'Devieri'},{id:'prinderi',t:'Prinderi'},{id:'terminal',t:'Terminal'},{id:'rezumat',t:'Listă finală'}];
+var PORN_LABEL={baza0:{b:'Bază la nivel 0',s:'Bază cu colector de condens + element cu ușă de curățare, coșul pornește de jos'},
+ consola:{b:'Pe consolă',s:'Placă de descărcare + consolă de perete, coșul pornește de la etaj / din pod'},
+ practic:{b:'Practic (pe placă)',s:'Placă de descărcare + capac scurgere condens'}};
+var DEVS=[{v:'none',b:'Fără deviație',s:'Coș drept'},{v:'45',b:'Deviație cu 2 coturi 45°',s:'Ocolești o streașină / grindă'},{v:'90',b:'Deviație cu 2 coturi 90°'}];
+var S={mode:'pasi',step:0,sys:0,dia:200,pornire:'baza0',racord:'rac90',h:6,dev:'none',terminal:'con',hat:'',qty:{},touched:false,showAll:false};
+function SYS(){return SYSTEMS[S.sys]}
+function KIT(){return SYS().kit}
+function item(id){var a=SYS().items;for(var i=0;i<a.length;i++)if(a[i].id===id)return a[i]}
+function price(id){var it=item(id);if(!it)return null;var p=it.p[S.dia];if(p==null)p=it.p['*'];return p==null?null:p}
+function code(id){var it=item(id);return it?(it.c[S.dia]||it.c['*']||''):''}
+function lei(x){return Math.round(x).toLocaleString('ro-RO')+' lei'}
+function lei2(x){return x.toLocaleString('ro-RO',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function m(x){return (x/1000).toFixed(2).replace('.',',')+' m'}
+
+// ---- calcul automat ----
+function autoQty(){
+ var k=KIT(),q={},add=function(id,n){if(id)q[id]=(q[id]||0)+(n||1)};
+ var porn=k.porniri[S.pornire]||k.porniri.baza0;
+ var pItems=porn.items.slice();
+ (porn.swap&&porn.swap[S.dia]||[]).forEach(function(sw){pItems=pItems.map(function(x){return x===sw[0]?sw[1]:x}).filter(Boolean)});
+ pItems.forEach(function(id){add(id)});
+ add(k.rac[S.racord]||k.rac.rac90);
+ var term=k.terms.filter(function(t){return t.v===S.terminal})[0]||k.terms[0];term.items.forEach(function(id){add(id)});
+ if(S.hat)add(S.hat);
+ var need=S.h*1000-pfixed(porn),segs=k.segs,best=null;
+ var lim=segs.map(function(s){return s[2]||40});
+ (function rec(i,acc,cnt,len){
+  if(i===segs.length){var d=Math.abs(len-need),pieces=cnt.reduce(function(a,b){return a+b},0);
+   if(!best||d<best.d-1||(Math.abs(d-best.d)<=1&&pieces<best.pieces))best={d:d,cnt:cnt.slice(),pieces:pieces};return}
+  for(var n=0;n<=lim[i];n++){cnt[i]=n;rec(i+1,acc,cnt,len+n*segs[i][1])}
+ })(0,0,[],0);
+ segs.forEach(function(s,i){if(best.cnt[i])add(s[0],best.cnt[i])});
+ if(S.dev!=='none')add(k.cot[S.dev],2);
+ if(k.joint){var st=0;k.joint.count.forEach(function(id){st+=q[id]||0});if(st>1)q[k.joint.id]=st-1}
+ var w=k.wall.rule==='per2m'?Math.max(1,Math.round(S.h/2)):Math.max(1,Math.floor((S.h-2)/3)+1);
+ w+=porn.wallDelta||0;if(w>0)add(k.wall.id,w);
+ for(var id in q)if(price(id)==null)delete q[id];
+ return q;
+}
+function pfixed(porn){return porn.fixedBy&&porn.fixedBy[S.dia]!=null?porn.fixedBy[S.dia]:porn.fixed}
+function mounted(){var k=KIT(),porn=k.porniri[S.pornire]||k.porniri.baza0,t=pfixed(porn);k.segs.forEach(function(s){t+=(S.qty[s[0]]||0)*s[1]});return t}
+function recalc(){if(!S.touched)S.qty=autoQty()}
+
+// ---- randare ----
+function idsOf(g){return SYS().items.filter(function(i){return i.g===g&&price(i.id)!=null}).map(function(i){return i.id})}
+function lineRows(ids){
+ return '<table class="lines">'+ids.filter(function(id){return price(id)!=null}).map(function(id){
+  var q=S.qty[id]||0,p=price(id)*(1+VAT);
+  return '<tr class="'+(q?'':'zero')+'"><td>'+esc(item(id).n)+'<br><span class="cd">'+esc(code(id))+' · '+lei(p)+' / buc</span></td>'+
+   '<td class="q"><input type="number" min="0" step="1" value="'+q+'" data-id="'+id+'" aria-label="Cantitate '+esc(item(id).n)+'"></td>'+
+   '<td class="pr">'+(q?lei(p*q):'–')+'</td></tr>'}).join('')+'</table>';
+}
+function opts(name,list){
+ return '<div class="opts">'+list.map(function(o){
+  return '<button class="opt'+(S[name]===o.v?' on':'')+'" data-set="'+name+'" data-v="'+o.v+'"><b>'+o.b+'</b>'+(o.s?'<small>'+o.s+'</small>':'')+'</button>'}).join('')+'</div>';
+}
+function porniri(){return Object.keys(KIT().porniri).map(function(k){return {v:k,b:PORN_LABEL[k].b,s:PORN_LABEL[k].s}})}
+function racorduri(){var r=KIT().rac,o=[];if(price(r.rac90)!=null)o.push({v:'rac90',b:'Racord 90°',s:'Intrare laterală, la orizontală'});if(price(r.rac45)!=null)o.push({v:'rac45',b:'Racord 45°',s:'Intrare oblică'});return o}
+function sistemFields(){
+ return '<div class="row2"><div><label class="f" for="sys">Sistem</label><select id="sys">'+SYSTEMS.map(function(s,i){return '<option value="'+i+'"'+(i===S.sys?' selected':'')+'>'+esc(s.name)+'</option>'}).join('')+
+  '<option disabled>Jeremias DW ECO – în curând</option><option disabled>Jeremias DW Black – în curând</option><option disabled>Poujoulat – în curând</option></select></div>'+
+  '<div><label class="f" for="dia">Diametru interior</label><select id="dia">'+SYS().dias.map(function(d){return '<option value="'+d+'"'+(d==S.dia?' selected':'')+'>Ø '+d+' mm</option>'}).join('')+'</select></div></div>';
+}
+function heightField(){return '<div><label class="f" for="h">Înălțime totală coș (m)</label><input type="number" id="h" min="2" max="20" step="0.5" value="'+S.h+'"></div>'}
+function render(){
+ var st=document.getElementById('steps'),pn=document.getElementById('panel'),h='';
+ if(S.mode==='complet'){
+  st.innerHTML='';
+  h='<h2>Sistem complet</h2><p class="hint">Completează datele de bază. Lista de elemente se calculează automat și o poți ajusta la pasul următor.</p>'+sistemFields()+
+   '<div class="row2">'+heightField()+'<div><label class="f" for="racSel">Racord</label><select id="racSel">'+racorduri().map(function(r){return '<option value="'+r.v+'"'+(S.racord===r.v?' selected':'')+'>'+r.b.replace('Racord ','')+'</option>'}).join('')+'</select></div></div>'+
+   '<label class="f">Pornire</label>'+opts('pornire',porniri())+'<label class="f">Deviație</label>'+opts('dev',DEVS)+
+   '<div class="nav"><span></span><button class="btn pri" data-go="final">Vezi lista de elemente →</button></div>';
+ } else if(S.mode==='final'){st.innerHTML='';h=finalHtml();
+ } else {
+  st.innerHTML=STEPS.map(function(s,i){return '<button data-step="'+i+'" class="'+(i===S.step?'on':i<S.step?'done':'')+'">'+(i+1)+'. '+s.t+'</button>'}).join('');
+  var id=STEPS[S.step].id,k=KIT();
+  if(id==='sistem')h='<h2>1. Sistem și diametru</h2><p class="hint">Diametrul interior trebuie să fie cel puțin cât ieșirea de fum a focarului.</p>'+sistemFields();
+  if(id==='pornire')h='<h2>2. Pornire</h2><p class="hint">Cum pornește coșul: de la sol sau suspendat pe consolă.</p>'+opts('pornire',porniri())+lineRows(idsOf('pornire'));
+  if(id==='racord')h='<h2>3. Racord</h2><p class="hint">Elementul care primește burlanul de la focar.</p>'+opts('racord',racorduri())+lineRows(idsOf('racord'));
+  if(id==='inaltime')h='<h2>4. Înălțime și elemente drepte</h2><p class="hint">Dă înălțimea dorită: segmentele se calculează automat, apoi poți modifica cantitățile.</p>'+
+   '<div class="row2">'+heightField()+'<div><label class="f">Înălțime montată estimată</label><input type="text" disabled value="'+m(mounted())+'"></div></div>'+lineRows(idsOf('elemente').concat(idsOf('alte')));
+  if(id==='devieri')h='<h2>5. Devieri</h2><p class="hint">Dacă trebuie ocolit un obstacol (streașină, grindă), coșul se deviază cu două coturi.</p>'+opts('dev',DEVS)+lineRows(idsOf('devieri'));
+  if(id==='prinderi')h='<h2>6. Prinderi</h2><p class="hint">'+(k.joint?'Coliere intermediare la fiecare îmbinare și coliere de perete aproximativ la fiecare 2 m.':'Coliere de fixare pe perete aproximativ la fiecare 3 m.')+'</p>'+lineRows(idsOf('prinderi'));
+  if(id==='terminal')h='<h2>7. Terminal</h2><p class="hint">Capătul de sus al coșului.</p>'+opts('terminal',k.terms)+(k.hats?'<label class="f">Protecție</label>'+opts('hat',k.hats):'')+lineRows(idsOf('terminal'));
+  if(id==='rezumat')h=finalHtml();
+  if(id!=='rezumat')h+='<div class="nav"><button class="btn" data-prev'+(S.step?'':' disabled')+'>← Înapoi</button><button class="btn pri" data-next>Mai departe →</button></div>';
+ }
+ pn.innerHTML=h;
+ summary();
+}
+function finalHtml(){
+ var ids=SYS().items.map(function(i){return i.id}).filter(function(id){return price(id)!=null});
+ var shown=S.showAll?ids:ids.filter(function(id){return S.qty[id]});
+ return '<h2>Lista de elemente</h2><p class="hint">Modifică orice cantitate, ca într-un tabel Excel. Bifează „Toate elementele” ca să adaugi piese care lipsesc.</p>'+
+  '<label class="chk"><input type="checkbox" id="showAll"'+(S.showAll?' checked':'')+'> Toate elementele '+esc(SYS().name)+' pentru Ø '+S.dia+' mm</label>'+lineRows(shown)+
+  '<div class="meta">Înălțime montată estimată: '+m(mounted())+' · Prețuri '+esc(SYS().brand)+', actualizate '+SYS().upd+'. Transportul nu este inclus.</div>'+
+  '<div class="actions"><button class="btn pri" data-order>Trimite comanda</button><button class="btn" data-print>Ofertă PDF / tipărire</button><button class="btn" data-copy>Copiază lista</button>'+
+  (S.mode==='final'?'<button class="btn" data-back>← Modifică datele</button>':'')+'</div>'+
+  '<form class="send" id="send"><div class="fields"><div class="row2"><div><label class="f" for="fn">Nume</label><input type="text" id="fn" name="n" required></div><div><label class="f" for="ft">Telefon</label><input type="tel" id="ft" name="t" required></div></div>'+
+  '<label class="f" for="fo">Observații (opțional)</label><input type="text" id="fo" name="o" style="margin-bottom:12px"><button class="btn pri" type="submit">Trimite comanda</button><div class="err" id="err"></div></div>'+
+  '<div class="ok">Mulțumim! Te sunăm în curând pentru confirmare.</div></form>';
+}
+function lines(){var o=[];SYS().items.forEach(function(it){var q=S.qty[it.id],p=price(it.id);if(q&&p!=null)o.push({it:it,q:q,p:p})});return o}
+function totals(){var n=0;lines().forEach(function(l){n+=l.p*l.q});return {net:n,vat:n*VAT,tot:Math.round(n*(1+VAT))}}
+function summary(){
+ var h='';lines().forEach(function(l){h+='<li><span>'+l.q+' × '+esc(l.it.n)+'</span><span>'+lei(l.p*l.q*(1+VAT))+'</span></li>'});
+ document.getElementById('sum').innerHTML=h||'<li>Nicio componentă încă.</li>';
+ var t=totals();
+ document.getElementById('tNet').textContent=lei(t.net);document.getElementById('tVat').textContent=lei(t.vat);document.getElementById('tTot').textContent=lei(t.tot);
+ document.getElementById('meta').textContent=SYS().name+' · Ø '+S.dia+' mm · '+m(mounted())+' montat';
+}
+function listText(){
+ var o=lines().map(function(l){return l.q+' x '+l.it.n+' ['+code(l.it.id)+'] = '+lei(l.p*l.q*(1+VAT))});
+ var t=totals();o.push('TOTAL: '+lei(t.tot)+' cu TVA ('+lei2(t.net)+' lei fără TVA)');return SYS().name+' Ø'+S.dia+' mm, '+m(mounted())+'\n'+o.join('\n');
+}
+function printOffer(){
+ var t=totals(),d=new Date().toLocaleDateString('ro-RO'),rows='';
+ lines().forEach(function(l){rows+='<tr><td>'+esc(code(l.it.id))+'</td><td>'+esc(l.it.n)+'</td><td class="n">'+l.q+'</td><td class="n">'+lei2(l.p)+'</td><td class="n">'+lei2(l.p*l.q)+'</td></tr>'});
+ document.getElementById('printArea').innerHTML='<h2 style="margin:0">FLAMART – Ofertă coș de fum inox</h2><p>'+d+' · '+esc(SYS().name)+' · Ø '+S.dia+' mm · înălțime montată estimată '+m(mounted())+'</p>'+
+  '<table><thead><tr><th>Cod</th><th>Element</th><th class="n">Cant.</th><th class="n">Preț unitar fără TVA</th><th class="n">Valoare fără TVA</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+  '<p style="text-align:right">Total fără TVA: <b>'+lei2(t.net)+' lei</b><br>TVA 21%: '+lei2(t.vat)+' lei<br>Total cu TVA: <b>'+lei(t.tot)+'</b></p><p>Transportul și montajul nu sunt incluse. flamart.ro · 0757 355 813 · contact@flamart.ro</p>';
+ window.print();
+}
+function setSys(i){
+ S.sys=i;var ds=SYS().dias;if(ds.indexOf(S.dia)<0)S.dia=ds.reduce(function(a,b){return Math.abs(b-200)<Math.abs(a-200)?b:a});
+ if(!KIT().porniri[S.pornire])S.pornire='baza0';if(!KIT().terms.some(function(t){return t.v===S.terminal}))S.terminal='con';S.hat='';S.touched=false;recalc();render();
+}
+
+// ---- evenimente ----
+document.addEventListener('click',function(e){
+ var b=e.target.closest('button');if(!b)return;
+ if(b.dataset.mode){S.mode='pasi';S.step=0;render();return}
+ if(b.dataset.set){S[b.dataset.set]=b.dataset.v;S.touched=false;recalc();render();return}
+ if(b.dataset.step!=null){S.step=+b.dataset.step;render();return}
+ if(b.hasAttribute('data-next')){S.step=Math.min(STEPS.length-1,S.step+1);render();window.scrollTo({top:0,behavior:'smooth'});return}
+ if(b.hasAttribute('data-prev')){S.step=Math.max(0,S.step-1);render();return}
+ if(b.dataset.go==='final'){S.mode='final';render();window.scrollTo({top:0,behavior:'smooth'});return}
+ if(b.hasAttribute('data-back')){S.mode='complet';render();return}
+ if(b.hasAttribute('data-print')){printOffer();return}
+ if(b.hasAttribute('data-copy')){var txt=listText();try{navigator.clipboard.writeText(txt).then(function(){b.textContent='Copiat ✓'},function(){prompt('Copiază lista:',txt)})}catch(x){prompt('Copiază lista:',txt)}return}
+ if(b.hasAttribute('data-order')){var f=document.getElementById('send');f.classList.add('show');f.querySelector('input').focus();return}
+});
+document.addEventListener('change',function(e){
+ var el=e.target;
+ if(el.id==='sys'){setSys(+el.value)}
+ else if(el.id==='dia'){S.dia=+el.value;S.touched=false;recalc();render()}
+ else if(el.id==='h'){S.h=Math.max(1,+el.value||0);S.touched=false;recalc();render()}
+ else if(el.id==='racSel'){S.racord=el.value;S.touched=false;recalc();render()}
+ else if(el.id==='showAll'){S.showAll=el.checked;render()}
+ else if(el.dataset.id){S.qty[el.dataset.id]=Math.max(0,parseInt(el.value)||0);S.touched=true;render()}
+});
+document.addEventListener('submit',function(e){
+ if(e.target.id!=='send')return;e.preventDefault();
+ var f=e.target,btn=f.querySelector('button[type=submit]'),err=document.getElementById('err'),n=f.n.value.trim(),t=f.t.value.trim();
+ btn.disabled=true;btn.textContent='Se trimite…';err.textContent='';
+ fetch('https://formsubmit.co/ajax/contact@flamart.ro',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+  body:JSON.stringify({_subject:'Comandă coș de fum inox '+SYS().name+' Ø'+S.dia+' — '+n,_template:'table',_captcha:'false',
+   Nume:n,Telefon:t,Observatii:f.o.value,Total:totals().tot+' lei cu TVA',Configuratie:listText(),Pagina:location.href})})
+ .then(function(r){return r.json().then(function(j){if(!r.ok||String(j.success)!=='true')throw 0})})
+ .then(function(){f.classList.add('done')})
+ .catch(function(){err.innerHTML='Comanda nu a putut fi trimisă. Încearcă din nou sau sună la <a href="tel:+40757355813">0757 355 813</a>.'})
+ .then(function(){btn.disabled=false;btn.textContent='Trimite comanda'});
+});
+recalc();render();
+</script>
+</body>
+</html>
