@@ -62,12 +62,50 @@
   .details h3{margin:0 0 8px;font-size:15px}
   .details p,.details li{margin:0;font-size:14px;line-height:1.55;color:#444}
   .details ul{margin:0;padding-left:18px}
+
+  /* Telefon: compact, forma lângă câmpuri, fără derulare în interior */
+  html,body{overflow:hidden}
+  @media (max-width:600px){
+    .wrap{padding:12px 12px 16px}
+    .grid{display:flex;flex-direction:column;align-items:stretch;gap:12px}
+    .left{width:100%}
+    .right{display:contents}
+    .head{order:1}
+    .left{order:2}
+    .card{order:3}
+    .eyebrow{font-size:10px;margin:0 0 3px}
+    h1{font-size:19px;margin:0 0 4px}
+    .lead{font-size:13px;line-height:1.45;margin:0}
+    .stage{aspect-ratio:auto;height:190px;border-radius:12px}
+    .dim{font-size:12px}
+    .card{padding:14px;border-radius:14px}
+    .card h2{font-size:15px;margin:0 0 10px}
+    .row{gap:10px}
+    label{font-size:12px;margin:0 0 4px}
+    input[type=number]{font-size:17px;padding:9px 14px}
+    .hint{font-size:11px;padding:5px 10px;margin-top:8px}
+    .msg{min-height:0;font-size:12px;margin-top:4px}
+    .buy{gap:10px;margin-top:12px;padding-top:12px}
+    .price small{font-size:10px}
+    .price b{font-size:24px}
+    .price span{font-size:11px}
+    .qty{height:42px}
+    .qty button{width:36px;font-size:19px}
+    .qty input{width:36px;font-size:16px;text-align:center}
+    .add{height:44px;font-size:15px;flex:1 1 100%}
+    .status{font-size:12px;margin-top:8px;min-height:0}
+    .meta{font-size:11px;gap:10px;margin-top:8px}
+    .details{margin-top:16px;gap:10px}
+    .details div{padding:12px 14px;border-radius:12px}
+    .details h3{font-size:13px;margin-bottom:4px}
+    .details p,.details li{font-size:12px;line-height:1.5}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="grid">
-    <div>
+    <div class="left">
       <div class="stage" id="stage">
         <div class="box" id="box">
           <div class="glass" id="glass"></div>
@@ -77,10 +115,12 @@
       </div>
     </div>
 
-    <div>
-      <p class="eyebrow">Tăiată la milimetru</p>
-      <h1>Sticlă termorezistentă pentru șemineu și sobă</h1>
-      <p class="lead">Sticlă vitroceramică de 4 mm pentru ușa focarului, a sobei sau a șemineului. Scrie dimensiunile, vezi prețul pe loc și adaugă în coș.</p>
+    <div class="right">
+      <div class="head">
+        <p class="eyebrow">Tăiată la milimetru</p>
+        <h1>Sticlă termorezistentă pentru șemineu și sobă</h1>
+        <p class="lead">Sticlă vitroceramică de 4 mm pentru ușa focarului, a sobei sau a șemineului. Scrie dimensiunile, vezi prețul pe loc și adaugă în coș.</p>
+      </div>
 
       <div class="card">
         <h2>Introdu dimensiunile sticlei</h2>
@@ -94,7 +134,7 @@
             <input id="w" type="number" inputmode="numeric" min="100" max="1000" step="1" value="300">
           </div>
         </div>
-        <span class="hint">Dimensiunile în mm! 1 cm = 10 mm · între 100 și 1000 mm</span>
+        <span class="hint">În mm! 1 cm = 10 mm · între 100 și 1000 mm</span>
         <div class="msg" id="msg"></div>
 
         <div class="buy">
