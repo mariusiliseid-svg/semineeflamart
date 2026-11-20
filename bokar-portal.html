@@ -1644,12 +1644,14 @@ document.getElementById('partGarantieForm').onsubmit = async function(e){
 };
 
 async function loadPartenerView(){
-  const [oferteToate, dealeriComenziToate] = await Promise.all([safeGetAll('oferte'), safeGetAll('dealeriComenzi')]);
+  const [oferteToate, dealeriComenziToate, custSnap] = await Promise.all([safeGetAll('oferte'), safeGetAll('dealeriComenzi'),
+    db.collection('custodii').where('dealerUid','==',currentUser.uid).get().then(sn => sn.docs.map(d => ({ id:d.id, ...d.data() }))).catch(e => { console.error('custodii', e); return []; })]);
   const ofertele = oferteToate.filter(o => o.coleg === currentUser.name);
   const comenzile = dealeriComenziToate.filter(c => c.dealer === currentUser.name);
+  const dinCustodie = vanzariDinCustodie(custSnap, { conturi:[{ uid:currentUser.uid, nume:currentUser.name }], dealeriComenzi:comenzile });
 
   const istEl = document.getElementById('partIstoricContent');
-  const aprobate = comenzile.filter(c => (c.status||'aprobata')==='aprobata');
+  const aprobate = [...comenzile.filter(c => (c.status||'aprobata')==='aprobata'), ...dinCustodie];
   const inAsteptare = comenzile.filter(c => c.status==='in_asteptare');
   istEl.innerHTML = `
     <div class="card">
@@ -1672,6 +1674,16 @@ async function loadPartenerView(){
         `).join('')}</tbody></table>
       ` : '<div class="empty">Nicio comandă încă.</div>'}
     </div>
+    <div class="card">
+      <h2>Vândute din custodie</h2>
+      ${dinCustodie.length ? `
+        <table><thead><tr><th>Dată</th><th>Model</th><th>Serie</th><th>Valoare</th><th>Contract</th></tr></thead>
+        <tbody>${[...dinCustodie].sort((a,b)=>String(b.data).localeCompare(String(a.data))).map(c=>`
+          <tr><td>${fmtDate(c.data)}</td><td>${cuEsc(c.model)}${c.varianta?' '+cuEsc(c.varianta):''}</td><td>${cuEsc(c.serie)}</td><td>${Number(c.valoare||0).toLocaleString('ro-RO')} €</td><td>${cuEsc(c.contract)}</td></tr>
+        `).join('')}</tbody></table>
+        <p style="font-size:12px;color:var(--stone);margin:8px 0 0">Focarele vândute din showroom se adaugă la nivelul tău din ziua în care Flamart le marchează vândute.</p>
+      ` : '<div class="empty">Niciun focar vândut din custodie încă.</div>'}
+    </div>
   `;
   dpBind(istEl, comenzile);
 
@@ -1686,7 +1698,7 @@ async function loadPartenerView(){
     <div class="stat-grid">
       <div class="stat-card"><div class="n">${ofertele.length}</div><div class="l">Oferte totale</div></div>
       <div class="stat-card"><div class="n">${rataSucces}%</div><div class="l">Rată succes oferte</div></div>
-      <div class="stat-card"><div class="n">${unitatiAprobate}</div><div class="l">Unități comandate (aprobate)</div></div>
+      <div class="stat-card"><div class="n">${unitatiAprobate}</div><div class="l">Unități comandate și vândute din custodie</div></div>
       <div class="stat-card"><div class="n">${nivelDealerLocal(unitatiAprobate)}</div><div class="l">Nivelul tău</div></div>
     </div>
   `;
@@ -2029,6 +2041,7 @@ async function loadAll(){
   const dealeriComenzi = dealeriComenziToate.filter(c => (c.status||'aprobata') === 'aprobata');
   const cereriInAsteptare = dealeriComenziToate.filter(c => c.status === 'in_asteptare');
   CACHE = { oferte, dealeriComenzi, dealeriComenziToate, cereriInAsteptare, vanzariDirecte, garantii, importuri, marjeData, unitati, parteneriConturi, leaduri, custodii, custodieCfg: custodieCfg || {}, cereriParteneriat };
+  CACHE.vanzariCustodie = vanzariDinCustodie(CACHE.custodii, { conturi:CACHE.parteneriConturi, unitati:CACHE.unitati, dealeriComenzi:CACHE.dealeriComenzi, vanzariDirecte:CACHE.vanzariDirecte });
   renderOverview();
   renderProfituri();
   renderDealeriTab();
@@ -2249,7 +2262,7 @@ function fpRender(){
   const r = document.getElementById('fpRoot'); const cont = fpCont();
   if(!r) return; if(!cont){ FP.id = null; fpShow(); return; }
   const e = cuEsc, nume = cont.nume, uid = cont.uid, activ = cont.activ!==false;
-  const comenzi = (CACHE.dealeriComenzi||[]).filter(c => c.dealer===nume);
+  const comenzi = [...(CACHE.dealeriComenzi||[]), ...(CACHE.vanzariCustodie||[])].filter(c => c.dealer===nume || (c.dealerUid && c.dealerUid===uid));
   const buc = comenzi.reduce((a,c) => a+(Number(c.cantitate)||0), 0), val = comenzi.reduce((a,c) => a+(Number(c.valoare)||0), 0);
   const nivel = nivelDealer(buc), prag = PRAG_URMATOR[nivel];
   const cust = (CACHE.custodii||[]).filter(c => c.dealerUid===uid && c.tip!=='comision').sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
@@ -2843,8 +2856,38 @@ document.getElementById('contDealerForm').onsubmit = async function(e){
   }
 };
 
+/* Vânzări din custodie: fiecare produs marcat „Vândut” într-un contract de custodie (= facturat partenerului)
+   intră în statistică și în nivelul partenerului, din ziua marcării. Valoare = preț listă minus discountul din contract.
+   O serie care apare deja într-o comandă de dealer sau într-o vânzare directă nu se mai numără a doua oară. */
+function vanzariDinCustodie(custodii, opt){
+  opt = opt || {};
+  const norm = x => String(x||'').trim().toUpperCase();
+  const deja = new Set();
+  (opt.dealeriComenzi||[]).forEach(o => (o.serii||[]).forEach(x => deja.add(norm(x))));
+  (opt.vanzariDirecte||[]).forEach(o => { if(o.serie) deja.add(norm(o.serie)); (o.serii||[]).forEach(x => deja.add(norm(x))); });
+  const out = [];
+  (custodii||[]).filter(c => c.tip!=='comision' && (c.status==='activ' || c.status==='incheiat')).forEach(c => {
+    const cont = (opt.conturi||[]).find(x => x.uid && x.uid===c.dealerUid);
+    const dealer = (cont && cont.nume) || c.dealerName || (c.dz && c.dz.firma) || '';
+    (c.prods||[]).forEach(p => {
+      if(p.stare!=='vandut') return;
+      const sr = norm(p.s); if(sr && sr!=='—' && deja.has(sr)) return;
+      const u = p.unitId && (opt.unitati||[]).find(x => x.id===p.unitId);
+      let model = u && u.model, varianta = u && u.varianta;
+      if(!model){ const t = String(p.m||'').replace(/^BOKAR\s+/i,'').trim(); const mv = t.match(/^(.*?)\s+(White|Black|Grey|Gri|Cream)$/i);
+        model = mv ? mv[1] : t; varianta = mv ? mv[2] : ''; }
+      const curs = (typeof CACHE!=='undefined' && CACHE.marjeData && CACHE.marjeData.inputs && CACHE.marjeData.inputs.curs) || 5;
+      const q = +p.q || 1, pr = (+p.p||0) * (1 - (+c.disc||0)/100) / (c.moneda==='RON' ? curs : 1);   // în €, ca la comenzi
+      out.push({ sursa:'custodie', dealer, dealerUid:c.dealerUid||'', model, varianta:varianta||'', cantitate:q, valoare:Math.round(q*pr*100)/100,
+        data:p.dataStare || c.ultimaVanzare || c.data, serie:p.s||'', contract:c.nr||'', custodieId:c.id, status:'aprobata' });
+    });
+  });
+  return out;
+}
+
 function renderOverview(){
   const { oferte, dealeriComenzi, vanzariDirecte, garantii, importuri } = CACHE;
+  const vCust = CACHE.vanzariCustodie || [];
   const el = document.getElementById('overviewContent');
   const ofertateCastigate = oferte.filter(o => o.status === 'castigat');
 
@@ -2854,8 +2897,10 @@ function renderOverview(){
   const valoareDirect = vanzariDirecte.reduce((s,o)=>s+(Number(o.valoare)||0),0);
   const unitatiColeg = ofertateCastigate.length;
   const valoareColeg = ofertateCastigate.reduce((s,o)=>s+(Number(o.valoare)||0),0);
-  const totalUnitati = unitatiDealer + unitatiDirect + unitatiColeg;
-  const totalValoare = valoareDealer + valoareDirect + valoareColeg;
+  const unitatiCust = vCust.reduce((s,o)=>s+(Number(o.cantitate)||0),0);
+  const valoareCust = vCust.reduce((s,o)=>s+(Number(o.valoare)||0),0);
+  const totalUnitati = unitatiDealer + unitatiDirect + unitatiColeg + unitatiCust;
+  const totalValoare = valoareDealer + valoareDirect + valoareColeg + valoareCust;
 
   const perModel = {};
   function addModel(model, varianta, cant){
@@ -2866,6 +2911,7 @@ function renderOverview(){
   dealeriComenzi.forEach(o => addModel(o.model, o.varianta, Number(o.cantitate)||0));
   vanzariDirecte.forEach(o => addModel(o.model, o.varianta, Number(o.cantitate)||0));
   ofertateCastigate.forEach(o => addModel(o.model, o.varianta, 1));
+  vCust.forEach(o => addModel(o.model, o.varianta, Number(o.cantitate)||0));
   const modelSorted = Object.entries(perModel).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const maxModel = modelSorted.length ? modelSorted[0][1] : 1;
 
@@ -2877,6 +2923,7 @@ function renderOverview(){
     ...dealeriComenzi.map(o=>({sursa:'dealer', label:`${o.dealer} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
     ...vanzariDirecte.map(o=>({sursa:'direct', label:`${o.client} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
     ...ofertateCastigate.map(o=>({sursa:'coleg', label:`${o.coleg} — ${o.model} ${o.varianta||''}`, data:o.data, valoare:o.valoare})),
+    ...vCust.map(o=>({sursa:'dealer', label:`${o.dealer} — ${o.model} ${o.varianta||''} (din custodie ${o.contract})`, data:o.data, valoare:o.valoare})),
   ].sort((a,b)=>b.data.localeCompare(a.data)).slice(0,10);
 
   if(totalUnitati === 0 && garantii.length === 0 && importuri.length === 0){
@@ -2909,6 +2956,11 @@ function renderOverview(){
           <div class="n">${unitatiColeg} unități</div>
           <div class="l">Oferte câștigate (colegi)</div>
           <div class="v">${valoareColeg.toLocaleString('ro-RO')} €</div>
+        </div>
+        <div class="channel-card dealer" style="filter:saturate(.6)">
+          <div class="n">${unitatiCust} unități</div>
+          <div class="l">Vândute din custodie</div>
+          <div class="v">${valoareCust.toLocaleString('ro-RO',{maximumFractionDigits:2})} €</div>
         </div>
       </div>
     </div>
@@ -3038,7 +3090,7 @@ function renderProfituri(){
 }
 
 function renderDealeriTab(){
-  const { dealeriComenzi } = CACHE;
+  const dealeriComenzi = [...(CACHE.dealeriComenzi||[]), ...(CACHE.vanzariCustodie||[])];
   const el = document.getElementById('dealeriContent');
   if(dealeriComenzi.length === 0){
     el.innerHTML = '<div class="card"><div class="empty">Niciun dealer înregistrat încă.</div></div>';
