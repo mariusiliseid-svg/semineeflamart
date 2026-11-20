@@ -2176,6 +2176,8 @@ function renderCereri(){
 }
 
 function renderConturiList(){
+  fpShow();
+  if(FP.id) return fpRender();
   const el = document.getElementById('conturiListContent');
   const conturi = CACHE.parteneriConturi || [];
   if(conturi.length === 0){
@@ -2194,8 +2196,8 @@ function renderConturiList(){
           if(!c.uid) return `<tr><td>${esc(c.nume)}</td><td>—</td><td><span style="color:var(--red);font-weight:600;">De mutat</span></td>
             <td><button type="button" class="btn btn-secondary" data-migrate="${esc(c.nume)}">Mută</button></td></tr>`;
           const activ = c.activ !== false;
-          return `<tr><td>${esc(c.nume)}</td><td>${esc(c.email)}</td><td>${activ?'Activ':'<span style="color:var(--red);font-weight:600;">Suspendat</span>'}</td>
-            <td style="white-space:nowrap"><button type="button" class="btn btn-secondary" data-fd-acc="${esc(c.id)}">Date firmă${(c.firmaDate&&c.firmaDate.cui&&c.firmaDate.rc&&c.firmaDate.iban)?'':' ⚠'}</button>
+          return `<tr><td><a href="#" data-fp="${esc(c.id)}" style="font-weight:700">${esc(c.nume)}</a></td><td>${esc(c.email)}</td><td>${activ?'Activ':'<span style="color:var(--red);font-weight:600;">Suspendat</span>'}</td>
+            <td style="white-space:nowrap"><button type="button" class="btn btn-primary" data-fp="${esc(c.id)}">Fișa partenerului</button> <button type="button" class="btn btn-secondary" data-fd-acc="${esc(c.id)}">Date firmă${(c.firmaDate&&c.firmaDate.cui&&c.firmaDate.rc&&c.firmaDate.iban)?'':' ⚠'}</button>
               <button type="button" class="btn btn-secondary" data-toggle-acc="${esc(c.id)}">${activ?'Suspendă':'Reactivează'}</button></td></tr>`;
         }).join('')}
       </tbody>
@@ -2223,6 +2225,133 @@ function renderConturiList(){
     document.getElementById('contDealerForm').scrollIntoView({behavior:'smooth', block:'center'});
   });
   el.querySelectorAll('[data-toggle-acc]').forEach(b => b.onclick = () => toggleCont(b.dataset.toggleAcc));
+  el.querySelectorAll('[data-fp]').forEach(b => b.onclick = e => { e.preventDefault(); fpOpen(b.dataset.fp); });
+}
+
+/* ================= FIȘA PARTENERULUI =================
+   Tot ce ține de un partener, pe o singură pagină: comenzi (proformă, documente, corectare), custodie
+   (vândut / retras, acte adiționale), contracte de comision, garanții, lead-uri, reclamații, date firmă. */
+let FP = { id:null, recl:null };
+function fpCont(){ return (CACHE.parteneriConturi||[]).find(x => x.id===FP.id); }
+function fpShow(){
+  const sub = document.getElementById('subtab-conturi'); if(!sub) return;
+  let r = document.getElementById('fpRoot');
+  if(!r){ r = document.createElement('div'); r.id = 'fpRoot'; sub.prepend(r); }
+  [...sub.children].forEach(ch => { if(ch!==r) ch.style.display = FP.id ? 'none' : ''; });
+  r.style.display = FP.id ? '' : 'none';
+}
+function fpOpen(id){ FP.id = id; FP.recl = null; PFM.openId = PFM.docId = PFM.cxId = null; fpShow(); fpRender();
+  const r = document.getElementById('fpRoot'); if(r) r.scrollIntoView({ block:'start' }); }
+function fpClose(){ FP.id = null; fpShow(); renderConturiList(); }
+function fpGoSub(name){ const b = document.querySelector(`.subtab-btn[data-subtab="${name}"]`); if(b) b.click(); }
+function fpBackToFisa(){ fpGoSub('conturi'); fpShow(); fpRender(); }
+function fpRender(){
+  const r = document.getElementById('fpRoot'); const cont = fpCont();
+  if(!r) return; if(!cont){ FP.id = null; fpShow(); return; }
+  const e = cuEsc, nume = cont.nume, uid = cont.uid, activ = cont.activ!==false;
+  const comenzi = (CACHE.dealeriComenzi||[]).filter(c => c.dealer===nume);
+  const buc = comenzi.reduce((a,c) => a+(Number(c.cantitate)||0), 0), val = comenzi.reduce((a,c) => a+(Number(c.valoare)||0), 0);
+  const nivel = nivelDealer(buc), prag = PRAG_URMATOR[nivel];
+  const cust = (CACHE.custodii||[]).filter(c => c.dealerUid===uid && c.tip!=='comision').sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  const coms = (CACHE.custodii||[]).filter(c => c.dealerUid===uid && c.tip==='comision').sort((a,b) => String(b.created||'').localeCompare(String(a.created||'')));
+  const inShow = cust.filter(c => c.status==='activ').reduce((a,c) => a+cuExpuse(c).length, 0);
+  const gar = (CACHE.garantii||[]).filter(g => g.inregistratDe===nume).sort((a,b) => String(b.dataMontaj||'').localeCompare(String(a.dataMontaj||'')));
+  const leads = (CACHE.leaduri||[]).filter(l => l.preluatDe===nume).sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')));
+  const actDeSemnat = cust.reduce((a,c) => a+(c.acte||[]).filter(x => x.status==='trimis').length, 0);
+  const fd = Object.assign({}, partnerCompanyData(cont), cont.firmaDate||{});
+  const pill = (t, cls) => `<span class="cu-pill ${cls||''}">${t}</span>`;
+  r.innerHTML = `
+    <div class="cu-top"><button class="btn btn-secondary" id="fpBack" type="button">← Toți partenerii</button>
+      <span><b>${e(nume)}</b> · ${pill(nivel,'ok')} ${activ?'':pill('Suspendat','bad')}</span></div>
+    <div class="card">
+      <div style="font-size:13px;margin-bottom:10px">${e(fd.firma||'')}${fd.cui?` · CUI ${e(fd.cui)}`:''}${fd.judet?` · ${e(fd.judet)}`:''}<br>
+        <span style="color:var(--stone)">${e(cont.email||'')}${fd.tel?` · ${e(fd.tel)}`:''}</span></div>
+      <div class="keys" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px">
+        ${[['Focare comandate', buc], ['Valoare comenzi', val.toLocaleString('ro-RO',{maximumFractionDigits:0})+' €'], ['Nivel', nivel+(prag?` · încă ${prag-buc} până la următorul`:'')],
+           ['În showroom acum', inShow], ['Garanții', gar.length], ['Lead-uri preluate', leads.length]]
+          .map(([k,v]) => `<div style="background:var(--bg-soft);border-radius:8px;padding:10px"><div style="font-size:11.5px;color:var(--stone)">${k}</div><b style="font-size:16px">${e(v)}</b></div>`).join('')}
+      </div>
+      <div class="cu-acts" style="margin:0">
+        <button class="btn btn-primary" id="fpCmd" type="button">＋ Comandă nouă</button>
+        <button class="btn btn-secondary" id="fpCus" type="button">＋ Contract custodie</button>
+        <button class="btn btn-secondary" id="fpCom" type="button">＋ Contract comision</button>
+        <button class="btn btn-secondary" id="fpFd" type="button">Date firmă${(cont.firmaDate&&cont.firmaDate.cui&&cont.firmaDate.rc&&cont.firmaDate.iban)?'':' ⚠'}</button>
+        <button class="btn btn-secondary" id="fpTog" type="button">${activ?'Suspendă contul':'Reactivează contul'}</button>
+      </div>
+      <div id="fpFdBox"></div>
+    </div>
+
+    <div class="card"><h2>Comenzi · proformă, documente, corectare</h2><div id="fpPfm"></div></div>
+
+    <div class="card"><h2>Custodie${actDeSemnat?` · ${pill(actDeSemnat+(actDeSemnat===1?' act de semnat':' acte de semnat'),'warn')}`:''}</h2>
+      ${cust.length ? cust.map(c => { const st = cuState(c);
+        return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
+          <div class="cu-top" style="margin-bottom:8px"><span><b>${e(c.nr||'Ciornă')}</b> · ${e(c.dz&&c.dz.show||'')} ${pill(e(st.t), st.cls)}</span>
+            <button class="btn btn-secondary cu-sm" type="button" data-fpcu="${e(c.id)}">Deschide contractul</button></div>
+          ${(c.status==='activ'||c.status==='incheiat') ? `<div style="overflow-x:auto"><table><thead><tr><th>Produs</th><th>Serie</th><th>Preț listă</th><th>Stare</th><th></th></tr></thead><tbody>
+            ${(c.prods||[]).map((p,i) => { const ps = p.stare||'expus';
+              return `<tr><td>${e(p.m)}</td><td>${e(p.s)}</td><td>${cuFmt(p.p)} ${cuMon(c)}</td>
+                <td>${pill(ps==='expus'?'În showroom':ps==='vandut'?'Vândut':'Retras', ps==='expus'?'ok':ps==='vandut'?'info':'')}${p.dataStare?` <span style="color:var(--stone);font-size:11px">${cuDRo(p.dataStare)}</span>`:''}</td>
+                <td style="white-space:nowrap">${c.status==='activ' && ps==='expus' ? `<button class="btn btn-secondary cu-sm" type="button" data-fpsold="${e(c.id)}|${i}">Vândut</button> <button class="btn btn-secondary cu-sm" type="button" data-fppull="${e(c.id)}|${i}">Retras</button>` : ''}</td></tr>`; }).join('')}
+          </tbody></table></div>${aaListHtml(c, false)}` : `<div style="font-size:12.5px;color:var(--stone)">${c.status==='trimis'?'Trimis la semnat.':'Ciornă, netrimisă.'}</div>`}
+        </div>`; }).join('') : '<div class="empty">Niciun contract de custodie.</div>'}
+    </div>
+
+    <div class="card"><h2>Contracte de comision</h2>
+      ${coms.length ? `<div class="doc-list">${coms.map(c => { const st = c.status==='activ'?'Activ':c.status==='incheiat'?'Încetat':c.status==='trimis'?'La semnat':'Ciornă';
+        return `<div class="doc-row"><div class="doc-ic">PDF</div><div class="doc-tx"><b>Contract-cadru ${e(c.nr||'')}</b><span>${st}${c.signedAt?` · semnat ${cuDRo(String(c.signedAt).slice(0,10))}`:''}</span></div>
+          <div class="doc-ac"><button class="btn btn-secondary" type="button" data-fpcm="${e(c.id)}">Deschide</button></div></div>`; }).join('')}</div>` : '<div class="empty">Niciun contract de comision.</div>'}
+    </div>
+
+    <div class="card"><h2>Garanții înregistrate (${gar.length})</h2>
+      ${gar.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Serie</th><th>Model</th><th>Client</th><th>Montaj</th><th></th></tr></thead><tbody>
+        ${gar.slice(0,30).map(g => `<tr><td>${e(g.serie)}</td><td>${e(g.model||'')} ${e(g.varianta||'')}</td><td>${e(g.clientNume||'')}</td><td>${g.dataMontaj?fmtDate(g.dataMontaj):''}</td>
+          <td><button class="btn btn-secondary cu-sm" type="button" data-fpgar="${e(g.id)}">Certificat PDF</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nicio garanție înregistrată.</div>'}
+    </div>
+
+    <div class="card"><h2>Lead-uri preluate (${leads.length})</h2>
+      ${leads.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Dată</th><th>Client</th><th>Județ</th><th>Interes</th><th>Status</th></tr></thead><tbody>
+        ${leads.slice(0,20).map(l => `<tr><td>${l.data?fmtDate(l.data):''}</td><td>${e(l.nume||'')}</td><td>${e(l.judet||'')}</td><td>${e(l.interes||l.model||'')}</td><td>${e(l.status||'')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Niciun lead preluat.</div>'}
+    </div>
+
+    <div class="card"><h2>Reclamații</h2><div id="fpRecl"><div class="empty">Se încarcă…</div></div></div>`;
+
+  document.getElementById('fpBack').onclick = fpClose;
+  document.getElementById('fpCmd').onclick = () => { fpGoSub('dealer'); const i = document.getElementById('cd-dealer'); if(i){ i.value = nume; i.dispatchEvent(new Event('input', { bubbles:true })); i.dispatchEvent(new Event('change', { bubbles:true })); i.scrollIntoView({ block:'center' }); } };
+  document.getElementById('fpCus').onclick = () => { const n = cuBlank(); n.dealerUid = uid; n.dealerName = nume;
+    const prev = cust.find(x => x.dz); if(prev){ ['firma','cui','rc','sediu','rep','fct','tel','mail','show'].forEach(k => { if(prev.dz[k]) n.dz[k] = prev.dz[k]; }); n.tier = prev.tier || n.tier; }
+    try{ fillDzFromPartner(n, cont); }catch(err){}
+    CU.fromFp = true; fpGoSub('custodie'); cuGo('form', { cur:n }); };
+  document.getElementById('fpCom').onclick = () => { CM.fromFp = true; fpGoSub('comision'); const n = (typeof cmBlank==='function') ? cmBlank() : null;
+    if(n){ n.dealerUid = uid; n.dealerName = nume; try{ fillDzFromPartner(n, cont); }catch(err){} CM.view = 'form'; CM.cur = n; } renderComision(); };
+  document.getElementById('fpTog').onclick = () => toggleCont(cont.id);
+  document.getElementById('fpFd').onclick = () => {
+    const box = document.getElementById('fpFdBox');
+    if(box.innerHTML){ box.innerHTML = ''; return; }
+    box.innerHTML = `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><h3 style="font-size:14px;margin:0 0 8px">Datele firmei</h3>
+      ${fdFormHtml('fpfd', fd)}<div style="display:flex;gap:8px"><button type="button" class="btn btn-primary" id="fpFdSave">Salvează</button><button type="button" class="btn btn-secondary" id="fpFdX">Închide</button></div></div>`;
+    document.getElementById('fpFdX').onclick = () => { box.innerHTML = ''; };
+    document.getElementById('fpFdSave').onclick = async () => { const d = fdRead('fpfd', true); if(!d) return;
+      try{ await db.collection('parteneriConturi').doc(cont.id).update({ firmaDate:d }); loadAll(); }catch(err){ console.error(err); alert('Nu am putut salva datele firmei.'); } };
+  };
+  r.querySelectorAll('[data-fpcu]').forEach(b => b.onclick = () => { CU.fromFp = true; fpGoSub('custodie'); cuGo('detail', { openId:b.dataset.fpcu }); });
+  r.querySelectorAll('[data-fpcm]').forEach(b => b.onclick = () => { CM.fromFp = true; fpGoSub('comision'); CM.view = 'detail'; CM.openId = b.dataset.fpcm; renderComision(); });
+  r.querySelectorAll('[data-fpsold],[data-fppull]').forEach(b => b.onclick = () => { const [cid, i] = (b.dataset.fpsold||b.dataset.fppull).split('|');
+    const c = cust.find(x => x.id===cid); if(c) cuSetProd(c, +i, b.dataset.fpsold ? 'vandut' : 'retras'); });
+  aaBindPdf(r, cust);
+  r.querySelectorAll('[data-fpgar]').forEach(b => b.onclick = async () => { const g = gar.find(x => x.id===b.dataset.fpgar); if(!g) return;
+    b.disabled = true; try{ await generareCertificatGarantiePDF(g); }catch(err){ console.error(err); alert('Nu am putut genera certificatul.'); } b.disabled = false; });
+  renderProformeComenzi('fpPfm', nume);
+  fpLoadRecl(nume);
+}
+async function fpLoadRecl(nume){
+  const el = document.getElementById('fpRecl'); if(!el) return;
+  try{ if(!FP.recl) FP.recl = await safeGetAll('reclamatii'); }catch(e){ FP.recl = []; }
+  const list = (FP.recl||[]).filter(x => x.partener===nume).sort((a,b) => String(b.data||b.created||'').localeCompare(String(a.data||a.created||'')));
+  if(!document.getElementById('fpRecl')) return;
+  document.getElementById('fpRecl').innerHTML = list.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Dată</th><th>Serie</th><th>Problemă</th><th>Status</th></tr></thead><tbody>
+    ${list.slice(0,20).map(x => `<tr><td>${cuEsc(fmtDate(String(x.data||x.created||'').slice(0,10)))}</td><td>${cuEsc(x.serie||'')}</td><td>${cuEsc(String(x.descriere||x.problema||x.mesaj||'').slice(0,120))}</td><td>${cuEsc(x.status||'')}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="empty">Nicio reclamație.</div>';
 }
 
 // Istoricul e legat de partener prin nume (dealer/coleg/inregistratDe/preluatDe/partener).
@@ -2958,7 +3087,8 @@ function renderDealeriTab(){
     </div>
     <div id="pfmRoot"></div>
   `;
-  renderProformeComenzi();
+  renderProformeComenzi('pfmRoot', null);
+  if(FP.id) fpRender();
 }
 
 /* ================= PROFORMĂ SMARTBILL PENTRU COMENZILE PARTENERILOR =================
@@ -2989,10 +3119,16 @@ function pfmCalc(c){
   }
   return { linii:[{ denumire, um:'buc', cantitate:q, pret:Math.round(val / q * 100) / 100, nota:(c.serii||[]).length ? 'Serii: ' + c.serii.join(', ') : '' }], discount:0, total:val };
 }
-function renderProformeComenzi(){
-  const el = document.getElementById('pfmRoot'); if(!el) return;
+function renderProformeComenzi(root, only){
+  if(root !== undefined){ PFM.root = root; PFM.only = only || null; }
+  const rootId = PFM.root || 'pfmRoot', onlyN = PFM.only;
+  const el = document.getElementById(rootId); if(!el) return;
+  // un click în tabel îl face „activ” (formularele deschise și re-randările merg în containerul lui)
+  if(!el._pfmCap){ el._pfmCap = true; el.addEventListener('click', () => { PFM.root = el.id; PFM.only = el.dataset.only || null; }, true); }
+  el.dataset.only = onlyN || '';
   const e = cuEsc, eur = n => (Number(n)||0).toLocaleString('ro-RO', { maximumFractionDigits:2 }) + ' €';
-  const toate = [...(CACHE.dealeriComenzi||[])].sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')));
+  const toate = [...(CACHE.dealeriComenzi||[])].filter(c => !onlyN || c.dealer===onlyN).sort((a,b) => String(b.data||'').localeCompare(String(a.data||'')));
+  if(onlyN && !toate.length){ el.innerHTML = '<div class="empty">Nicio comandă încă.</div>'; return; }
   const lista = PFM.showAll ? toate : toate.slice(0, 15);
   el.innerHTML = `<div class="card"><h2>Comenzi parteneri · proformă, documente, corectare</h2>
     <div class="hint">Creează proforma ca <b>ciornă</b> în SmartBill, pe FLAMART PROJECT SRL. O verifici și o emiți tu din SmartBill. Prețurile din portal sunt în EUR cu TVA; pe proformă se convertesc în lei la cursul BNR al zilei.</div>
@@ -3003,12 +3139,13 @@ function renderProformeComenzi(){
         <button class="btn btn-secondary cu-sm" type="button" data-pfm="${e(c.id)}">🧾 ${pf.length ? 'Încă o proformă' : 'Proformă SmartBill'}</button></td>
       <td style="white-space:nowrap">${dpListHtml(c, true)}<button class="btn btn-secondary cu-sm" type="button" data-dpopen="${e(c.id)}">📎 Atașează PDF</button>
         <br><button class="btn btn-ghost cu-sm" type="button" data-cxopen="${e(c.id)}" style="margin-top:4px">↩ Corectează / anulează</button></td></tr>
-      ${PFM.openId===c.id ? `<tr><td colspan="7" style="background:var(--bg-soft)">${pfmFormHtml(c)}</td></tr>` : ''}
-      ${PFM.docId===c.id ? `<tr><td colspan="7" style="background:var(--bg-soft)">${dpFormHtml(c)}</td></tr>` : ''}
-      ${PFM.cxId===c.id ? `<tr><td colspan="7" style="background:var(--bg-soft)">${cxFormHtml(c)}</td></tr>` : ''}`; }).join('')}
+      ${PFM.openId===c.id && el.id===(PFM.root||'pfmRoot') ? `<tr><td colspan="7" style="background:var(--bg-soft)">${pfmFormHtml(c)}</td></tr>` : ''}
+      ${PFM.docId===c.id && el.id===(PFM.root||'pfmRoot') ? `<tr><td colspan="7" style="background:var(--bg-soft)">${dpFormHtml(c)}</td></tr>` : ''}
+      ${PFM.cxId===c.id && el.id===(PFM.root||'pfmRoot') ? `<tr><td colspan="7" style="background:var(--bg-soft)">${cxFormHtml(c)}</td></tr>` : ''}`; }).join('')}
     </tbody></table></div>
     ${toate.length > 15 ? `<button class="btn btn-ghost btn-sm" type="button" id="pfmAll">${PFM.showAll ? 'Arată doar ultimele 15' : `Arată toate (${toate.length})`}</button>` : ''}
     <div style="margin-top:8px"><button class="btn btn-ghost btn-sm" type="button" id="pfmSet">Setări conexiune SmartBill</button></div></div>`;
+  if(onlyN){ const cd = el.firstElementChild; if(cd && cd.classList.contains('card')){ cd.classList.remove('card'); const h = cd.querySelector('h2'); if(h) h.remove(); const hi = cd.querySelector('.hint'); if(hi) hi.remove(); } }
   el.querySelectorAll('[data-pfm]').forEach(b => b.onclick = () => { PFM.openId = PFM.openId===b.dataset.pfm ? null : b.dataset.pfm; renderProformeComenzi(); });
   const all = document.getElementById('pfmAll'); if(all) all.onclick = () => { PFM.showAll = !PFM.showAll; renderProformeComenzi(); };
   document.getElementById('pfmSet').onclick = () => {
@@ -4078,7 +4215,8 @@ function cuRenderDetail(el){
       ${c.status!=='activ' && c.status!=='incheiat' ? '<button class="btn btn-secondary" id="cuDel" type="button" style="color:var(--red)">Șterge</button>' : ''}
     </div>
     <div class="cu-docwrap"><article class="cdoc">${cuBuildDoc(c)}</article></div>`;
-  document.getElementById('cuBack').onclick = () => cuGo('list');
+  document.getElementById('cuBack').onclick = () => { if(CU.fromFp && FP.id){ CU.fromFp = false; CU.view = 'list'; renderCustodie(); fpBackToFisa(); } else cuGo('list'); };
+  if(CU.fromFp && FP.id) document.getElementById('cuBack').textContent = '← Înapoi la fișa partenerului';
   document.getElementById('cuPdf').onclick = () => cuMakePdf(c);
   document.getElementById('cuDup').onclick = () => { const n = cuBlank();
     Object.assign(n, { dep:c.dep, depRep:c.depRep, depFct:c.depFct, dealerUid:c.dealerUid||'', dealerName:c.dealerName||'', dz:JSON.parse(JSON.stringify(c.dz)), tier:c.tier,
@@ -5480,7 +5618,7 @@ function cmRenderDetail(el){
       ${c.status!=='activ' && c.status!=='incheiat' ? '<button class="btn btn-secondary" id="cmDel" type="button" style="color:var(--red)">Șterge</button>' : ''}
     </div>
     <div class="cu-docwrap"><article class="cdoc">${cmBuildDoc(c)}</article></div>`;
-  document.getElementById('cmBack').onclick = () => cmGo('list');
+  document.getElementById('cmBack').onclick = () => { if(CM.fromFp && FP.id){ CM.fromFp = false; CM.view = 'list'; renderComision(); fpBackToFisa(); } else cmGo('list'); }; if(CM.fromFp && FP.id) document.getElementById('cmBack').textContent = '← Înapoi la fișa partenerului';
   document.getElementById('cmPdf').onclick = () => cuMakePdf(c);
   const cl = document.getElementById('cmClose'); if(cl) cl.onclick = async () => {
     if(!confirm(`Marchezi contractul ${c.nr} ca încetat? Comisioanele pentru vânzările de până acum rămân datorate.`)) return;
