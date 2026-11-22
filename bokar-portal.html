@@ -2290,6 +2290,7 @@ function fpRender(){
         <button class="btn btn-secondary" id="fpCom" type="button">＋ Contract comision</button>
         <button class="btn btn-secondary" id="fpFd" type="button">Date firmă${(cont.firmaDate&&cont.firmaDate.cui&&cont.firmaDate.rc&&cont.firmaDate.iban)?'':' ⚠'}</button>
         <button class="btn btn-secondary" id="fpTog" type="button">${activ?'Suspendă contul':'Reactivează contul'}</button>
+        <button class="btn btn-secondary" id="fpRap" type="button">Raport de performanță</button>
       </div>
       <div id="fpFdBox"></div>
     </div>
@@ -2338,6 +2339,8 @@ function fpRender(){
   document.getElementById('fpCom').onclick = () => { CM.fromFp = true; fpGoSub('comision'); const n = (typeof cmBlank==='function') ? cmBlank() : null;
     if(n){ n.dealerUid = uid; n.dealerName = nume; try{ fillDzFromPartner(n, cont); }catch(err){} CM.view = 'form'; CM.cur = n; } renderComision(); };
   document.getElementById('fpTog').onclick = () => toggleCont(cont.id);
+  document.getElementById('fpRap').onclick = () => { const k = prompt('Perioada raportului:\n1 = ultimele 12 luni\n2 = anul curent\n3 = anul trecut\n4 = toată colaborarea', '1'); if(k===null) return;
+    rpOpen('one', nume, ({ '1':'12l', '2':'an', '3':'anTrecut', '4':'tot' })[String(k).trim()] || '12l'); };
   document.getElementById('fpFd').onclick = () => {
     const box = document.getElementById('fpFdBox');
     if(box.innerHTML){ box.innerHTML = ''; return; }
@@ -3139,8 +3142,230 @@ function renderDealeriTab(){
     </div>
     <div id="pfmRoot"></div>
   `;
+  el.insertAdjacentHTML('afterbegin', rpCardHtml()); rpBindCard();
   renderProformeComenzi('pfmRoot', null);
   if(FP.id) fpRender();
+}
+
+/* ================= RAPORT DE PERFORMANȚĂ AL PARTENERILOR =================
+   Prezentare PDF (slide-uri 16:9): raport general (toți partenerii) + câte un slide pe partener,
+   sau doar raportul unui partener (din fișa lui). Date: comenzi aprobate + vânzări din custodie,
+   custodie, garanții, lead-uri, reclamații. Nivelul se calculează pe toată colaborarea (politica 2026). */
+const RP_W = 1280, RP_H = 720;
+const RP_LUNI = ['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','nov','dec'];
+let RP = { per:'12l', recl:null };
+function rpPeriod(key){
+  const now = new Date(), y = now.getFullYear(), iso = d => d.toISOString().slice(0,10);
+  if(key==='an') return { from:`${y}-01-01`, to:iso(now), label:`Anul ${y} (1 ian – ${now.getDate()} ${RP_LUNI[now.getMonth()]})` };
+  if(key==='anTrecut') return { from:`${y-1}-01-01`, to:`${y-1}-12-31`, label:`Anul ${y-1}` };
+  if(key==='tot') return { from:'2000-01-01', to:iso(now), label:'Toată colaborarea' };
+  const f = new Date(now.getFullYear(), now.getMonth()-11, 1), fIso = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-01`;
+  return { from:fIso, to:iso(now), label:`Ultimele 12 luni (${RP_LUNI[f.getMonth()]} ${f.getFullYear()} – ${RP_LUNI[now.getMonth()]} ${y})` };
+}
+function rpMonths(P){
+  let start = P.from.slice(0,7); const end = P.to.slice(0,7);
+  if(P.from==='2000-01-01'){ const all = [...(CACHE.dealeriComenzi||[]), ...(CACHE.vanzariCustodie||[])].map(o => String(o.data||'')).filter(Boolean).sort();
+    start = (all[0]||P.to).slice(0,7); }
+  let y = +start.slice(0,4), m = +start.slice(5,7); const out = [];
+  while(`${y}-${String(m).padStart(2,'0')}` <= end && out.length < 36){ out.push(`${y}-${String(m).padStart(2,'0')}`); m++; if(m>12){ m = 1; y++; } }
+  if(out.length > 24) return out.slice(-24);
+  return out;
+}
+function rpData(P){
+  const inP = x => { const s = String(x||'').slice(0,10); return s && s>=P.from && s<=P.to; };
+  const conturi = CACHE.parteneriConturi || [];
+  const toateVanz = [...(CACHE.dealeriComenzi||[]).map(o => Object.assign({ sursa:'comanda' }, o)), ...(CACHE.vanzariCustodie||[])];
+  const nume = new Set([...conturi.map(c => c.nume), ...toateVanz.map(o => o.dealer)].filter(Boolean));
+  const recl = RP.recl || [];
+  const partners = [...nume].map(n => {
+    const cont = conturi.find(c => c.nume===n) || {}, uid = cont.uid;
+    const all = toateVanz.filter(o => o.dealer===n || (uid && o.dealerUid===uid));
+    const v = all.filter(o => inP(o.data));
+    const buc = v.reduce((a,o) => a+(+o.cantitate||0), 0), val = v.reduce((a,o) => a+(+o.valoare||0), 0);
+    const bucCust = v.filter(o => o.sursa==='custodie').reduce((a,o) => a+(+o.cantitate||0), 0);
+    const bucTot = all.reduce((a,o) => a+(+o.cantitate||0), 0);
+    const nivel = nivelDealer(bucTot), prag = PRAG_URMATOR[nivel];
+    const lastSale = all.map(o => String(o.data||'')).sort().pop() || '';
+    const zileInactiv = lastSale ? Math.floor((Date.now() - new Date(lastSale).getTime())/864e5) : null;
+    const cust = (CACHE.custodii||[]).filter(c => uid && c.dealerUid===uid && c.tip!=='comision' && c.status==='activ');
+    const inShow = cust.reduce((a,c) => a+cuExpuse(c).length, 0);
+    const custFaraVanz = cust.map(c => ({ nr:c.nr, zile:cuDays(c.ultimaVanzare||c.data) })).filter(x => x.zile>=60);
+    const gar = (CACHE.garantii||[]).filter(g => g.inregistratDe===n && inP(g.dataMontaj || g.created));
+    const leads = (CACHE.leaduri||[]).filter(l => l.preluatDe===n && inP(l.dataPreluare || l.data));
+    const castig = leads.filter(l => l.status==='castigat').length, pierd = leads.filter(l => l.status==='pierdut').length;
+    const rec = recl.filter(r => r.partener===n && inP(r.data || r.created));
+    const perModel = {}; v.forEach(o => { const k = `${o.model}${o.varianta?' '+o.varianta:''}`; perModel[k] = (perModel[k]||0)+(+o.cantitate||0); });
+    const perLuna = {}; v.forEach(o => { const k = String(o.data).slice(0,7); perLuna[k] = (perLuna[k]||0)+(+o.cantitate||0); });
+    const fd = Object.assign({}, typeof partnerCompanyData==='function' && cont.id ? partnerCompanyData(cont) : {}, cont.firmaDate||{});
+    return { nume:n, firma:fd.firma||n, judet:fd.judet||'', activ:cont.activ!==false, buc, val, bucCust, bucTot, nivel, prag, lastSale, zileInactiv,
+      inShow, custFaraVanz, gar:gar.length, leads:leads.length, castig, pierd, recl:rec.length, perModel, perLuna };
+  }).filter(p => p.bucTot>0 || p.inShow>0 || p.leads>0);
+  partners.sort((a,b) => b.val-a.val || b.buc-a.buc);
+  const tot = { buc:0, val:0, bucCust:0, gar:0, leads:0, castig:0, recl:0, activi:0, inShow:0 };
+  partners.forEach(p => { ['buc','val','bucCust','gar','leads','castig','recl','inShow'].forEach(k => tot[k]+=p[k]); if(p.buc>0) tot.activi++; });
+  const perModel = {}, perLuna = {}, perNivel = {};
+  partners.forEach(p => { Object.entries(p.perModel).forEach(([k,n]) => perModel[k]=(perModel[k]||0)+n); Object.entries(p.perLuna).forEach(([k,n]) => perLuna[k]=(perLuna[k]||0)+n); perNivel[p.nivel]=(perNivel[p.nivel]||0)+1; });
+  return { P, partners, tot, perModel, perLuna, perNivel, months:rpMonths(P) };
+}
+/* ---- piese de slide ---- */
+const rpE = x => cuEsc(x==null?'':x);
+const rpEur = n => (Math.round(+n||0)).toLocaleString('ro-RO') + ' €';
+function rpSlide(inner, opt){
+  opt = opt || {};
+  return `<section class="rp-slide${opt.dark?' rp-dark':''}"><div class="rp-in">${inner}</div>
+    <div class="rp-foot"><span>Flamart · importator BOKAR România</span><span>${rpE(opt.foot||'')}</span></div></section>`;
+}
+function rpKpis(items){ return `<div class="rp-kpis" style="grid-template-columns:repeat(${items.length},1fr)">${items.map(([v,l,s]) =>
+  `<div class="rp-kpi"><b>${v}</b><span>${l}</span>${s?`<em>${s}</em>`:''}</div>`).join('')}</div>`; }
+function rpBars(rows, opt){   // bare orizontale: [[etichetă, valoare, text]]
+  opt = opt || {}; const max = Math.max(1, ...rows.map(r => r[1]));
+  return `<div class="rp-bars">${rows.map(([l,v,t]) => `<div class="rp-bar"><span class="rp-bl">${rpE(l)}</span><span class="rp-bt"><i style="width:${v ? Math.max(2, v/max*100) : 0}%"></i></span><span class="rp-bv">${t!=null?t:v}</span></div>`).join('')}</div>`;
+}
+function rpMonthChart(months, perLuna, h, W){   // coloane pe luni, SVG
+  h = h || 260; W = W || 1150; const pad = 34, n = Math.max(1, months.length), bw = Math.min(56, (W-pad*2)/n*0.62), step = (W-pad*2)/n;
+  const vals = months.map(m => perLuna[m]||0), max = Math.max(1, ...vals);
+  return `<svg viewBox="0 0 ${W} ${h+40}" width="100%" height="${h+40}" role="img" aria-label="Unități pe lună">
+    <line x1="${pad}" x2="${W-pad}" y1="${h}" y2="${h}" stroke="#d9d6d1"/>
+    ${months.map((m,i) => { const v = vals[i], bh = v/max*(h-40), x = pad + i*step + (step-bw)/2;
+      return `<rect x="${x}" y="${h-bh}" width="${bw}" height="${bh}" rx="4" fill="${v?'#c0392b':'#e8e4de'}"/>
+        ${v?`<text x="${x+bw/2}" y="${h-bh-8}" text-anchor="middle" font-size="15" font-weight="700" fill="#232324">${v}</text>`:''}
+        <text x="${x+bw/2}" y="${h+24}" text-anchor="middle" font-size="13" fill="#68686a">${RP_LUNI[+m.slice(5,7)-1]}${(i===0||m.slice(5,7)==='01')?' '+m.slice(2,4):''}</text>`; }).join('')}
+  </svg>`;
+}
+function rpObservatii(p){
+  const o = [];
+  if(p.prag) o.push(`Mai are <b>${p.prag-p.bucTot}</b> ${p.prag-p.bucTot===1?'unitate':'unități'} până la nivelul următor.`);
+  if(p.zileInactiv!=null && p.zileInactiv>=60) o.push(`Nicio vânzare de <b>${p.zileInactiv} zile</b> — merită un telefon.`);
+  p.custFaraVanz.forEach(c => o.push(`Custodia ${rpE(c.nr)}: <b>${c.zile} zile</b> fără vânzare.`));
+  if(p.leads && !p.castig && p.leads>=2) o.push(`${p.leads} lead-uri preluate, niciunul câștigat încă.`);
+  if(p.bucCust && p.buc) o.push(`${Math.round(p.bucCust/p.buc*100)}% din vânzări vin din focarele expuse în custodie.`);
+  if(p.recl) o.push(`${p.recl} ${p.recl===1?'reclamație':'reclamații'} în perioadă.`);
+  if(!o.length) o.push('Fără semnale de atenție în perioadă.');
+  return o;
+}
+function rpPartnerSlide(p, D){
+  const models = Object.entries(p.perModel).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const share = D.tot.val ? Math.round(p.val/D.tot.val*100) : 0;
+  return rpSlide(`
+    <div class="rp-head"><div><h2>${rpE(p.nume)}</h2><p>${[p.firma!==p.nume?rpE(p.firma):'', p.judet?rpE(p.judet):'', p.activ?'':'cont suspendat'].filter(Boolean).join(' · ')}</p></div>
+      <div class="rp-tier">${rpE(p.nivel)}<small>${p.bucTot} unități în total</small></div></div>
+    ${rpKpis([[p.buc,'Unități vândute',p.bucCust?`din care ${p.bucCust} din custodie`:''],[rpEur(p.val),'Valoare',D.partners.length>1?`${share}% din total`:''],
+      [p.inShow,'Focare în showroom acum',''],[p.gar,'Garanții înregistrate',''],[p.leads?`${p.castig}/${p.leads}`:'—','Lead-uri câștigate / preluate','']])}
+    <div class="rp-cols">
+      <div><h3>Unități pe lună</h3>${rpMonthChart(D.months, p.perLuna, 260, 640)}</div>
+      <div><h3>Modele vândute</h3>${models.length ? rpBars(models.map(([k,n]) => [k,n])) : '<p class="rp-mute">Nicio vânzare în perioadă.</p>'}
+        <h3 style="margin-top:22px">De urmărit</h3><ul class="rp-obs">${rpObservatii(p).map(x => `<li>${x}</li>`).join('')}</ul></div>
+    </div>`, { foot:`${D.P.label} · ${p.nume}` });
+}
+function rpBuildSlides(D, mode, only){
+  const azi = new Date(), aziTxt = `${azi.getDate()} ${RP_LUNI[azi.getMonth()]} ${azi.getFullYear()}`;
+  const s = [];
+  if(mode==='one'){
+    const p = D.partners.find(x => x.nume===only);
+    s.push(rpSlide(`<div class="rp-cover"><small>Raport de performanță</small><h1>${rpE(only)}</h1><p>${rpE(D.P.label)}</p><p class="rp-mute">Generat la ${aziTxt}</p></div>`, { dark:true }));
+    s.push(p ? rpPartnerSlide(p, D) : rpSlide(`<h2>${rpE(only)}</h2><p class="rp-mute">Nicio activitate în perioada aleasă.</p>`));
+    return s;
+  }
+  const T = D.tot, top = D.partners.filter(p => p.buc>0);
+  s.push(rpSlide(`<div class="rp-cover"><small>Raport de performanță</small><h1>Partenerii BOKAR România</h1><p>${rpE(D.P.label)}</p><p class="rp-mute">Generat la ${aziTxt} · ${D.partners.length} parteneri</p></div>`, { dark:true }));
+  s.push(rpSlide(`<h2>Pe scurt</h2><p class="rp-lead">${T.activi} parteneri au vândut ${T.buc} ${T.buc===1?'focar':'focare'}, în valoare de ${rpEur(T.val)}.</p>
+    ${rpKpis([[T.buc,'Unități vândute',T.bucCust?`${T.bucCust} din custodie`:''],[rpEur(T.val),'Valoare totală',T.buc?`medie ${rpEur(T.val/T.buc)} / unitate`:''],[T.activi,'Parteneri activi',`din ${D.partners.length}`],
+      [T.inShow,'Focare în showroom-uri',''],[T.gar,'Garanții înregistrate',''],[T.leads?`${T.castig}/${T.leads}`:'—','Lead-uri câștigate / preluate','']].slice(0,5))}
+    <h3>Unități pe lună</h3>${rpMonthChart(D.months, D.perLuna, 220)}`, { foot:D.P.label }));
+  // clasament (max 12 pe slide)
+  for(let i=0;i<Math.max(1,top.length);i+=12){
+    const part = top.slice(i,i+12);
+    s.push(rpSlide(`<h2>Clasament după valoare${top.length>12?` (${i+1}–${i+part.length})`:''}</h2>
+      ${part.length ? `<table class="rp-t"><thead><tr><th>#</th><th>Partener</th><th>Nivel</th><th class="r">Unități</th><th class="r">Din custodie</th><th class="r">Valoare</th><th class="r">% din total</th><th class="r">Garanții</th><th class="r">Lead-uri</th></tr></thead><tbody>
+        ${part.map((p,j) => `<tr><td>${i+j+1}</td><td><b>${rpE(p.nume)}</b>${p.judet?` <span class="rp-mute">· ${rpE(p.judet)}</span>`:''}</td><td>${rpE(p.nivel)}</td><td class="r">${p.buc}</td><td class="r">${p.bucCust||'—'}</td><td class="r"><b>${rpEur(p.val)}</b></td><td class="r">${T.val?Math.round(p.val/T.val*100):0}%</td><td class="r">${p.gar}</td><td class="r">${p.leads?`${p.castig}/${p.leads}`:'—'}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="rp-mute">Nicio vânzare în perioada aleasă.</p>'}`, { foot:D.P.label }));
+  }
+  const niv = ['START','PARTNER','PRO','STUDIO'].map(k => [k, D.perNivel[k]||0, `${D.perNivel[k]||0} parteneri`]);
+  const models = Object.entries(D.perModel).sort((a,b) => b[1]-a[1]).slice(0,8).map(([k,n]) => [k,n]);
+  s.push(rpSlide(`<h2>Niveluri și modele</h2><div class="rp-cols">
+    <div><h3>Partenerii pe niveluri</h3>${rpBars(niv)}<p class="rp-mute" style="margin-top:14px">Nivelul se calculează pe toată colaborarea: PARTNER de la 3 unități, PRO de la 6, STUDIO de la 10.</p></div>
+    <div><h3>Cele mai vândute modele prin parteneri</h3>${models.length ? rpBars(models) : '<p class="rp-mute">—</p>'}</div></div>`, { foot:D.P.label }));
+  const aproape = D.partners.filter(p => p.prag && p.prag-p.bucTot<=1).map(p => `<li><b>${rpE(p.nume)}</b> — la ${p.prag-p.bucTot} unitate de ${p.nivel==='START'?'PARTNER':p.nivel==='PARTNER'?'PRO':'STUDIO'}</li>`);
+  const inactivi = D.partners.filter(p => p.zileInactiv!=null && p.zileInactiv>=60).sort((a,b) => b.zileInactiv-a.zileInactiv).slice(0,8).map(p => `<li><b>${rpE(p.nume)}</b> — ${p.zileInactiv} zile fără vânzare</li>`);
+  const custL = D.partners.flatMap(p => p.custFaraVanz.map(c => `<li><b>${rpE(p.nume)}</b> — custodia ${rpE(c.nr)}, ${c.zile} zile fără vânzare</li>`)).slice(0,8);
+  s.push(rpSlide(`<h2>De urmărit</h2><div class="rp-cols3">
+    <div><h3>Aproape de nivelul următor</h3><ul class="rp-obs">${aproape.join('') || '<li class="rp-mute">Nimeni la o unitate distanță.</li>'}</ul></div>
+    <div><h3>Fără vânzări de peste 60 de zile</h3><ul class="rp-obs">${inactivi.join('') || '<li class="rp-mute">Toți partenerii au vândut recent.</li>'}</ul></div>
+    <div><h3>Custodii care stau</h3><ul class="rp-obs">${custL.join('') || '<li class="rp-mute">Nicio custodie de peste 60 de zile fără vânzare.</li>'}</ul></div></div>`, { foot:D.P.label }));
+  if(mode==='all') D.partners.forEach(p => s.push(rpPartnerSlide(p, D)));
+  return s;
+}
+const RP_CSS = `
+.rp-slide{width:${RP_W}px;height:${RP_H}px;background:#fff;color:#232324;font-family:'Manrope',sans-serif;position:relative;box-sizing:border-box;overflow:hidden;letter-spacing:normal}
+.rp-slide *{box-sizing:border-box;letter-spacing:normal}
+.rp-in{position:absolute;inset:56px 64px 64px}
+.rp-foot{position:absolute;left:64px;right:64px;bottom:24px;display:flex;justify-content:space-between;font-size:13px;color:#8a8a8c}
+.rp-dark{background:#232324;color:#fff}.rp-dark .rp-foot{color:#9a9a9c}
+.rp-cover{position:absolute;left:0;top:150px}.rp-cover small{font-size:20px;color:#e0786c;font-weight:700}.rp-cover h1{font-size:64px;line-height:1.08;margin:12px 0 18px;font-weight:800}.rp-cover p{font-size:22px;margin:6px 0}
+.rp-slide h2{font-size:34px;font-weight:800;margin:0 0 14px}.rp-slide h3{font-size:18px;font-weight:700;margin:0 0 10px;color:#232324}
+.rp-lead{font-size:21px;margin:0 0 22px;color:#3a3a3b}.rp-mute{color:#8a8a8c}
+.rp-kpis{display:grid;gap:14px;margin-bottom:26px}.rp-kpi{background:#f6f4f1;border-radius:10px;padding:16px 18px}.rp-kpi b{display:block;font-size:30px;font-weight:800;line-height:1.1}
+.rp-kpi span{display:block;font-size:14px;color:#68686a;margin-top:6px}.rp-kpi em{display:block;font-style:normal;font-size:13px;color:#c0392b;margin-top:4px;font-weight:600}
+.rp-cols{display:grid;grid-template-columns:1.25fr 1fr;gap:40px}.rp-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:10px}
+.rp-bars{display:flex;flex-direction:column;gap:12px}.rp-bar{display:grid;grid-template-columns:190px 1fr 110px;align-items:center;gap:12px;font-size:17px}
+.rp-bt{background:#efebe5;border-radius:5px;height:22px;display:block;overflow:hidden}.rp-bt i{display:block;height:100%;background:#c0392b;border-radius:5px}.rp-bv{font-weight:700;text-align:right}
+.rp-bl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-t{width:100%;border-collapse:collapse;font-size:17px}.rp-t th{text-align:left;font-size:13px;color:#68686a;font-weight:700;padding:8px 10px;border-bottom:2px solid #232324}
+.rp-t td{padding:12px 10px;border-bottom:1px solid #e6e2dc}.rp-t .r{text-align:right}
+.rp-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.rp-head h2{margin:0}.rp-head p{margin:6px 0 0;font-size:17px;color:#68686a}
+.rp-tier{background:#c0392b;color:#fff;border-radius:10px;padding:10px 18px;font-size:24px;font-weight:800;text-align:right}.rp-tier small{display:block;font-size:13px;font-weight:600;opacity:.85}
+.rp-obs{margin:0;padding-left:20px;font-size:16px;line-height:1.45}.rp-obs li{margin-bottom:6px}
+#rpModal{position:fixed;inset:0;background:rgba(20,20,20,.72);z-index:9999;display:flex;flex-direction:column}
+#rpModal .rp-bar-top{display:flex;gap:8px;align-items:center;padding:10px 14px;background:#232324;color:#fff;flex-wrap:wrap}
+#rpModal .rp-scroll{flex:1;overflow:auto;padding:20px}#rpModal .rp-scale{transform-origin:top left}
+#rpModal .rp-slide{margin:0 auto 18px;box-shadow:0 4px 24px rgba(0,0,0,.35)}`;
+function rpEnsureCss(){ if(!document.getElementById('rpCss')){ const st = document.createElement('style'); st.id = 'rpCss'; st.textContent = RP_CSS; document.head.appendChild(st); } }
+async function rpOpen(mode, only, perKey){
+  rpEnsureCss();
+  if(!RP.recl){ try{ RP.recl = await safeGetAll('reclamatii'); }catch(e){ RP.recl = []; } }
+  const P = rpPeriod(perKey || RP.per), D = rpData(P), slides = rpBuildSlides(D, mode, only);
+  const old = document.getElementById('rpModal'); if(old) old.remove();
+  const m = document.createElement('div'); m.id = 'rpModal';
+  m.innerHTML = `<div class="rp-bar-top"><b style="margin-right:auto">${mode==='one'?'Raport '+cuEsc(only):'Raport parteneri'} · ${cuEsc(P.label)} · ${slides.length} slide-uri</b>
+    <button class="btn btn-primary" id="rpPdf" type="button">Descarcă PDF</button><button class="btn btn-secondary" id="rpX" type="button">Închide</button></div>
+    <div class="rp-scroll"><div class="rp-scale">${slides.join('')}</div></div>`;
+  document.body.appendChild(m);
+  const sc = m.querySelector('.rp-scale'), fit = () => { const w = m.querySelector('.rp-scroll').clientWidth - 40, k = Math.min(1, w/RP_W);
+    sc.style.transform = `scale(${k})`; sc.style.width = RP_W+'px'; sc.style.height = (slides.length*(RP_H+18)*k)+'px'; };
+  fit(); window.addEventListener('resize', fit);
+  m.querySelector('#rpX').onclick = () => { window.removeEventListener('resize', fit); m.remove(); };
+  m.querySelector('#rpPdf').onclick = () => rpPdf(slides, mode==='one' ? `Raport-${only}` : 'Raport-parteneri-BOKAR', P);
+}
+async function rpPdf(slides, base, P){
+  if(!window.jspdf || !window.html2canvas){ alert('Generatorul PDF nu s-a încărcat. Verifică internetul și reîncarcă pagina.'); return; }
+  rpEnsureCss();
+  const host = document.createElement('div'); host.style.cssText = `position:fixed;left:-20000px;top:0;width:${RP_W}px`; document.body.appendChild(host);
+  const pdf = new window.jspdf.jsPDF({ unit:'px', format:[RP_W, RP_H], orientation:'landscape', hotfixes:['px_scaling'] });
+  try{
+    try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
+    for(let i=0;i<slides.length;i++){
+      cuOverlay(`Se generează PDF-ul… slide ${i+1} din ${slides.length}`);
+      host.innerHTML = slides[i];
+      const cv = await window.html2canvas(host.firstElementChild, { scale:2, backgroundColor:null, useCORS:true, width:RP_W, height:RP_H });
+      if(i) pdf.addPage([RP_W, RP_H], 'landscape');
+      pdf.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, RP_W, RP_H);
+    }
+    pdf.save(`${String(base).replace(/[^\p{L}\p{N}]+/gu,'-')}-${P.from.slice(0,7)}-${P.to.slice(0,7)}.pdf`);
+  }catch(e){ console.error(e); alert('Nu am putut genera PDF-ul.'); }
+  finally{ host.remove(); cuOverlayClose(); }
+}
+function rpCardHtml(){
+  const opts = [['12l','Ultimele 12 luni'],['an','Anul curent'],['anTrecut','Anul trecut'],['tot','Toată colaborarea']];
+  return `<div class="card"><h2>Raport de performanță</h2>
+    <div class="hint">Prezentare PDF cu rezultatele partenerilor: rezumat, clasament, niveluri, modele și ce e de urmărit, plus câte un slide pentru fiecare partener.</div>
+    <div class="field-row"><div class="field"><label>Perioada</label><select id="rpPer">${opts.map(([k,t]) => `<option value="${k}"${RP.per===k?' selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Conținut</label><select id="rpMode"><option value="all">General + câte un slide pe partener</option><option value="sum">Doar raportul general</option></select></div></div>
+    <button class="btn btn-primary" id="rpGo" type="button">Generează raportul</button></div>`;
+}
+function rpBindCard(){
+  const go = document.getElementById('rpGo'); if(!go) return;
+  document.getElementById('rpPer').onchange = e => { RP.per = e.target.value; };
+  go.onclick = () => rpOpen(document.getElementById('rpMode').value, null, document.getElementById('rpPer').value);
 }
 
 /* ================= PROFORMĂ SMARTBILL PENTRU COMENZILE PARTENERILOR =================
