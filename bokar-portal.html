@@ -622,6 +622,11 @@
             <input type="date" id="g-data">
             <div class="field-error" id="g-data-error">Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor</div>
           </div>
+          <div class="field">
+            <label>Data cumpărării (de pe factură / bon)</label>
+            <input type="date" id="g-cump">
+            <div class="hint" style="margin:4px 0 0">Garanția de 5 ani curge de la data cumpărării. Dacă o lași goală, se folosește data montajului.</div>
+          </div>
           <button type="submit" class="btn btn-primary">Salvează garanția</button>
         </form>
       </div>
@@ -748,6 +753,11 @@
           <label>Data montajului</label>
           <input type="date" id="pg-data">
           <div class="field-error" id="pg-data-error">Data montajului trebuie să fie în ultimele 60 de zile, nu în viitor</div>
+        </div>
+        <div class="field">
+          <label>Data cumpărării (de pe factură / bon)</label>
+          <input type="date" id="pg-cump">
+          <div class="hint" style="margin:4px 0 0">Garanția de 5 ani curge de la data cumpărării. Dacă o lași goală, se folosește data montajului.</div>
         </div>
         <button type="submit" class="btn btn-primary">Salvează garanția</button>
       </form>
@@ -1231,6 +1241,7 @@ document.getElementById('garantieActionForm').onsubmit = async function(e){
   const factura = document.getElementById('g-factura').value.trim();
   const montator = document.getElementById('g-montator').value.trim();
   const dataMontaj = document.getElementById('g-data').value;
+  const dataCumparare = (document.getElementById('g-cump')||{}).value || dataMontaj;
 
   let valid = true;
   markFieldValid('g-serie-wrap', !!serie); if(!serie) valid = false;
@@ -1263,8 +1274,9 @@ document.getElementById('garantieActionForm').onsubmit = async function(e){
       document.getElementById('gError').classList.add('show');
       return;
     }
-    const dataExpirare = addYearsStr(dataMontaj, WARRANTY_YEARS);
-    const garantieData = { serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataExpirare, inregistratDe:'Admin' };
+    if(dataCumparare > dataMontaj){ alert('Data cumpărării nu poate fi după data montajului.'); return; }
+    const dataExpirare = addYearsStr(dataCumparare, WARRANTY_YEARS);   // garanția curge de la cumpărare (manualul BOKAR)
+    const garantieData = { serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataCumparare, dataExpirare, inregistratDe:'Admin' };
     const gRef = await db.collection('garantii').add({ ...garantieData, publicat:true });
     await publicaGarantie(garantieData).catch(e => console.error('verificare publică', e));
 
@@ -1346,10 +1358,10 @@ function generareCertificatGarantiePDF(g){
       </div>
       ${row(box('MARCĂ FOCAR:','BOKAR'), box('MODEL:', `${g.model||''} ${ABREV_VAR[g.varianta]||g.varianta||''}`))}
       ${row(box('SERIE DE ȘASIU:', g.serie))}
-      ${row(box('DISTRIBUITOR:', g.inregistratDe), box('PRIN FACTURA:', g.factura ? `${g.factura} din data de ${fmtDateRO(g.dataMontaj)}` : ''))}
+      ${row(box('DISTRIBUITOR:', g.inregistratDe), box('PRIN FACTURA:', g.factura ? `${g.factura} din data de ${fmtDateRO(g.dataCumparare||g.dataMontaj)}` : ''))}
       ${row(box('ADRESA DE MONTAJ:', g.adresa), box('DATA MONTAJULUI:', fmtDateRO(g.dataMontaj)))}
       ${row(box('CLIENT:', g.clientNume), box('MONTATOR:', g.montator))}
-      ${row(box('GARANȚIA EXPIRĂ LA:', fmtDateRO(g.dataExpirare)))}
+      ${row(box('DATA CUMPĂRĂRII:', fmtDateRO(g.dataCumparare||g.dataMontaj)), box('GARANȚIA EXPIRĂ LA:', fmtDateRO(g.dataExpirare)))}
       <div style="height:8px;"></div>
       ${legal.map(([t,c]) => section(t,c)).join('')}
       <div style="display:flex;gap:14px;border-top:1px solid #999;padding-top:10px;margin-top:6px;">
@@ -1590,6 +1602,7 @@ document.getElementById('partGarantieForm').onsubmit = async function(e){
   const factura = document.getElementById('pg-factura').value.trim();
   const montator = document.getElementById('pg-montator').value.trim();
   const dataMontaj = document.getElementById('pg-data').value;
+  const dataCumparare = (document.getElementById('pg-cump')||{}).value || dataMontaj;
 
   let valid = true;
   markFieldValid('pg-serie-wrap', !!serie); if(!serie) valid = false;
@@ -1622,8 +1635,9 @@ document.getElementById('partGarantieForm').onsubmit = async function(e){
       document.getElementById('pgError').classList.add('show');
       return;
     }
-    const dataExpirare = addYearsStr(dataMontaj, WARRANTY_YEARS);
-    const garantieData = { serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataExpirare, inregistratDe: currentUser.name };
+    if(dataCumparare > dataMontaj){ alert('Data cumpărării nu poate fi după data montajului.'); return; }
+    const dataExpirare = addYearsStr(dataCumparare, WARRANTY_YEARS);   // garanția curge de la cumpărare (manualul BOKAR)
+    const garantieData = { serie, model, varianta, clientNume, judet, adresa, factura, montator, dataMontaj, dataCumparare, dataExpirare, inregistratDe: currentUser.name };
     const gRef = await db.collection('garantii').add({ ...garantieData, publicat:true });
     await publicaGarantie(garantieData).catch(e => console.error('verificare publică', e));
 
