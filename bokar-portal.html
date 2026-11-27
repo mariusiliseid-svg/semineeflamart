@@ -4553,15 +4553,18 @@ function cuBindLinkBox(c){
 }
 async function cuSetProd(c, i, stare){
   const p = c.prods[i];
-  let fact = '';
+  let fact = '', dataAct = '';
   if(stare==='vandut'){
     fact = prompt(`„${p.m}” (${p.s}) iese din custodie prin vânzare către ${c.dz.firma}, la preț de listă minus ${c.disc}%.\n\nSe emite automat un act adițional, care apare în contul partenerului pentru semnare.\n\nNumărul facturii (opțional, ex: ART 0512):`, '');
     if(fact===null) return; fact = fact.trim().slice(0,40);
+    if(fact){ const dv = prompt(`Data facturii ${fact} (zz.ll.aaaa). Actul adițional poartă aceeași dată.`, cuDRo(cuToday())); if(dv===null) return;
+      dataAct = aaParseData(dv); if(!dataAct){ alert('Data nu e validă. Scrie-o ca 16.11.2026.'); return; } }
   }else if(!confirm(`Marchezi ca retras „${p.m}” (${p.s})? Produsul revine pe stoc și se emite un act adițional de retragere, care apare în contul partenerului.`)) return;
-  const prods = JSON.parse(JSON.stringify(c.prods)); prods[i].stare = stare; prods[i].dataStare = cuToday();
-  const upd = { prods }; if(stare==='vandut') upd.ultimaVanzare = cuToday();
+  const zi = dataAct || cuToday();
+  const prods = JSON.parse(JSON.stringify(c.prods)); prods[i].stare = stare; prods[i].dataStare = zi;
+  const upd = { prods }; if(stare==='vandut') upd.ultimaVanzare = (c.ultimaVanzare && c.ultimaVanzare > zi) ? c.ultimaVanzare : zi;
   try{
-    try{ upd.acte = await aaEmit(Object.assign({}, c, upd), [i], stare==='vandut' ? 'vanzare' : 'retragere', fact); }
+    try{ upd.acte = await aaEmit(Object.assign({}, c, upd), [i], stare==='vandut' ? 'vanzare' : 'retragere', fact, zi); }
     catch(e){ console.error('act adițional', e); alert('Produsul se marchează, dar actul adițional nu s-a putut emite. Încearcă din nou din detaliile contractului.'); }
     await db.collection('custodii').doc(c.id).update(upd);
     await cuSyncUnits(Object.assign({}, c, upd));
@@ -4647,13 +4650,13 @@ ${H('Dispoziții finale')}
 <div class="dfoot">${cuEsc(F.n)} · Act adițional ${cuEsc(a.nr)} la contractul de custodie ${cuEsc(c.nr||'')} · document generat electronic${a.token?` · ID semnare ${cuEsc(a.token.slice(0,10))}`:''}</div>`;
 }
 /* emite actul și întoarce lista nouă de acte (de salvat în contract odată cu produsele) */
-async function aaEmit(c, idxs, tip, factura){
+async function aaEmit(c, idxs, tip, factura, data){
   const prods = c.prods || [], acte = JSON.parse(JSON.stringify(c.acte || []));
   const items = idxs.map(i => prods[i]).filter(Boolean).map(p => ({ m:p.m||'', s:p.s||'', q:+p.q||1, p:+p.p||0 }));
   if(!items.length) return acte;
   const ramase = prods.filter(p => (p.stare||'expus')==='expus').map(p => ({ m:p.m||'', s:p.s||'', q:+p.q||1, p:+p.p||0 }));
   const now = new Date(), tok = cuToken(), nr = acte.length + 1;
-  const a = { id:tok.slice(0,12), k:nr, nr:`${c.nr||''}/AA${nr}`, data:cuToday(), tip, items, ramase, factura:factura||'', disc:+c.disc||0,
+  const a = { id:tok.slice(0,12), k:nr, nr:`${c.nr||''}/AA${nr}`, data:data||cuToday(), tip, items, ramase, factura:factura||'', disc:+c.disc||0,
     status:'trimis', creat:now.toISOString(), token:tok, expira:new Date(now.getTime()+AA_LINK_ZILE*864e5).toISOString() };
   const docHtml = aaBuildDoc(c, a, { forLink:true });
   await db.collection('semnari').doc(tok).set({
@@ -4690,12 +4693,44 @@ function aaListHtml(c, partener){
   return `<div style="margin-top:14px"><h3 style="font-size:14px;margin:0 0 8px">Acte adiționale</h3><div style="overflow-x:auto"><table><thead><tr><th>Nr.</th><th>Data</th><th>Motiv</th><th>Produse</th><th>Stare</th><th></th></tr></thead><tbody>
     ${acte.map(a => { const st = aaStare(a); return `<tr><td>${cuEsc(a.nr)}</td><td>${cuDRo(a.data)}</td><td>${a.tip==='vanzare'?'Vânzare':'Retragere'}${a.factura?` · fact. ${cuEsc(a.factura)}`:''}</td>
       <td>${a.items.map(it => `${cuEsc(it.m)} (${cuEsc(it.s)})`).join('<br>')}</td><td><span class="cu-pill ${st.cls}">${st.t}</span></td>
-      <td style="white-space:nowrap">${partener && a.status==='trimis' && !a._semnat && a.token ? `<button class="btn btn-primary cu-sm" type="button" data-psign="${cuEsc(a.token)}">Semnează</button> ` : ''}<button class="btn btn-secondary cu-sm" type="button" data-aapdf="${cuEsc(c.id)}|${cuEsc(a.id)}">PDF</button></td></tr>`; }).join('')}
+      <td style="white-space:nowrap">${partener && a.status==='trimis' && !a._semnat && a.token ? `<button class="btn btn-primary cu-sm" type="button" data-psign="${cuEsc(a.token)}">Semnează</button> ` : ''}${!partener ? `<button class="btn btn-secondary cu-sm" type="button" data-aadata="${cuEsc(c.id)}|${cuEsc(a.id)}" title="Schimbă data actului (ex. data facturii)">Dată</button> ` : ''}<button class="btn btn-secondary cu-sm" type="button" data-aapdf="${cuEsc(c.id)}|${cuEsc(a.id)}">PDF</button></td></tr>`; }).join('')}
   </tbody></table></div></div>`;
 }
 function aaBindPdf(root, list){
   root.querySelectorAll('[data-aapdf]').forEach(b => b.onclick = () => { const [cid, aid] = b.dataset.aapdf.split('|');
     const c = (list||[]).find(x => x.id===cid), a = c && (c.acte||[]).find(x => x.id===aid); if(a) aaPdf(c, a); });
+  root.querySelectorAll('[data-aadata]').forEach(b => b.onclick = () => { const [cid, aid] = b.dataset.aadata.split('|');
+    const c = (list||[]).find(x => x.id===cid); if(c) aaSetData(c, aid); });
+}
+/* „16.11.2026” sau „2026-11-16” → „2026-11-16”; null dacă nu e o dată validă */
+function aaParseData(v){
+  v = String(v||'').trim(); let m = v.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/), y, mo, d;
+  if(m){ d=+m[1]; mo=+m[2]; y=+m[3]; } else if((m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))){ y=+m[1]; mo=+m[2]; d=+m[3]; } else return null;
+  const t = new Date(Date.UTC(y, mo-1, d)); if(t.getUTCFullYear()!==y || t.getUTCMonth()!==mo-1 || t.getUTCDate()!==d) return null;
+  return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+/* schimbă data unui act adițional (ex. ca să coincidă cu data facturii); mută și data ieșirii din custodie a produselor din act */
+async function aaSetData(c, aid){
+  const acte = JSON.parse(JSON.stringify(c.acte||[])), a = acte.find(x => x.id===aid); if(!a) return;
+  const v = prompt(`Data actului adițional ${a.nr} (zz.ll.aaaa).\nDe regulă, data facturii. Se schimbă și data la care produsele din act ies din custodie.`, cuDRo(a.data));
+  if(v===null) return; const iso = aaParseData(v);
+  if(!iso){ alert('Data nu e validă. Scrie-o ca 16.11.2026.'); return; }
+  if(c.data && iso < String(c.data).slice(0,10)){ alert(`Data nu poate fi înaintea contractului de custodie (${cuDRo(c.data)}).`); return; }
+  if(iso===a.data) return;
+  a.data = iso;
+  const seri = new Set(a.items.map(it => it.s)), prods = JSON.parse(JSON.stringify(c.prods||[]));
+  prods.forEach(p => { if(p.s && seri.has(p.s) && (p.stare===(a.tip==='vanzare'?'vandut':'retras'))) p.dataStare = iso; });
+  const upd = { acte, prods };
+  const vz = prods.filter(p => p.stare==='vandut').map(p => p.dataStare).filter(Boolean).sort(); if(vz.length) upd.ultimaVanzare = vz.pop();
+  try{
+    if(a.token && a.status!=='semnat'){
+      try{ const d = await db.collection('semnari').doc(a.token).get();
+        if(d.exists && d.data().status!=='semnat') await db.collection('semnari').doc(a.token).update({ docHtml:aaBuildDoc(Object.assign({}, c, upd), a, { forLink:true }) }); }
+      catch(e){ console.error('act semnari', e); }
+    }
+    await db.collection('custodii').doc(c.id).update(upd);
+    await loadAll();
+  }catch(e){ console.error(e); alert('Nu am putut salva data. Verifică conexiunea.'); }
 }
 
 /* preia semnăturile venite prin link și vânzările înregistrate prin garanție / vânzare directă */
