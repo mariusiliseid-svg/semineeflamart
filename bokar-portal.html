@@ -883,6 +883,7 @@ try{
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   auth = firebase.auth();
+  auth.languageCode = 'ro';
   // firebaseReady devine true doar după logarea cu un cont care are rol (vezi ACCES / ROLURI).
 }catch(e){ console.error('Firebase nu s-a putut încărca', e); }
 
@@ -2303,6 +2304,7 @@ function fpRender(){
         <button class="btn btn-secondary" id="fpCus" type="button">＋ Contract custodie</button>
         <button class="btn btn-secondary" id="fpCom" type="button">＋ Contract comision</button>
         <button class="btn btn-secondary" id="fpFd" type="button">Date firmă${(cont.firmaDate&&cont.firmaDate.cui&&cont.firmaDate.rc&&cont.firmaDate.iban)?'':' ⚠'}</button>
+        <button class="btn btn-secondary" id="fpReset" type="button" title="Trimite partenerului un e-mail cu link de setare a parolei">Resetare parolă</button>
         <button class="btn btn-secondary" id="fpTog" type="button">${activ?'Suspendă contul':'Reactivează contul'}</button>
         <button class="btn btn-secondary" id="fpRap" type="button">Raport de performanță</button>
       </div>
@@ -2353,6 +2355,7 @@ function fpRender(){
   document.getElementById('fpCom').onclick = () => { CM.fromFp = true; fpGoSub('comision'); const n = (typeof cmBlank==='function') ? cmBlank() : null;
     if(n){ n.dealerUid = uid; n.dealerName = nume; try{ fillDzFromPartner(n, cont); }catch(err){} CM.view = 'form'; CM.cur = n; } renderComision(); };
   document.getElementById('fpTog').onclick = () => toggleCont(cont.id);
+  document.getElementById('fpReset').onclick = () => resetParolaPartener(cont.email);
   document.getElementById('fpRap').onclick = () => { const k = prompt('Perioada raportului:\n1 = ultimele 12 luni\n2 = anul curent\n3 = anul trecut\n4 = toată colaborarea', '1'); if(k===null) return;
     rpOpen('one', nume, ({ '1':'12l', '2':'an', '3':'anTrecut', '4':'tot' })[String(k).trim()] || '12l'); };
   document.getElementById('fpFd').onclick = () => {
@@ -6070,15 +6073,37 @@ document.getElementById('authForm').onsubmit = async function(e){
   }
 };
 
+/* după resetare, linkul din e-mail întoarce partenerul în portal */
+const RESET_SETARI = { url: location.origin + location.pathname, handleCodeInApp: false };
+async function trimiteResetare(email){
+  try{ await auth.sendPasswordResetEmail(email, RESET_SETARI); }
+  catch(err){ if(err && /continue|unauthorized-continue|invalid-continue|domain/i.test(err.code||'')) await auth.sendPasswordResetEmail(email); else throw err; }
+}
+function resetErr(err){
+  const c = (err && err.code) || '';
+  if(c==='auth/invalid-email') return 'Adresa de e-mail nu e scrisă corect.';
+  if(c==='auth/user-not-found') return 'Nu există niciun cont cu acest e-mail.';
+  if(c==='auth/too-many-requests') return 'Prea multe cereri. Încearcă din nou peste câteva minute.';
+  if(c==='auth/network-request-failed') return 'Nu există conexiune la internet.';
+  return 'Nu am putut trimite e-mailul de resetare' + (c ? ` (${c})` : '') + '.';
+}
+async function resetParolaPartener(email){
+  email = String(email||'').trim();
+  if(!email){ alert('Contul nu are e-mail.'); return; }
+  if(!confirm(`Trimiți pe ${email} un link de setare a parolei?`)) return;
+  try{ await trimiteResetare(email);
+    alert(`Trimis pe ${email}.\n\nE-mailul vine de la noreply@bokar-crm.firebaseapp.com, cu subiectul despre resetarea parolei. Dacă partenerul nu-l vede în câteva minute, să caute în Spam / Promoții și să-l marcheze „Nu e spam”.`); }
+  catch(err){ console.error(err); alert(resetErr(err)); }
+}
 document.getElementById('forgotLink').onclick = async () => {
   const email = document.getElementById('loginEmail').value.trim();
   if(!email){ authMsg('Scrie mai întâi e-mailul contului, apoi apasă „Am uitat parola”.'); return; }
   try{
-    await auth.sendPasswordResetEmail(email);
-    authMsg('Dacă există un cont pe acest e-mail, ai primit un link de resetare a parolei.', false);
+    await trimiteResetare(email);
+    authMsg('Dacă există un cont pe acest e-mail, ți-am trimis un link de resetare. Dacă nu apare în câteva minute, caută în Spam sau Promoții (expeditor: noreply@bokar-crm.firebaseapp.com). Dacă tot nu vine, sună la Flamart.', false);
   }catch(err){
     console.error(err);
-    authMsg('Nu am putut trimite e-mailul de resetare. Verifică adresa.');
+    authMsg(resetErr(err));
   }
 };
 
@@ -6086,8 +6111,8 @@ document.getElementById('passLink').onclick = async () => {
   const u = auth && auth.currentUser;
   if(!u || !u.email) return;
   try{
-    await auth.sendPasswordResetEmail(u.email);
-    alert(`Ți-am trimis pe ${u.email} un link pentru schimbarea parolei.`);
+    await trimiteResetare(u.email);
+    alert(`Ți-am trimis pe ${u.email} un link pentru schimbarea parolei. Dacă nu apare, caută în Spam sau Promoții.`);
   }catch(err){
     console.error(err);
     alert('Nu am putut trimite e-mailul. Încearcă din nou.');
